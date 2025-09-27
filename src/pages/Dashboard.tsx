@@ -14,9 +14,9 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Columna izquierda */}
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Columna izquierda - más grande (2 columnas) */}
+        <div className="lg:col-span-2 space-y-6">
           {/* Widget de Tareas */}
           <TasksWidget />
           
@@ -24,8 +24,8 @@ export default function Dashboard() {
           <CalendarWidget />
         </div>
         
-        {/* Columna derecha */}
-        <div className="space-y-6">
+        {/* Columna derecha - más pequeña (1 columna) */}
+        <div className="lg:col-span-1 space-y-4">
           {/* Widget de Items Recientes al lado de tareas */}
           <RecentItemsWidget />
           
