@@ -35,6 +35,7 @@ const menuItems = [
   { title: "Gestión Documental", url: "/documentos", icon: FileText },
   { title: "Noticias", url: "/noticias", icon: Newspaper },
   { title: "Organigrama", url: "/organigrama", icon: Users },
+  { title: "Registro de Fichajes", url: "/fichajes", icon: Clock },
   { title: "Mi Perfil", url: "/perfil", icon: User },
 ];
 

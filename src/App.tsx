@@ -31,6 +31,7 @@ const App = () => (
             <Route path="/noticias" element={<div className="p-6"><h1 className="text-2xl font-bold">Centro de Noticias</h1><p className="text-muted-foreground">En desarrollo</p></div>} />
             <Route path="/organigrama" element={<div className="p-6"><h1 className="text-2xl font-bold">Organigrama</h1><p className="text-muted-foreground">En desarrollo</p></div>} />
             <Route path="/perfil" element={<Perfil />} />
+            <Route path="/fichajes" element={<div className="p-6"><h1 className="text-2xl font-bold">Registro de Fichajes</h1><p className="text-muted-foreground">En desarrollo</p></div>} />
             <Route path="/cursos" element={<div className="p-6"><h1 className="text-2xl font-bold">Inscripción a Cursos</h1><p className="text-muted-foreground">En desarrollo</p></div>} />
             <Route path="/vacaciones" element={<div className="p-6"><h1 className="text-2xl font-bold">Solicitud de Vacaciones</h1><p className="text-muted-foreground">En desarrollo</p></div>} />
             <Route path="/cambio-turno" element={<div className="p-6"><h1 className="text-2xl font-bold">Cambio de Turno</h1><p className="text-muted-foreground">En desarrollo</p></div>} />

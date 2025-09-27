@@ -14,22 +14,28 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Widget de Tareas - ocupa 2 columnas en pantallas grandes */}
-        <TasksWidget />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Columna izquierda */}
+        <div className="space-y-6">
+          {/* Widget de Tareas */}
+          <TasksWidget />
+          
+          {/* Widget de Calendario semanal debajo de tareas */}
+          <CalendarWidget />
+        </div>
         
-        {/* Widget de Tickets */}
-        <TicketsWidget />
-        
-        {/* Widget de Items Recientes */}
-        <RecentItemsWidget />
-        
-        {/* Widget de Noticias */}
-        <NewsWidget />
+        {/* Columna derecha */}
+        <div className="space-y-6">
+          {/* Widget de Items Recientes al lado de tareas */}
+          <RecentItemsWidget />
+          
+          {/* Widget de Noticias debajo de items recientes */}
+          <NewsWidget />
+          
+          {/* Widget de Tickets debajo de noticias */}
+          <TicketsWidget />
+        </div>
       </div>
-
-      {/* Widget de Calendario - ocupa todo el ancho */}
-      <CalendarWidget />
     </div>
   );
 }
