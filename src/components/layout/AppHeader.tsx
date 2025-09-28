@@ -13,11 +13,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export function AppHeader() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const { toast } = useToast();
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
 
   const handleClockToggle = () => {
     setIsClockedIn(!isClockedIn);
@@ -34,6 +38,11 @@ export function AppHeader() {
       title: "Tema actualizado",
       description: `Cambiado al modo ${isDarkMode ? "claro" : "oscuro"}`,
     });
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
   };
 
   const getCurrentTime = () => {
@@ -60,7 +69,7 @@ export function AppHeader() {
         <div className="flex-1 flex items-center gap-4">
           <div className="flex flex-col">
             <h1 className="text-lg font-medium text-foreground">
-              ¡Hola, <span className="text-primary">Ana García</span>! 👋
+              ¡Hola, <span className="text-primary">{user?.email?.split('@')[0] || 'Usuario'}</span>! 👋
             </h1>
             <p className="text-sm text-muted-foreground">
               {getCurrentDate()} - {getCurrentTime()}
@@ -105,17 +114,17 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="Ana García" />
-                  <AvatarFallback className="bg-primary text-primary-foreground">AG</AvatarFallback>
+                  <AvatarImage src="/placeholder-avatar.jpg" alt={user?.email || 'Usuario'} />
+                  <AvatarFallback className="bg-primary text-primary-foreground">{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">Ana García</p>
-                  <p className="text-xs text-muted-foreground">Desarrolladora Frontend</p>
-                  <p className="text-xs text-muted-foreground">ana.garcia@empresa.com</p>
+                  <p className="text-sm font-medium">{user?.email?.split('@')[0] || 'Usuario'}</p>
+                  <p className="text-xs text-muted-foreground">Empleado</p>
+                  <p className="text-xs text-muted-foreground">{user?.email || 'usuario@empresa.com'}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -123,7 +132,7 @@ export function AppHeader() {
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión
               </DropdownMenuItem>
