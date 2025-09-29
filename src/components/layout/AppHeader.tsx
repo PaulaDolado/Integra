@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 
 export function AppHeader() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -22,6 +23,7 @@ export function AppHeader() {
   const { toast } = useToast();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const { profile, getDisplayName } = useEmployeeProfile();
 
   const handleClockToggle = () => {
     setIsClockedIn(!isClockedIn);
@@ -69,7 +71,7 @@ export function AppHeader() {
         <div className="flex-1 flex items-center gap-4">
           <div className="flex flex-col">
             <h1 className="text-lg font-medium text-foreground">
-              ¡Hola, <span className="text-primary">{user?.email?.split('@')[0] || 'Usuario'}</span>! 👋
+              ¡Hola, <span className="text-primary">{getDisplayName()}</span>! 👋
             </h1>
             <p className="text-sm text-muted-foreground">
               {getCurrentDate()} - {getCurrentTime()}
@@ -122,9 +124,9 @@ export function AppHeader() {
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.email?.split('@')[0] || 'Usuario'}</p>
-                  <p className="text-xs text-muted-foreground">Empleado</p>
-                  <p className="text-xs text-muted-foreground">{user?.email || 'usuario@empresa.com'}</p>
+                  <p className="text-sm font-medium">{getDisplayName()}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.cargo_nombre || 'Empleado'}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.correo_electronico || user?.email || 'usuario@empresa.com'}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

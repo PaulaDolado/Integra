@@ -140,13 +140,6 @@ export default function Login() {
               )}
             </Button>
 
-            {/* Test Credentials Info */}
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground">
-                Usuario de prueba: pdolado@company.com<br />
-                Contraseña: Vasf8082002!
-              </p>
-            </div>
           </form>
         </CardContent>
       </Card>
