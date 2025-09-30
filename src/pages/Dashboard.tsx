@@ -3,14 +3,27 @@ import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { RecentItemsWidget } from "@/components/dashboard/RecentItemsWidget";
 import { NewsWidget } from "@/components/dashboard/NewsWidget";
 import { TicketsWidget } from "@/components/dashboard/TicketsWidget";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 
 export default function Dashboard() {
+  const { getDisplayName, loading } = useEmployeeProfile();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-foreground">
+          Dashboard - Bienvenido, {getDisplayName()}
+        </h1>
         <p className="text-muted-foreground">
-          Bienvenido a tu portal de empleado. Aquí tienes un resumen de tu actividad.
+          Aquí tienes un resumen de tu actividad.
         </p>
       </div>
 
