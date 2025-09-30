@@ -36,8 +36,8 @@ export function useEmployeeProfile() {
             segundo_apellido,
             correo_electronico,
             numero_telefono,
-            cargos!inner(nombre),
-            departamentos!inner(nombre)
+            cargo_id,
+            departamento_id
           `)
           .eq('user_id', user.id)
           .maybeSingle();
@@ -46,10 +46,32 @@ export function useEmployeeProfile() {
           console.error('Error fetching employee profile:', error);
           setProfile(null);
         } else if (data) {
+          // Fetch cargo and departamento names separately
+          let cargoNombre = undefined;
+          let departamentoNombre = undefined;
+
+          if (data.cargo_id) {
+            const { data: cargoData } = await supabase
+              .from('cargos')
+              .select('nombre')
+              .eq('id', data.cargo_id)
+              .single();
+            cargoNombre = cargoData?.nombre;
+          }
+
+          if (data.departamento_id) {
+            const { data: deptoData } = await supabase
+              .from('departamentos')
+              .select('nombre')
+              .eq('id', data.departamento_id)
+              .single();
+            departamentoNombre = deptoData?.nombre;
+          }
+
           setProfile({
             ...data,
-            cargo_nombre: data.cargos?.nombre,
-            departamento_nombre: data.departamentos?.nombre,
+            cargo_nombre: cargoNombre,
+            departamento_nombre: departamentoNombre,
           });
         } else {
           setProfile(null);
