@@ -257,6 +257,30 @@ export type Database = {
           },
         ]
       }
+      fichajes: {
+        Row: {
+          created_at: string
+          empleado_id: string
+          fecha_hora: string
+          id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          empleado_id: string
+          fecha_hora?: string
+          id?: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          empleado_id?: string
+          fecha_hora?: string
+          id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       proyecto_miembros: {
         Row: {
           created_at: string

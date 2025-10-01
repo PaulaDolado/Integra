@@ -12,6 +12,9 @@ import Tareas from "./pages/Tareas";
 import Comunicacion from "./pages/Comunicacion";
 import Tickets from "./pages/Tickets";
 import Perfil from "./pages/Perfil";
+import Noticias from "./pages/Noticias";
+import Organigrama from "./pages/Organigrama";
+import Fichajes from "./pages/Fichajes";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -72,14 +75,14 @@ const App = () => (
             <Route path="/noticias" element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-6"><h1 className="text-2xl font-bold">Centro de Noticias</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                  <Noticias />
                 </AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/organigrama" element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-6"><h1 className="text-2xl font-bold">Organigrama</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                  <Organigrama />
                 </AppLayout>
               </ProtectedRoute>
             } />
@@ -93,7 +96,7 @@ const App = () => (
             <Route path="/fichajes" element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-6"><h1 className="text-2xl font-bold">Registro de Fichajes</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                  <Fichajes />
                 </AppLayout>
               </ProtectedRoute>
             } />
