@@ -15,6 +15,7 @@ import Perfil from "./pages/Perfil";
 import Noticias from "./pages/Noticias";
 import Organigrama from "./pages/Organigrama";
 import Fichajes from "./pages/Fichajes";
+import Vacaciones from "./pages/Vacaciones";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -112,7 +113,7 @@ const App = () => (
             <Route path="/vacaciones" element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-6"><h1 className="text-2xl font-bold">Solicitud de Vacaciones</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                  <Vacaciones />
                 </AppLayout>
               </ProtectedRoute>
             } />
