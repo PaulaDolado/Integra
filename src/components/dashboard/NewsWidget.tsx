@@ -74,11 +74,11 @@ export function NewsWidget() {
           Noticias Recientes
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {news.slice(0, 5).map((item) => (
+      <CardContent className="space-y-2">
+        {news.slice(0, 3).map((item) => (
           <div
             key={item.id}
-            className="p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
+            className="p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
           >
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">

@@ -141,23 +141,23 @@ export function TicketsWidget() {
         ) : (
           <>
             {/* Resumen de estados */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-red-50 border border-red-200">
-                <div className="text-lg font-bold text-destructive">{ticketCounts.open}</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center p-2 rounded-lg bg-red-50 border border-red-200">
+                <div className="text-base font-bold text-destructive">{ticketCounts.open}</div>
                 <div className="text-xs text-destructive">Abiertos</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-orange-50 border border-orange-200">
-                <div className="text-lg font-bold text-warning">{ticketCounts.inProgress}</div>
+              <div className="text-center p-2 rounded-lg bg-orange-50 border border-orange-200">
+                <div className="text-base font-bold text-warning">{ticketCounts.inProgress}</div>
                 <div className="text-xs text-warning">En Progreso</div>
               </div>
-              <div className="text-center p-3 rounded-lg bg-green-50 border border-green-200">
-                <div className="text-lg font-bold text-success">{ticketCounts.resolved}</div>
+              <div className="text-center p-2 rounded-lg bg-green-50 border border-green-200">
+                <div className="text-base font-bold text-success">{ticketCounts.resolved}</div>
                 <div className="text-xs text-success">Cerrados</div>
               </div>
             </div>
 
             {/* Lista de tickets */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">Tickets Recientes</h4>
               {tickets.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
@@ -165,7 +165,7 @@ export function TicketsWidget() {
                   <p className="text-sm">No tienes tickets</p>
                 </div>
               ) : (
-                tickets.slice(0, 3).map((ticket) => {
+                 tickets.slice(0, 2).map((ticket) => {
                   const statusConfig = getStatusConfig(ticket.estado);
                   const priorityConfig = getPriorityConfig(ticket.prioridad);
                   const StatusIcon = statusConfig.icon;
@@ -173,7 +173,7 @@ export function TicketsWidget() {
                   return (
                     <div
                       key={ticket.id}
-                      className="p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
+                      className="p-2 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
                     >
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">

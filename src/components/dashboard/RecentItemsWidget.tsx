@@ -78,14 +78,14 @@ export function RecentItemsWidget() {
           Abierto Recientemente
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {recentItems.map((item) => {
+      <CardContent className="space-y-3">
+        {recentItems.slice(0, 3).map((item) => {
           const Icon = getItemIcon(item.type);
           
           return (
             <div
               key={item.id}
-              className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
+              className="flex items-start gap-3 p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
             >
               <div className={`p-2 rounded-full bg-accent/50 ${getItemColor(item.type)}`}>
                 <Icon className="w-4 h-4" />
