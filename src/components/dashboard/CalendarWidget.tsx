@@ -1,36 +1,52 @@
 import { Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const currentDate = new Date();
 const currentWeekStart = new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1));
 
 const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-const events = [
-  { id: 1, title: "Reunión equipo", time: "09:00", date: "2024-01-15", type: "meeting" },
-  { id: 2, title: "Presentación cliente", time: "14:30", date: "2024-01-16", type: "presentation" },
-  { id: 3, title: "Formación React", time: "10:00", date: "2024-01-17", type: "training" },
-  { id: 4, title: "Revisión código", time: "16:00", date: "2024-01-18", type: "review" },
-];
+interface Event {
+  id: string;
+  titulo: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+}
 
-const getEventColor = (type: string) => {
-  switch (type) {
-    case "meeting":
-      return "bg-blue-100 text-blue-700 border-blue-200";
-    case "presentation":
-      return "bg-purple-100 text-purple-700 border-purple-200";
-    case "training":
-      return "bg-green-100 text-green-700 border-green-200";
-    case "review":
-      return "bg-orange-100 text-orange-700 border-orange-200";
-    default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
-  }
+const getEventColor = () => {
+  return "bg-primary/10 text-primary border-l-2 border-primary hover:bg-primary/20 transition-colors";
 };
 
 export function CalendarWidget() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const { data, error } = await supabase
+      .from("eventos")
+      .select("id, titulo, fecha_inicio, fecha_fin")
+      .gte("fecha_inicio", currentWeekStart.toISOString())
+      .lt("fecha_inicio", weekEnd.toISOString())
+      .order("fecha_inicio", { ascending: true });
+
+    if (!error && data) {
+      setEvents(data);
+    }
+    setLoading(false);
+  };
+
   const getWeekDates = () => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -45,8 +61,14 @@ export function CalendarWidget() {
   const today = new Date().toDateString();
 
   const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split("T")[0];
-    return events.filter(event => event.date === dateStr);
+    return events.filter((event) => {
+      const eventDate = new Date(event.fecha_inicio);
+      return (
+        eventDate.getDate() === date.getDate() &&
+        eventDate.getMonth() === date.getMonth() &&
+        eventDate.getFullYear() === date.getFullYear()
+      );
+    });
   };
 
   return (
@@ -66,7 +88,11 @@ export function CalendarWidget() {
           <Button variant="outline" size="icon">
             <ChevronRight className="w-4 h-4" />
           </Button>
-          <Button size="sm" className="gap-2 ml-2">
+          <Button 
+            size="sm" 
+            className="gap-2 ml-2"
+            onClick={() => navigate("/calendario")}
+          >
             <Plus className="w-4 h-4" />
             Nuevo Evento
           </Button>
@@ -96,15 +122,21 @@ export function CalendarWidget() {
                 </div>
                 
                 <div className="space-y-1 min-h-[120px]">
-                  {dayEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className={`p-2 rounded-md border text-xs cursor-pointer hover:shadow-sm transition-shadow ${getEventColor(event.type)}`}
-                    >
-                      <div className="font-medium truncate">{event.title}</div>
-                      <div className="opacity-75">{event.time}</div>
-                    </div>
-                  ))}
+                  {loading ? (
+                    <div className="text-xs text-muted-foreground">Cargando...</div>
+                  ) : dayEvents.length === 0 ? (
+                    <div className="text-xs text-muted-foreground/50"></div>
+                  ) : (
+                    dayEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className={`p-2 rounded-md text-xs cursor-pointer ${getEventColor()}`}
+                        onClick={() => navigate("/calendario")}
+                      >
+                        <div className="font-medium truncate">{event.titulo}</div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             );

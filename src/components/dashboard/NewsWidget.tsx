@@ -1,71 +1,40 @@
-import { Newspaper, Pin, Eye } from "lucide-react";
+import { Newspaper } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
-const news = [
-  {
-    id: 1,
-    title: "Nueva política de trabajo remoto aprobada",
-    summary: "A partir del próximo mes, se implementará la nueva política que permitirá trabajo híbrido 3 días presencial y 2 días remoto.",
-    category: "Política",
-    author: "Recursos Humanos",
-    authorAvatar: "RH",
-    publishedAt: "2024-01-15",
-    isPinned: true,
-    views: 156,
-  },
-  {
-    id: 2,
-    title: "Resultados del Q4 2023 superan expectativas",
-    summary: "La empresa ha logrado un crecimiento del 15% en el último trimestre, superando los objetivos establecidos.",
-    category: "Resultados",
-    author: "Dirección General",
-    authorAvatar: "DG",
-    publishedAt: "2024-01-12",
-    isPinned: false,
-    views: 243,
-  },
-  {
-    id: 3,
-    title: "Nuevo programa de formación en IA",
-    summary: "Se lanza el programa de capacitación en Inteligencia Artificial para todos los empleados del área técnica.",
-    category: "Formación",
-    author: "Desarrollo Profesional",
-    authorAvatar: "DP",
-    publishedAt: "2024-01-10",
-    isPinned: false,
-    views: 89,
-  },
-  {
-    id: 4,
-    title: "Celebración aniversario empresa - 25 años",
-    summary: "El próximo mes celebraremos 25 años de trayectoria. Habrá evento especial para todos los empleados.",
-    category: "Eventos",
-    author: "Comunicación Interna",
-    authorAvatar: "CI",
-    publishedAt: "2024-01-08",
-    isPinned: true,
-    views: 312,
-  },
-];
-
-const getCategoryColor = (category: string) => {
-  switch (category) {
-    case "Política":
-      return "default";
-    case "Resultados":
-      return "secondary";
-    case "Formación":
-      return "outline";
-    case "Eventos":
-      return "destructive";
-    default:
-      return "secondary";
-  }
-};
+interface Anuncio {
+  id: string;
+  titulo: string;
+  contenido: string;
+  fecha_publicacion: string;
+  autor_id: string | null;
+}
 
 export function NewsWidget() {
+  const [news, setNews] = useState<Anuncio[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchNews();
+  }, []);
+
+  const fetchNews = async () => {
+    const { data, error } = await supabase
+      .from("anuncios")
+      .select("id, titulo, contenido, fecha_publicacion, autor_id")
+      .order("fecha_publicacion", { ascending: false })
+      .limit(3);
+
+    if (!error && data) {
+      setNews(data);
+    }
+    setLoading(false);
+  };
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -75,49 +44,51 @@ export function NewsWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {news.slice(0, 3).map((item) => (
-          <div
-            key={item.id}
-            className="p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
-          >
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
+        {loading ? (
+          <div className="flex items-center justify-center p-4">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : news.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center p-4">
+            No hay noticias disponibles
+          </p>
+        ) : (
+          news.map((item) => (
+            <div
+              key={item.id}
+              className="p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
+              onClick={() => navigate("/noticias")}
+            >
+              <div className="space-y-2">
                 <h4 className="text-sm font-medium text-foreground leading-tight">
-                  {item.title}
+                  {item.titulo}
                 </h4>
-                <Badge variant={getCategoryColor(item.category)} className="text-xs">
-                  {item.category}
-                </Badge>
-              </div>
-              
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {item.summary}
-              </p>
-              
-              <div className="flex items-center justify-between">
+                
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {item.contenido}
+                </p>
+                
                 <div className="flex items-center gap-2">
                   <Avatar className="h-4 w-4">
-                    <AvatarImage src="" alt={item.author} />
+                    <AvatarImage src="" alt="Autor" />
                     <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {item.authorAvatar}
+                      A
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(item.publishedAt).toLocaleDateString("es-ES")}
+                    {new Date(item.fecha_publicacion).toLocaleDateString("es-ES")}
                   </span>
-                </div>
-                
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Eye className="w-3 h-3" />
-                  {item.views}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
         
         <div className="pt-2 border-t border-border">
-          <button className="text-sm text-primary hover:text-primary-hover font-medium w-full text-center p-2 rounded-md hover:bg-accent/50 transition-colors">
+          <button 
+            onClick={() => navigate("/noticias")}
+            className="text-sm text-primary hover:text-primary-hover font-medium w-full text-center p-2 rounded-md hover:bg-accent/50 transition-colors"
+          >
             Ver todas las noticias →
           </button>
         </div>
