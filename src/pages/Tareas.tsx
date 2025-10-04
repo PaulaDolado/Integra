@@ -50,6 +50,26 @@ export default function Tareas() {
 
   useEffect(() => {
     fetchTasks();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tareas-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tareas'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchTasks = async () => {

@@ -52,6 +52,26 @@ export default function Calendario() {
 
   useEffect(() => {
     fetchEvents();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('calendario-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'eventos'
+        },
+        () => {
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [currentDate, viewType]);
 
   const fetchEvents = async () => {

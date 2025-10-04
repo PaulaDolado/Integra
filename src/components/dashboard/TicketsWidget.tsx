@@ -3,6 +3,11 @@ import { Ticket, Plus, AlertCircle, Clock, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -65,11 +70,41 @@ const getStatusConfig = (status: string) => {
 export function TicketsWidget() {
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [ticketForm, setTicketForm] = useState<{
+    titulo: string;
+    descripcion: string;
+    prioridad: 'alta' | 'baja' | 'media' | 'urgente';
+  }>({
+    titulo: '',
+    descripcion: '',
+    prioridad: 'media'
+  });
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTickets();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tickets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets'
+        },
+        () => {
+          fetchTickets();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchTickets = async () => {
@@ -115,6 +150,52 @@ export function TicketsWidget() {
     }
   };
 
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) return;
+
+    try {
+      const { data: employeeData } = await supabase
+        .from('empleados')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!employeeData) return;
+
+      const { error } = await supabase
+        .from('tickets')
+        .insert([
+          {
+            titulo: ticketForm.titulo,
+            descripcion: ticketForm.descripcion,
+            prioridad: ticketForm.prioridad,
+            autor_id: employeeData.id,
+            estado: 'abierto'
+          }
+        ]);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo crear el ticket",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Ticket creado",
+          description: "El ticket se ha creado exitosamente",
+        });
+        setIsCreateOpen(false);
+        setTicketForm({ titulo: '', descripcion: '', prioridad: 'media' });
+        fetchTickets();
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+    }
+  };
+
   const ticketCounts = {
     open: tickets.filter(t => t.estado === "abierto").length,
     inProgress: tickets.filter(t => t.estado === "en_progreso").length,
@@ -128,10 +209,59 @@ export function TicketsWidget() {
           <Ticket className="w-5 h-5 text-primary" />
           Mis Tickets
         </CardTitle>
-        <Button size="sm" className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nuevo Ticket
-        </Button>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nuevo Ticket
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Ticket</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateTicket} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="titulo">Título</Label>
+                <Input
+                  id="titulo"
+                  value={ticketForm.titulo}
+                  onChange={(e) => setTicketForm({ ...ticketForm, titulo: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="descripcion">Descripción</Label>
+                <Textarea
+                  id="descripcion"
+                  value={ticketForm.descripcion}
+                  onChange={(e) => setTicketForm({ ...ticketForm, descripcion: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prioridad">Prioridad</Label>
+                <Select value={ticketForm.prioridad} onValueChange={(value) => setTicketForm({ ...ticketForm, prioridad: value as 'alta' | 'baja' | 'media' | 'urgente' })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baja">Baja</SelectItem>
+                    <SelectItem value="media">Media</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Crear</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (

@@ -20,6 +20,26 @@ export function NewsWidget() {
 
   useEffect(() => {
     fetchNews();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('news-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'anuncios'
+        },
+        () => {
+          fetchNews();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchNews = async () => {

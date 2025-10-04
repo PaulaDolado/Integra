@@ -4,6 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -47,11 +51,37 @@ const getStatusConfig = (status: string) => {
 export function TasksWidget() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    titulo: '',
+    descripcion: '',
+    fecha_limite: ''
+  });
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTasks();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tareas'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchTasks = async () => {
@@ -97,6 +127,64 @@ export function TasksWidget() {
     }
   };
 
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) return;
+
+    try {
+      const { data: employeeData } = await supabase
+        .from('empleados')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!employeeData) return;
+
+      // First, create a default project if needed
+      let proyectoId = null;
+      const { data: proyectos } = await supabase
+        .from('proyectos')
+        .select('id')
+        .limit(1);
+
+      if (proyectos && proyectos.length > 0) {
+        proyectoId = proyectos[0].id;
+      }
+
+      const { error } = await supabase
+        .from('tareas')
+        .insert([
+          {
+            titulo: taskForm.titulo,
+            descripcion: taskForm.descripcion,
+            fecha_limite: taskForm.fecha_limite || null,
+            asignado_a_id: employeeData.id,
+            proyecto_id: proyectoId,
+            estado: 'pendiente'
+          }
+        ]);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo crear la tarea",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Tarea creada",
+          description: "La tarea se ha creado exitosamente",
+        });
+        setIsCreateOpen(false);
+        setTaskForm({ titulo: '', descripcion: '', fecha_limite: '' });
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  };
+
   const completedTasks = tasks.filter(task => task.estado === "completada").length;
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -111,10 +199,53 @@ export function TasksWidget() {
     <Card className="col-span-full lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg font-semibold">Mis Tareas</CardTitle>
-        <Button size="sm" className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nueva Tarea
-        </Button>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nueva Tarea
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear Nueva Tarea</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="titulo">Título</Label>
+                <Input
+                  id="titulo"
+                  value={taskForm.titulo}
+                  onChange={(e) => setTaskForm({ ...taskForm, titulo: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="descripcion">Descripción</Label>
+                <Textarea
+                  id="descripcion"
+                  value={taskForm.descripcion}
+                  onChange={(e) => setTaskForm({ ...taskForm, descripcion: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fecha_limite">Fecha límite</Label>
+                <Input
+                  id="fecha_limite"
+                  type="date"
+                  value={taskForm.fecha_limite}
+                  onChange={(e) => setTaskForm({ ...taskForm, fecha_limite: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Crear</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (

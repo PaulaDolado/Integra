@@ -28,6 +28,26 @@ export function CalendarWidget() {
 
   useEffect(() => {
     fetchEvents();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('events-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'eventos'
+        },
+        () => {
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchEvents = async () => {

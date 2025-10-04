@@ -73,6 +73,26 @@ export default function Tickets() {
 
   useEffect(() => {
     fetchTickets();
+    
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tickets-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets'
+        },
+        () => {
+          fetchTickets();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchTickets = async () => {
