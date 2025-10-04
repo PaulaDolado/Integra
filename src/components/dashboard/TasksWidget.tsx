@@ -141,14 +141,40 @@ export function TasksWidget() {
 
       if (!employeeData) return;
 
-      // First, create a default project if needed
-      let proyectoId = null;
-      const { data: proyectos } = await supabase
+      // Get or create a default project
+      let { data: proyectos } = await supabase
         .from('proyectos')
         .select('id')
         .limit(1);
 
-      if (proyectos && proyectos.length > 0) {
+      let proyectoId;
+      
+      if (!proyectos || proyectos.length === 0) {
+        // Create a default project if none exists
+        const { data: newProject, error: projectError } = await supabase
+          .from('proyectos')
+          .insert([
+            {
+              nombre: 'Proyecto General',
+              descripcion: 'Proyecto por defecto para tareas',
+              fecha_inicio: new Date().toISOString().split('T')[0],
+              fecha_fin: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+              estado: 'en_progreso'
+            }
+          ])
+          .select()
+          .single();
+
+        if (projectError || !newProject) {
+          toast({
+            title: "Error",
+            description: "No se pudo crear el proyecto",
+            variant: "destructive",
+          });
+          return;
+        }
+        proyectoId = newProject.id;
+      } else {
         proyectoId = proyectos[0].id;
       }
 
