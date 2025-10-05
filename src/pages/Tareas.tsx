@@ -18,7 +18,7 @@ interface Task {
 
 const getStatusConfig = (status: string) => {
   switch (status) {
-    case "completada":
+    case "completado":
       return {
         icon: CheckCircle,
         color: "success",
@@ -114,7 +114,7 @@ export default function Tareas() {
   const groupedTasks = {
     pendiente: tasks.filter(t => t.estado === "pendiente"),
     en_progreso: tasks.filter(t => t.estado === "en_progreso"),
-    completada: tasks.filter(t => t.estado === "completada"),
+    completado: tasks.filter(t => t.estado === "completado"),
   };
 
   return (
@@ -218,16 +218,16 @@ export default function Tareas() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CheckCircle className="w-5 h-5 text-success" />
-                Completadas ({groupedTasks.completada.length})
+                Completadas ({groupedTasks.completado.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {groupedTasks.completada.length === 0 ? (
+              {groupedTasks.completado.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay tareas completadas
                 </p>
               ) : (
-                groupedTasks.completada.map((task) => (
+                groupedTasks.completado.map((task) => (
                   <div key={task.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors opacity-75">
                     <h4 className="font-medium text-sm mb-1 line-through">{task.titulo}</h4>
                     {task.descripcion && (
