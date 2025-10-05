@@ -45,6 +45,7 @@ const getStatusConfig = (status: string) => {
 export default function Tareas() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -111,6 +112,48 @@ export default function Tareas() {
     }
   };
 
+  const updateTaskStatus = async (taskId: string, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
+    try {
+      const { error } = await supabase
+        .from('tareas')
+        .update({ estado: newStatus })
+        .eq('id', taskId);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar la tarea",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Tarea actualizada",
+          description: "El estado se ha actualizado correctamente",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
+  const handleDragStart = (task: Task) => {
+    setDraggedTask(task);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
+    e.preventDefault();
+    if (!draggedTask) return;
+
+    if (draggedTask.estado !== newStatus) {
+      await updateTaskStatus(draggedTask.id, newStatus);
+    }
+    setDraggedTask(null);
+  };
+
   const groupedTasks = {
     pendiente: tasks.filter(t => t.estado === "pendiente"),
     en_progreso: tasks.filter(t => t.estado === "en_progreso"),
@@ -148,21 +191,30 @@ export default function Tareas() {
       ) : (
         <div className="grid md:grid-cols-3 gap-6">
           {/* Pendientes */}
-          <Card>
+          <Card 
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'pendiente')}
+            className={draggedTask && draggedTask.estado !== 'pendiente' ? 'ring-2 ring-primary/50' : ''}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <AlertCircle className="w-5 h-5 text-pending" />
                 Pendientes ({groupedTasks.pendiente.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 min-h-[200px]">
               {groupedTasks.pendiente.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay tareas pendientes
                 </p>
               ) : (
                 groupedTasks.pendiente.map((task) => (
-                  <div key={task.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <div 
+                    key={task.id} 
+                    draggable
+                    onDragStart={() => handleDragStart(task)}
+                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md"
+                  >
                     <h4 className="font-medium text-sm mb-1">{task.titulo}</h4>
                     {task.descripcion && (
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
@@ -181,21 +233,30 @@ export default function Tareas() {
           </Card>
 
           {/* En Progreso */}
-          <Card>
+          <Card
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'en_progreso')}
+            className={draggedTask && draggedTask.estado !== 'en_progreso' ? 'ring-2 ring-primary/50' : ''}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Clock className="w-5 h-5 text-warning" />
                 En Progreso ({groupedTasks.en_progreso.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 min-h-[200px]">
               {groupedTasks.en_progreso.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay tareas en progreso
                 </p>
               ) : (
                 groupedTasks.en_progreso.map((task) => (
-                  <div key={task.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <div 
+                    key={task.id}
+                    draggable
+                    onDragStart={() => handleDragStart(task)}
+                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md"
+                  >
                     <h4 className="font-medium text-sm mb-1">{task.titulo}</h4>
                     {task.descripcion && (
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
@@ -214,21 +275,30 @@ export default function Tareas() {
           </Card>
 
           {/* Completadas */}
-          <Card>
+          <Card
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'completado')}
+            className={draggedTask && draggedTask.estado !== 'completado' ? 'ring-2 ring-primary/50' : ''}
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CheckCircle className="w-5 h-5 text-success" />
                 Completadas ({groupedTasks.completado.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 min-h-[200px]">
               {groupedTasks.completado.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No hay tareas completadas
                 </p>
               ) : (
                 groupedTasks.completado.map((task) => (
-                  <div key={task.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors opacity-75">
+                  <div 
+                    key={task.id}
+                    draggable
+                    onDragStart={() => handleDragStart(task)}
+                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors opacity-75 cursor-move hover:shadow-md"
+                  >
                     <h4 className="font-medium text-sm mb-1 line-through">{task.titulo}</h4>
                     {task.descripcion && (
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
