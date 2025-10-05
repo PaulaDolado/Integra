@@ -21,7 +21,7 @@ interface Task {
 
 const getStatusConfig = (status: string) => {
   switch (status) {
-    case "completada":
+    case "completado":
       return {
         icon: CheckCircle,
         color: "success",
@@ -52,6 +52,8 @@ export function TasksWidget() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskForm, setTaskForm] = useState({
     titulo: '',
     descripcion: '',
@@ -211,12 +213,42 @@ export function TasksWidget() {
     }
   };
 
-  const completedTasks = tasks.filter(task => task.estado === "completada").length;
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
+    try {
+      const { error } = await supabase
+        .from('tareas')
+        .update({ estado: newStatus })
+        .eq('id', taskId);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar la tarea",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Tarea actualizada",
+          description: "El estado de la tarea se ha actualizado",
+        });
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
+  };
+
+  const completedTasks = tasks.filter(task => task.estado === "completado").length;
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const tasksByStatus = {
-    completed: tasks.filter(task => task.estado === "completada").length,
+    completed: tasks.filter(task => task.estado === "completado").length,
     "in-progress": tasks.filter(task => task.estado === "en_progreso").length,
     pending: tasks.filter(task => task.estado === "pendiente").length,
   };
@@ -272,6 +304,64 @@ export function TasksWidget() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Task Dialog */}
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Tarea</DialogTitle>
+            </DialogHeader>
+            {selectedTask && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <p className="text-sm font-medium">{selectedTask.titulo}</p>
+                </div>
+                {selectedTask.fecha_limite && (
+                  <div className="space-y-2">
+                    <Label>Fecha límite</Label>
+                    <p className="text-sm">{new Date(selectedTask.fecha_limite).toLocaleDateString("es-ES")}</p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={selectedTask.estado === 'pendiente' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        handleUpdateTaskStatus(selectedTask.id, 'pendiente');
+                        setIsEditOpen(false);
+                      }}
+                    >
+                      Pendiente
+                    </Button>
+                    <Button
+                      variant={selectedTask.estado === 'en_progreso' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        handleUpdateTaskStatus(selectedTask.id, 'en_progreso');
+                        setIsEditOpen(false);
+                      }}
+                    >
+                      En Progreso
+                    </Button>
+                    <Button
+                      variant={selectedTask.estado === 'completado' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        handleUpdateTaskStatus(selectedTask.id, 'completado');
+                        setIsEditOpen(false);
+                      }}
+                    >
+                      Completada
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
@@ -319,7 +409,11 @@ export function TasksWidget() {
                   const Icon = statusConfig.icon;
                   
                   return (
-                    <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                    <div 
+                      key={task.id} 
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => handleEditTask(task)}
+                    >
                       <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
                         <Icon className={`w-3 h-3 ${statusConfig.textColor}`} />
                       </div>
