@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ export default function Calendario() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
   const { user } = useAuth();
+  const { profile } = useEmployeeProfile();
 
   // Form state
   const [eventForm, setEventForm] = useState({
@@ -124,8 +126,21 @@ export default function Calendario() {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) return;
+
+    if (!user) {
+      toast({ title: "Sesión requerida", description: "Inicia sesión para crear eventos", variant: "destructive" });
+      return;
+    }
+    if (!profile) {
+      toast({ title: "Perfil de empleado no encontrado", description: "Crea tu perfil de empleado para poder crear eventos", variant: "destructive" });
+      return;
+    }
+    const inicio = new Date(eventForm.fecha_inicio);
+    const fin = new Date(eventForm.fecha_fin);
+    if (!(eventForm.titulo && eventForm.fecha_inicio && eventForm.fecha_fin) || isNaN(inicio.getTime()) || isNaN(fin.getTime()) || inicio >= fin) {
+      toast({ title: "Datos no válidos", description: "Revisa título y que la fecha fin sea posterior al inicio", variant: "destructive" });
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -133,9 +148,9 @@ export default function Calendario() {
         .insert([
           {
             ...eventForm,
-            creador_id: user.id,
-            fecha_inicio: new Date(eventForm.fecha_inicio).toISOString(),
-            fecha_fin: new Date(eventForm.fecha_fin).toISOString(),
+            creador_id: profile.id,
+            fecha_inicio: inicio.toISOString(),
+            fecha_fin: fin.toISOString(),
           }
         ]);
 
