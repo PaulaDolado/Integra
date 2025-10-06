@@ -101,8 +101,8 @@ export default function Calendario() {
       const { data, error } = await supabase
         .from('eventos')
         .select('*')
-        .gte('fecha_inicio', startDate.toISOString())
-        .lte('fecha_fin', endDate.toISOString())
+        .lte('fecha_inicio', endDate.toISOString())
+        .gte('fecha_fin', startDate.toISOString())
         .order('fecha_inicio', { ascending: true });
 
       if (error) {
