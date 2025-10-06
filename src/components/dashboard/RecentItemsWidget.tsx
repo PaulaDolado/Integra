@@ -78,8 +78,8 @@ export function RecentItemsWidget() {
           Abierto Recientemente
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {recentItems.slice(0, 3).map((item) => {
+      <CardContent className="space-y-2">
+        {recentItems.slice(0, 2).map((item) => {
           const Icon = getItemIcon(item.type);
           
           return (
