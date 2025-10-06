@@ -370,13 +370,14 @@ export default function Calendario() {
   };
 
   const getEventsForDay = (date: Date) => {
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
     return events.filter(event => {
       const eventStart = new Date(event.fecha_inicio);
       const eventEnd = new Date(event.fecha_fin);
-      return date >= eventStart && date <= eventEnd;
+      return eventStart <= dayEnd && eventEnd >= dayStart;
     });
   };
-
   const daysToDisplay = getDaysToDisplay();
   const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
