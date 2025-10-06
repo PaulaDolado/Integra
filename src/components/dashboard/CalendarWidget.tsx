@@ -57,8 +57,8 @@ export function CalendarWidget() {
     const { data, error } = await supabase
       .from("eventos")
       .select("id, titulo, fecha_inicio, fecha_fin")
-      .gte("fecha_inicio", currentWeekStart.toISOString())
-      .lt("fecha_inicio", weekEnd.toISOString())
+      .lte("fecha_inicio", weekEnd.toISOString())
+      .gte("fecha_fin", currentWeekStart.toISOString())
       .order("fecha_inicio", { ascending: true });
 
     if (!error && data) {
@@ -81,13 +81,15 @@ export function CalendarWidget() {
   const today = new Date().toDateString();
 
   const getEventsForDate = (date: Date) => {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
     return events.filter((event) => {
-      const eventDate = new Date(event.fecha_inicio);
-      return (
-        eventDate.getDate() === date.getDate() &&
-        eventDate.getMonth() === date.getMonth() &&
-        eventDate.getFullYear() === date.getFullYear()
-      );
+      const eventStart = new Date(event.fecha_inicio);
+      const eventEnd = new Date(event.fecha_fin);
+      return eventStart <= endOfDay && eventEnd >= startOfDay;
     });
   };
 

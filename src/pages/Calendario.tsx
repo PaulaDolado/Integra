@@ -29,6 +29,15 @@ interface Event {
   creador_id: string;
 }
 
+interface EventFormData {
+  titulo: string;
+  descripcion: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  ubicacion: string;
+  es_privado: boolean;
+}
+
 type ViewType = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export default function Calendario() {
@@ -37,13 +46,15 @@ export default function Calendario() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  const [isEditEventOpen, setIsEditEventOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile } = useEmployeeProfile();
 
   // Form state
-  const [eventForm, setEventForm] = useState({
+  const [eventForm, setEventForm] = useState<EventFormData>({
     titulo: '',
     descripcion: '',
     fecha_inicio: '',
@@ -178,6 +189,102 @@ export default function Calendario() {
       }
     } catch (error) {
       console.error('Error creating event:', error);
+    }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setSelectedEvent(event);
+    const inicio = new Date(event.fecha_inicio);
+    const fin = new Date(event.fecha_fin);
+    setEventForm({
+      titulo: event.titulo,
+      descripcion: event.descripcion || '',
+      fecha_inicio: format(inicio, "yyyy-MM-dd'T'HH:mm"),
+      fecha_fin: format(fin, "yyyy-MM-dd'T'HH:mm"),
+      ubicacion: event.ubicacion || '',
+      es_privado: event.es_privado
+    });
+    setIsEditEventOpen(true);
+  };
+
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvent || !profile) return;
+
+    const inicio = new Date(eventForm.fecha_inicio);
+    const fin = new Date(eventForm.fecha_fin);
+    if (!(eventForm.titulo && eventForm.fecha_inicio && eventForm.fecha_fin) || isNaN(inicio.getTime()) || isNaN(fin.getTime()) || inicio >= fin) {
+      toast({ title: "Datos no válidos", description: "Revisa título y que la fecha fin sea posterior al inicio", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('eventos')
+        .update({
+          titulo: eventForm.titulo,
+          descripcion: eventForm.descripcion,
+          fecha_inicio: inicio.toISOString(),
+          fecha_fin: fin.toISOString(),
+          ubicacion: eventForm.ubicacion,
+          es_privado: eventForm.es_privado,
+        })
+        .eq('id', selectedEvent.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar el evento",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Evento actualizado",
+          description: "El evento se ha actualizado exitosamente",
+        });
+        setIsEditEventOpen(false);
+        setSelectedEvent(null);
+        setEventForm({
+          titulo: '',
+          descripcion: '',
+          fecha_inicio: '',
+          fecha_fin: '',
+          ubicacion: '',
+          es_privado: false
+        });
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+
+    try {
+      const { error } = await supabase
+        .from('eventos')
+        .delete()
+        .eq('id', selectedEvent.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el evento",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Evento eliminado",
+          description: "El evento se ha eliminado exitosamente",
+        });
+        setIsEditEventOpen(false);
+        setSelectedEvent(null);
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
     }
   };
 
@@ -380,6 +487,104 @@ export default function Calendario() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Editar Evento</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleUpdateEvent} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-titulo">Título del evento</Label>
+                <Input
+                  id="edit-titulo"
+                  value={eventForm.titulo}
+                  onChange={(e) => setEventForm({ ...eventForm, titulo: e.target.value })}
+                  placeholder="Ingrese el título del evento"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-descripcion">Descripción</Label>
+                <Textarea
+                  id="edit-descripcion"
+                  value={eventForm.descripcion}
+                  onChange={(e) => setEventForm({ ...eventForm, descripcion: e.target.value })}
+                  placeholder="Describe el evento..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-fecha_inicio">Fecha y hora de inicio</Label>
+                  <Input
+                    id="edit-fecha_inicio"
+                    type="datetime-local"
+                    value={eventForm.fecha_inicio}
+                    onChange={(e) => setEventForm({ ...eventForm, fecha_inicio: e.target.value })}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-fecha_fin">Fecha y hora de fin</Label>
+                  <Input
+                    id="edit-fecha_fin"
+                    type="datetime-local"
+                    value={eventForm.fecha_fin}
+                    onChange={(e) => setEventForm({ ...eventForm, fecha_fin: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-ubicacion">Ubicación (opcional)</Label>
+                <Input
+                  id="edit-ubicacion"
+                  value={eventForm.ubicacion}
+                  onChange={(e) => setEventForm({ ...eventForm, ubicacion: e.target.value })}
+                  placeholder="Ubicación del evento"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-es_privado"
+                  checked={eventForm.es_privado}
+                  onChange={(e) => setEventForm({ ...eventForm, es_privado: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="edit-es_privado">Evento privado</Label>
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDeleteEvent}
+                >
+                  Eliminar
+                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditEventOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    Guardar Cambios
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -434,7 +639,8 @@ export default function Calendario() {
                       getEventsForDay(currentDate).map((event) => (
                         <div
                           key={event.id}
-                          className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => handleEditEvent(event)}
                         >
                           <h4 className="font-medium">{event.titulo}</h4>
                           <p className="text-sm text-muted-foreground mt-1">
@@ -495,7 +701,8 @@ export default function Calendario() {
                             {dayEvents.map((event) => (
                               <div
                                 key={event.id}
-                                className="text-xs p-1.5 bg-primary/20 text-primary rounded truncate"
+                                className="text-xs p-1.5 bg-primary/20 text-primary rounded truncate cursor-pointer hover:bg-primary/30 transition-colors"
+                                onClick={() => handleEditEvent(event)}
                               >
                                 <div className="font-medium">{event.titulo}</div>
                                 <div className="opacity-75">{format(new Date(event.fecha_inicio), 'HH:mm', { locale: es })}</div>
@@ -550,7 +757,11 @@ export default function Calendario() {
                             {dayEvents.slice(0, 2).map((event) => (
                               <div
                                 key={event.id}
-                                className="text-xs p-1 bg-primary/20 text-primary rounded truncate"
+                                className="text-xs p-1 bg-primary/20 text-primary rounded truncate cursor-pointer hover:bg-primary/30 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditEvent(event);
+                                }}
                               >
                                 {event.titulo}
                               </div>
