@@ -378,6 +378,22 @@ export default function Calendario() {
       return eventStart <= dayEnd && eventEnd >= dayStart;
     });
   };
+
+  const getEventPosition = (event: Event) => {
+    const eventStart = new Date(event.fecha_inicio);
+    const eventEnd = new Date(event.fecha_fin);
+    const hours = eventStart.getHours();
+    const minutes = eventStart.getMinutes();
+    const durationMs = eventEnd.getTime() - eventStart.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+    
+    const top = (hours + minutes / 60) * 60; // 60px por hora
+    const height = Math.max(durationHours * 60, 30); // Mínimo 30px
+    
+    return { top, height };
+  };
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
   const daysToDisplay = getDaysToDisplay();
   const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -630,91 +646,151 @@ export default function Calendario() {
                       {format(currentDate, "EEEE, MMMM yyyy", { locale: es })}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    {getEventsForDay(currentDate).length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No hay eventos para este día</p>
+                  
+                  {/* Time Grid View */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="flex">
+                      {/* Time column */}
+                      <div className="w-16 flex-shrink-0 border-r bg-muted/30">
+                        {hours.map((hour) => (
+                          <div key={hour} className="h-[60px] border-b flex items-start justify-end pr-2 pt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {hour.toString().padStart(2, '0')}:00
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      getEventsForDay(currentDate).map((event) => (
-                        <div
-                          key={event.id}
-                          className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => handleEditEvent(event)}
-                        >
-                          <h4 className="font-medium">{event.titulo}</h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {format(new Date(event.fecha_inicio), 'HH:mm', { locale: es })} - {format(new Date(event.fecha_fin), 'HH:mm', { locale: es })}
-                          </p>
-                          {event.descripcion && (
-                            <p className="text-sm text-muted-foreground mt-2">{event.descripcion}</p>
-                          )}
-                          {event.ubicacion && (
-                            <div className="flex items-center gap-1 mt-2">
-                              <MapPin className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">{event.ubicacion}</span>
+                      
+                      {/* Events column */}
+                      <div className="flex-1 relative">
+                        {/* Hour lines */}
+                        {hours.map((hour) => (
+                          <div key={hour} className="h-[60px] border-b" />
+                        ))}
+                        
+                        {/* Events */}
+                        {getEventsForDay(currentDate).map((event) => {
+                          const { top, height } = getEventPosition(event);
+                          return (
+                            <div
+                              key={event.id}
+                              className="absolute left-1 right-1 bg-primary/90 text-primary-foreground rounded-md p-2 overflow-hidden cursor-pointer hover:bg-primary transition-colors border border-primary-foreground/20 shadow-sm"
+                              style={{ top: `${top}px`, height: `${height}px` }}
+                              onClick={() => handleEditEvent(event)}
+                            >
+                              <div className="font-medium text-sm truncate">{event.titulo}</div>
+                              <div className="text-xs opacity-90">
+                                {format(new Date(event.fecha_inicio), 'HH:mm', { locale: es })} - {format(new Date(event.fecha_fin), 'HH:mm', { locale: es })}
+                              </div>
+                              {event.ubicacion && height > 50 && (
+                                <div className="flex items-center gap-1 text-xs opacity-80 mt-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="truncate">{event.ubicacion}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ))
-                    )}
+                          );
+                        })}
+                        
+                        {getEventsForDay(currentDate).length === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                            <div className="text-center">
+                              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">No hay eventos para este día</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
               {viewType === 'weekly' && (
-                <>
-                  <div className="grid grid-cols-7 gap-1 mb-2">
-                    {weekDays.map((day) => (
-                      <div
-                        key={day}
-                        className="text-center text-sm font-medium text-muted-foreground p-2"
-                      >
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="grid grid-cols-7 gap-2">
+                <div className="border rounded-lg overflow-x-auto">
+                  {/* Header with days */}
+                  <div className="flex border-b bg-muted/30 sticky top-0 z-10">
+                    <div className="w-16 flex-shrink-0 border-r" />
                     {daysToDisplay.map((day, index) => {
-                      const dayEvents = getEventsForDay(day);
                       const isDayToday = isToday(day);
-                      
                       return (
                         <div
                           key={index}
                           className={cn(
-                            "min-h-[150px] p-3 border rounded-lg transition-colors cursor-pointer hover:bg-muted/50",
-                            isDayToday && "bg-primary/10 border-primary",
-                            "bg-background"
+                            "flex-1 min-w-[120px] text-center p-2 border-r last:border-r-0",
+                            isDayToday && "bg-primary/10"
                           )}
-                          onClick={() => setSelectedDate(day)}
                         >
+                          <div className="text-xs font-medium text-muted-foreground">
+                            {weekDays[index]}
+                          </div>
                           <div className={cn(
-                            "text-center text-lg font-bold mb-2",
+                            "text-lg font-bold",
                             isDayToday && "text-primary"
                           )}>
                             {format(day, 'd')}
-                          </div>
-                          
-                          <div className="space-y-1">
-                            {dayEvents.map((event) => (
-                              <div
-                                key={event.id}
-                                className="text-xs p-1.5 bg-primary/20 text-primary rounded truncate cursor-pointer hover:bg-primary/30 transition-colors"
-                                onClick={() => handleEditEvent(event)}
-                              >
-                                <div className="font-medium">{event.titulo}</div>
-                                <div className="opacity-75">{format(new Date(event.fecha_inicio), 'HH:mm', { locale: es })}</div>
-                              </div>
-                            ))}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </>
+
+                  {/* Time grid */}
+                  <div className="flex relative">
+                    {/* Time column */}
+                    <div className="w-16 flex-shrink-0 border-r bg-muted/30">
+                      {hours.map((hour) => (
+                        <div key={hour} className="h-[60px] border-b flex items-start justify-end pr-2 pt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {hour.toString().padStart(2, '0')}:00
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Days columns with events */}
+                    {daysToDisplay.map((day, dayIndex) => {
+                      const dayEvents = getEventsForDay(day);
+                      const isDayToday = isToday(day);
+                      
+                      return (
+                        <div key={dayIndex} className="flex-1 min-w-[120px] relative border-r last:border-r-0">
+                          {/* Hour lines */}
+                          {hours.map((hour) => (
+                            <div
+                              key={hour}
+                              className={cn(
+                                "h-[60px] border-b",
+                                isDayToday && "bg-primary/5"
+                              )}
+                            />
+                          ))}
+                          
+                          {/* Events */}
+                          {dayEvents.map((event) => {
+                            const { top, height } = getEventPosition(event);
+                            return (
+                              <div
+                                key={event.id}
+                                className="absolute left-0.5 right-0.5 bg-primary/90 text-primary-foreground rounded-md p-1.5 overflow-hidden cursor-pointer hover:bg-primary transition-colors border border-primary-foreground/20 shadow-sm"
+                                style={{ top: `${top}px`, height: `${height}px` }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditEvent(event);
+                                }}
+                              >
+                                <div className="font-medium text-xs truncate">{event.titulo}</div>
+                                <div className="text-[10px] opacity-90">
+                                  {format(new Date(event.fecha_inicio), 'HH:mm', { locale: es })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {viewType === 'monthly' && (
