@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
 
 const currentDate = new Date();
 const currentWeekStart = new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay() + 1));
@@ -24,6 +29,15 @@ const getEventColor = () => {
 export function CalendarWidget() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    titulo: "",
+    descripcion: "",
+    fecha_inicio: "",
+    fecha_fin: "",
+    ubicacion: "",
+    es_privado: false,
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,6 +79,55 @@ export function CalendarWidget() {
       setEvents(data);
     }
     setLoading(false);
+  };
+
+  const handleCreateEvent = async () => {
+    if (!formData.titulo || !formData.fecha_inicio || !formData.fecha_fin) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos obligatorios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from("eventos").insert({
+      titulo: formData.titulo,
+      descripcion: formData.descripcion,
+      fecha_inicio: formData.fecha_inicio,
+      fecha_fin: formData.fecha_fin,
+      ubicacion: formData.ubicacion,
+      es_privado: formData.es_privado,
+      creador_id: user.id,
+    });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear el evento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Éxito",
+      description: "Evento creado correctamente",
+    });
+
+    setIsCreateDialogOpen(false);
+    setFormData({
+      titulo: "",
+      descripcion: "",
+      fecha_inicio: "",
+      fecha_fin: "",
+      ubicacion: "",
+      es_privado: false,
+    });
+    fetchEvents();
   };
 
   const getWeekDates = () => {
@@ -113,7 +176,7 @@ export function CalendarWidget() {
           <Button 
             size="sm" 
             className="gap-2 ml-2"
-            onClick={() => navigate("/calendario")}
+            onClick={() => setIsCreateDialogOpen(true)}
           >
             <Plus className="w-4 h-4" />
             Nuevo Evento
@@ -165,6 +228,71 @@ export function CalendarWidget() {
           })}
         </div>
       </CardContent>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Evento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="titulo">Título *</Label>
+              <Input
+                id="titulo"
+                value={formData.titulo}
+                onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                placeholder="Título del evento"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                value={formData.descripcion}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                placeholder="Descripción del evento"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fecha_inicio">Fecha Inicio *</Label>
+                <Input
+                  id="fecha_inicio"
+                  type="datetime-local"
+                  value={formData.fecha_inicio}
+                  onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fecha_fin">Fecha Fin *</Label>
+                <Input
+                  id="fecha_fin"
+                  type="datetime-local"
+                  value={formData.fecha_fin}
+                  onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ubicacion">Ubicación</Label>
+              <Input
+                id="ubicacion"
+                value={formData.ubicacion}
+                onChange={(e) => setFormData({ ...formData, ubicacion: e.target.value })}
+                placeholder="Ubicación del evento"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateEvent}>
+              Crear Evento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
