@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, AlertCircle, Plus } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +54,7 @@ export function TasksWidget() {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskForm, setTaskForm] = useState({
     titulo: '',
@@ -243,6 +245,36 @@ export function TasksWidget() {
     }
   };
 
+  const handleDeleteTask = async () => {
+    if (!selectedTask) return;
+
+    try {
+      const { error } = await supabase
+        .from('tareas')
+        .delete()
+        .eq('id', selectedTask.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar la tarea",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Tarea eliminada",
+          description: "La tarea se ha eliminado exitosamente",
+        });
+        setIsDeleteAlertOpen(false);
+        setIsEditOpen(false);
+        setSelectedTask(null);
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
+  };
+
   const completedTasks = tasks.filter(task => task.estado === "completado").length;
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -358,10 +390,39 @@ export function TasksWidget() {
                     </Button>
                   </div>
                 </div>
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => setIsDeleteAlertOpen(true)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar Tarea
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTask}>
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
