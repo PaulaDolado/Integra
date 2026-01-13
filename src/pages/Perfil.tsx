@@ -1,15 +1,74 @@
-import { User, Edit, Mail, Phone, MapPin, Calendar } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Edit, Mail, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function Perfil() {
   const { profile, loading, getFullName, getDisplayName } = useEmployeeProfile();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre: "",
+    primer_apellido: "",
+    segundo_apellido: "",
+    correo_electronico: "",
+    numero_telefono: "",
+  });
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        nombre: profile.nombre || "",
+        primer_apellido: profile.primer_apellido || "",
+        segundo_apellido: profile.segundo_apellido || "",
+        correo_electronico: profile.correo_electronico || "",
+        numero_telefono: profile.numero_telefono || "",
+      });
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!profile?.id) return;
+
+    if (!formData.nombre.trim() || !formData.primer_apellido.trim()) {
+      toast.error("El nombre y primer apellido son obligatorios");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("empleados")
+        .update({
+          nombre: formData.nombre.trim(),
+          primer_apellido: formData.primer_apellido.trim(),
+          segundo_apellido: formData.segundo_apellido.trim(),
+          correo_electronico: formData.correo_electronico.trim(),
+          numero_telefono: formData.numero_telefono.trim() || null,
+        })
+        .eq("id", profile.id);
+
+      if (error) throw error;
+
+      toast.success("Perfil actualizado correctamente");
+      setEditDialogOpen(false);
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Error al actualizar el perfil");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -38,7 +97,7 @@ export default function Perfil() {
             Gestiona tu información personal y configuraciones.
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setEditDialogOpen(true)}>
           <Edit className="w-4 h-4" />
           Editar Perfil
         </Button>
@@ -130,6 +189,71 @@ export default function Perfil() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Edición de Perfil */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Perfil</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="nombre">Nombre *</Label>
+              <Input
+                id="nombre"
+                value={formData.nombre}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                placeholder="Ingresa tu nombre"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="primer_apellido">Primer Apellido *</Label>
+              <Input
+                id="primer_apellido"
+                value={formData.primer_apellido}
+                onChange={(e) => setFormData({ ...formData, primer_apellido: e.target.value })}
+                placeholder="Ingresa tu primer apellido"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="segundo_apellido">Segundo Apellido</Label>
+              <Input
+                id="segundo_apellido"
+                value={formData.segundo_apellido}
+                onChange={(e) => setFormData({ ...formData, segundo_apellido: e.target.value })}
+                placeholder="Ingresa tu segundo apellido"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="correo_electronico">Correo Electrónico</Label>
+              <Input
+                id="correo_electronico"
+                type="email"
+                value={formData.correo_electronico}
+                onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="numero_telefono">Número de Teléfono</Label>
+              <Input
+                id="numero_telefono"
+                value={formData.numero_telefono}
+                onChange={(e) => setFormData({ ...formData, numero_telefono: e.target.value })}
+                placeholder="+52 123 456 7890"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
