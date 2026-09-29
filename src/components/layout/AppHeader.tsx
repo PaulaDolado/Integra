@@ -131,7 +131,7 @@ export function AppHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/configuracion")}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
               </DropdownMenuItem>

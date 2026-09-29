@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,15 +18,17 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
-  const { signIn, user } = useAuth();
+  const [mfaCode, setMfaCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const { signIn, signOut, user, mfaPending, refreshMfaStatus } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !mfaPending) {
       navigate("/dashboard");
     }
-  }, [user, navigate]);
+  }, [user, mfaPending, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,11 +46,8 @@ export default function Login() {
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Bienvenido",
-          description: "Inicio de sesión exitoso",
-        });
-        navigate("/dashboard");
+        // Con doble factor activo, el useEffect espera a que se verifique el código
+        await refreshMfaStatus();
       }
     } catch (error) {
       toast({
@@ -57,6 +57,56 @@ export default function Login() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+
+    try {
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+
+      const factor = factors.totp[0];
+      if (!factor) throw new Error("No hay ningún método de doble factor configurado");
+
+      const { error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: factor.id,
+        code: mfaCode.trim(),
+      });
+      if (error) throw error;
+
+      setMfaCode("");
+      await refreshMfaStatus();
+    } catch (error) {
+      toast({
+        title: "Código incorrecto",
+        description: "Revisa el código de tu aplicación de autenticación e inténtalo de nuevo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleCancelMfa = async () => {
+    setMfaCode("");
+    await signOut();
+  };
+
+  const handleGoogleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "El inicio de sesión con Google no está disponible",
+        variant: "destructive",
+      });
     }
   };
 
@@ -116,7 +166,50 @@ export default function Login() {
         </CardHeader>
 
         <CardContent>
-          {!showResetPassword ? (
+          {user && mfaPending ? (
+            <form onSubmit={handleVerifyMfa} className="space-y-6">
+              <div className="space-y-2 text-center">
+                <ShieldCheck className="w-8 h-8 mx-auto text-primary" />
+                <h3 className="text-lg font-semibold text-foreground">
+                  Verificación en dos pasos
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Introduce el código de 6 dígitos de tu aplicación de autenticación
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code" className="text-foreground font-medium">
+                  Código de verificación
+                </Label>
+                <Input
+                  id="mfa-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/D/g, ""))}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <Button type="submit" disabled={isVerifying || mfaCode.length !== 6} className="w-full">
+                {isVerifying ? "Verificando..." : "Verificar"}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleCancelMfa}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Volver al inicio de sesión
+                </button>
+              </div>
+            </form>
+          ) : !showResetPassword ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email Field */}
               <div className="space-y-2">
@@ -177,6 +270,15 @@ export default function Login() {
                 ) : (
                   "Iniciar Sesión"
                 )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleGoogleSignIn}
+              >
+                Continuar con Google
               </Button>
 
               {/* Forgot Password Link */}

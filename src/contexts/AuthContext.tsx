@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  // La sesión tiene contraseña correcta pero falta el código de doble factor
+  mfaPending: boolean;
+  refreshMfaStatus: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
@@ -12,34 +15,48 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function isMfaPending() {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || !data) return false;
+  return data.nextLevel === 'aal2' && data.currentLevel !== 'aal2';
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [mfaPending, setMfaPending] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const applySession = async (session: Session | null) => {
+      const pending = session ? await isMfaPending() : false;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setMfaPending(pending);
+      setLoading(false);
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        // Las llamadas a Supabase dentro del listener se difieren para evitar bloqueos
+        setTimeout(() => applySession(session), 0);
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      applySession(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const refreshMfaStatus = async () => {
+    setMfaPending(await isMfaPending());
+  };
+
   const signIn = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/dashboard`;
-    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -54,6 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     session,
+    mfaPending,
+    refreshMfaStatus,
     signIn,
     signOut,
     loading,

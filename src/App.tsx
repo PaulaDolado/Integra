@@ -13,6 +13,7 @@ import Tareas from "./pages/Tareas";
 import Comunicacion from "./pages/Comunicacion";
 import Tickets from "./pages/Tickets";
 import Perfil from "./pages/Perfil";
+import Configuracion from "./pages/Configuracion";
 import Noticias from "./pages/Noticias";
 import Organigrama from "./pages/Organigrama";
 import Fichajes from "./pages/Fichajes";
@@ -95,6 +96,13 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Perfil />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/configuracion" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Configuracion />
                 </AppLayout>
               </ProtectedRoute>
             } />

@@ -76,6 +76,41 @@ export type Database = {
         }
         Relationships: []
       }
+      contactos_emergencia: {
+        Row: {
+          created_at: string
+          empleado_id: string
+          id: string
+          nombre: string
+          relacion: string | null
+          telefono: string
+        }
+        Insert: {
+          created_at?: string
+          empleado_id: string
+          id?: string
+          nombre: string
+          relacion?: string | null
+          telefono: string
+        }
+        Update: {
+          created_at?: string
+          empleado_id?: string
+          id?: string
+          nombre?: string
+          relacion?: string | null
+          telefono?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contactos_emergencia_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversacion_participantes: {
         Row: {
           conversacion_id: string
@@ -147,6 +182,35 @@ export type Database = {
           },
         ]
       }
+      datos_pago: {
+        Row: {
+          empleado_id: string
+          forma_pago: string
+          iban: string | null
+          updated_at: string
+        }
+        Insert: {
+          empleado_id: string
+          forma_pago?: string
+          iban?: string | null
+          updated_at?: string
+        }
+        Update: {
+          empleado_id?: string
+          forma_pago?: string
+          iban?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "datos_pago_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: true
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departamentos: {
         Row: {
           created_at: string
@@ -186,13 +250,21 @@ export type Database = {
         Row: {
           activo: boolean
           cargo_id: string | null
+          ciudad: string | null
+          codigo_postal: string | null
+          complemento_direccion: string | null
           correo_electronico: string
           created_at: string
           departamento_id: string | null
+          direccion: string | null
           fecha_ingreso: string
           id: string
+          idioma: string
+          mostrar_email_directorio: boolean
+          mostrar_telefono_directorio: boolean
           nombre: string
           numero_telefono: string | null
+          pais: string | null
           primer_apellido: string
           segundo_apellido: string
           updated_at: string
@@ -201,13 +273,21 @@ export type Database = {
         Insert: {
           activo?: boolean
           cargo_id?: string | null
+          ciudad?: string | null
+          codigo_postal?: string | null
+          complemento_direccion?: string | null
           correo_electronico: string
           created_at?: string
           departamento_id?: string | null
+          direccion?: string | null
           fecha_ingreso?: string
           id?: string
+          idioma?: string
+          mostrar_email_directorio?: boolean
+          mostrar_telefono_directorio?: boolean
           nombre: string
           numero_telefono?: string | null
+          pais?: string | null
           primer_apellido: string
           segundo_apellido: string
           updated_at?: string
@@ -216,13 +296,21 @@ export type Database = {
         Update: {
           activo?: boolean
           cargo_id?: string | null
+          ciudad?: string | null
+          codigo_postal?: string | null
+          complemento_direccion?: string | null
           correo_electronico?: string
           created_at?: string
           departamento_id?: string | null
+          direccion?: string | null
           fecha_ingreso?: string
           id?: string
+          idioma?: string
+          mostrar_email_directorio?: boolean
+          mostrar_telefono_directorio?: boolean
           nombre?: string
           numero_telefono?: string | null
+          pais?: string | null
           primer_apellido?: string
           segundo_apellido?: string
           updated_at?: string
@@ -640,6 +728,8 @@ export type Database = {
           segundo_apellido: string
           cargo: string | null
           departamento: string | null
+          numero_telefono: string | null
+          correo_electronico: string | null
         }[]
       }
       es_participante: {
