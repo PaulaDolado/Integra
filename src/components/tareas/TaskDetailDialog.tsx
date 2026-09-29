@@ -31,13 +31,16 @@ import {
   type TaskStatus,
   type Subtarea,
   TASK_STATUSES,
+  type Propiedad,
+  type TipoPropiedad,
+  TIPOS_PROPIEDAD,
   getSubtareas,
   getPropiedades,
+  serializePropiedades,
 } from "./task-utils";
 
 const IMAGE_BUCKET = "tareas";
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const NO_PROJECT = "none";
 
 interface Draft {
   titulo: string;
@@ -47,9 +50,8 @@ interface Draft {
   estado: TaskStatus;
   subtareas: Subtarea[];
   fecha_limite: string;
-  proyecto_id: string;
   etiquetas: string[];
-  propiedades: { clave: string; valor: string }[];
+  propiedades: Propiedad[];
   tiempo_estimado_min: string;
   tiempo_real_min: number;
 }
@@ -62,9 +64,8 @@ const toDraft = (task: Task | null): Draft => ({
   estado: task?.estado ?? "pendiente",
   subtareas: getSubtareas(task),
   fecha_limite: task?.fecha_limite ? task.fecha_limite.slice(0, 10) : "",
-  proyecto_id: task?.proyecto_id ?? NO_PROJECT,
   etiquetas: task?.etiquetas ?? [],
-  propiedades: Object.entries(getPropiedades(task)).map(([clave, valor]) => ({ clave, valor })),
+  propiedades: getPropiedades(task),
   tiempo_estimado_min: task?.tiempo_estimado_min?.toString() ?? "",
   tiempo_real_min: task?.tiempo_real_min ?? 0,
 });
@@ -113,6 +114,59 @@ function AddInput({
   );
 }
 
+function NuevaPropiedadForm({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (clave: string, tipo: TipoPropiedad) => void;
+  onCancel: () => void;
+}) {
+  const [clave, setClave] = useState("");
+  const [tipo, setTipo] = useState<TipoPropiedad>("texto");
+  const submit = () => {
+    if (clave.trim()) onAdd(clave.trim(), tipo);
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Input
+        autoFocus
+        aria-label="Nombre de la propiedad"
+        placeholder="Nombre de la propiedad"
+        className="min-w-0 flex-1 basis-40"
+        value={clave}
+        onChange={(e) => setClave(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          } else if (e.key === "Escape") {
+            e.stopPropagation();
+            onCancel();
+          }
+        }}
+      />
+      <Select value={tipo} onValueChange={(value) => setTipo(value as TipoPropiedad)}>
+        <SelectTrigger aria-label="Tipo de propiedad" className="w-32">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TIPOS_PROPIEDAD.map((t) => (
+            <SelectItem key={t.value} value={t.value}>
+              {t.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button type="button" variant="outline" onClick={submit} disabled={!clave.trim()}>
+        OK
+      </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Cancelar propiedad">
+        <X className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
+
 interface TaskDetailDialogProps {
   open: boolean;
   // null = crear una tarea nueva
@@ -127,7 +181,6 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
   const { user } = useAuth();
   const { toast } = useToast();
   const [draft, setDraft] = useState<Draft>(() => toDraft(task));
-  const [proyectos, setProyectos] = useState<{ id: string; nombre: string }[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -146,11 +199,6 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
     setMinutosRegistro("");
     setNuevaPropiedad(false);
     pendingUploads.current = [];
-    supabase
-      .from("proyectos")
-      .select("id, nombre")
-      .order("nombre")
-      .then(({ data }) => setProyectos(data ?? []));
   }, [open, task]);
 
   useEffect(() => {
@@ -218,9 +266,12 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
     update({ etiquetas: [...draft.etiquetas, etiqueta] });
   };
 
-  const addPropiedad = (clave: string) => {
-    if (draft.propiedades.some((p) => p.clave.toLowerCase() === clave.toLowerCase())) return;
-    update({ propiedades: [...draft.propiedades, { clave, valor: "" }] });
+  const addPropiedad = (clave: string, tipo: TipoPropiedad) => {
+    if (draft.propiedades.some((p) => p.clave.toLowerCase() === clave.toLowerCase())) {
+      toast({ title: "Error", description: "Ya existe una propiedad con ese nombre", variant: "destructive" });
+      return;
+    }
+    update({ propiedades: [...draft.propiedades, { clave, tipo, valor: "" }] });
     setNuevaPropiedad(false);
   };
 
@@ -250,11 +301,8 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
       estado: draft.estado,
       subtareas: draft.subtareas,
       fecha_limite: draft.fecha_limite || null,
-      proyecto_id: draft.proyecto_id === NO_PROJECT ? null : draft.proyecto_id,
       etiquetas: draft.etiquetas,
-      propiedades: Object.fromEntries(
-        draft.propiedades.filter((p) => p.clave.trim()).map((p) => [p.clave.trim(), p.valor])
-      ),
+      propiedades: serializePropiedades(draft.propiedades),
       tiempo_estimado_min: estimado,
       tiempo_real_min: draft.tiempo_real_min,
     };
@@ -312,7 +360,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
   return (
     <>
       <Dialog open={open} onOpenChange={(value) => !value && close()}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-6xl max-h-[92vh] overflow-y-auto">
           <DialogTitle className="sr-only">{isNew ? "Nueva tarea" : "Editar tarea"}</DialogTitle>
           <Input
             aria-label="Título de la tarea"
@@ -323,7 +371,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
             autoFocus={isNew}
           />
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             {/* Columna izquierda: imagen y descripción */}
             <div className="space-y-4">
               <div>
@@ -372,7 +420,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                   <Textarea
                     aria-label="Descripción"
                     placeholder="Escribe aquí..."
-                    rows={10}
+                    rows={14}
                     value={draft.descripcion}
                     onChange={(e) => update({ descripcion: e.target.value })}
                   />
@@ -441,23 +489,6 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
               </div>
 
               <div>
-                <SectionLabel>Proyecto</SectionLabel>
-                <Select value={draft.proyecto_id} onValueChange={(value) => update({ proyecto_id: value })}>
-                  <SelectTrigger aria-label="Proyecto">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_PROJECT}>Sin proyecto</SelectItem>
-                    {proyectos.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
                 <SectionLabel>Etiquetas</SectionLabel>
                 {draft.etiquetas.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-1.5">
@@ -487,6 +518,9 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                       <div className="mb-1 flex items-center justify-between">
                         <label htmlFor={`propiedad-${index}`} className="text-sm">
                           {p.clave}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {TIPOS_PROPIEDAD.find((t) => t.value === p.tipo)?.label}
+                          </span>
                         </label>
                         <button
                           type="button"
@@ -499,6 +533,10 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                       </div>
                       <Input
                         id={`propiedad-${index}`}
+                        type={p.tipo === "numero" ? "number" : p.tipo === "fecha" ? "date" : "text"}
+                        inputMode={p.tipo === "numero" ? "decimal" : undefined}
+                        step={p.tipo === "numero" ? "any" : undefined}
+                        className={p.tipo === "fecha" ? "w-auto" : undefined}
                         value={p.valor}
                         onChange={(e) =>
                           update({
@@ -511,7 +549,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                     </div>
                   ))}
                   {nuevaPropiedad ? (
-                    <AddInput placeholder="Nombre de la propiedad" onAdd={addPropiedad} />
+                    <NuevaPropiedadForm onAdd={addPropiedad} onCancel={() => setNuevaPropiedad(false)} />
                   ) : (
                     <Button
                       type="button"
