@@ -40,7 +40,7 @@ const menuItems = [
 
 const requestItems = [
   { title: "Inscripción Cursos", url: "/cursos", icon: GraduationCap },
-  { title: "Solicitar Vacaciones", url: "/vacaciones", icon: Plane },
+  { title: "Solicitar Ausencia", url: "/vacaciones", icon: Plane },
   { title: "Cambio de Turno", url: "/cambio-turno", icon: Clock },
 ];
 

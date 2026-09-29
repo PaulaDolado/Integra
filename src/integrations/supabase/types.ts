@@ -468,7 +468,10 @@ export type Database = {
           fecha_fin: string
           fecha_inicio: string
           id: string
+          justificante_path: string | null
           motivo: string | null
+          razon_especifica: string | null
+          tipo_ausencia: string
           updated_at: string
         }
         Insert: {
@@ -478,7 +481,10 @@ export type Database = {
           fecha_fin: string
           fecha_inicio: string
           id?: string
+          justificante_path?: string | null
           motivo?: string | null
+          razon_especifica?: string | null
+          tipo_ausencia?: string
           updated_at?: string
         }
         Update: {
@@ -488,7 +494,10 @@ export type Database = {
           fecha_fin?: string
           fecha_inicio?: string
           id?: string
+          justificante_path?: string | null
           motivo?: string | null
+          razon_especifica?: string | null
+          tipo_ausencia?: string
           updated_at?: string
         }
         Relationships: [
