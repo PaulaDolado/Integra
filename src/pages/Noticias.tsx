@@ -40,6 +40,26 @@ export default function Noticias() {
     }
 
     fetchNoticias();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('noticias-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'anuncios'
+        },
+        () => {
+          fetchNoticias();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   if (loading) {
