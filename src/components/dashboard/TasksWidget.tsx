@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, Plus, Trash2, List, Kanban } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,25 @@ const getStatusConfig = (status: string) => {
   }
 };
 
+type TaskStatus = 'pendiente' | 'en_progreso' | 'completado';
+type TasksView = 'filas' | 'kanban';
+
+const VIEW_STORAGE_KEY = 'integra:tasks-view';
+
+const KANBAN_COLUMNS: TaskStatus[] = ['pendiente', 'en_progreso', 'completado'];
+
+const getStoredView = (): TasksView => {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === 'kanban' ? 'kanban' : 'filas';
+  } catch {
+    return 'filas';
+  }
+};
+
 export function TasksWidget() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [view, setView] = useState<TasksView>(getStoredView);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -220,7 +238,28 @@ export function TasksWidget() {
     setIsEditOpen(true);
   };
 
-  const handleUpdateTaskStatus = async (taskId: string, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
+  const handleViewChange = (value: string) => {
+    if (value !== 'filas' && value !== 'kanban') return;
+    setView(value);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, value);
+    } catch {
+      // Sin almacenamiento disponible: la vista se mantiene solo en esta sesión
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, status: TaskStatus) => {
+    e.preventDefault();
+    setDragOverColumn(null);
+    const taskId = e.dataTransfer.getData('text/plain');
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.estado === status) return;
+
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, estado: status } : t)));
+    handleUpdateTaskStatus(taskId, status);
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
     try {
       const { error } = await supabase
         .from('tareas')
@@ -289,53 +328,70 @@ export function TasksWidget() {
     <Card className="col-span-full lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-lg font-semibold">Mis Tareas</CardTitle>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nueva Tarea
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Crear Nueva Tarea</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="titulo">Título</Label>
-                <Input
-                  id="titulo"
-                  value={taskForm.titulo}
-                  onChange={(e) => setTaskForm({ ...taskForm, titulo: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Textarea
-                  id="descripcion"
-                  value={taskForm.descripcion}
-                  onChange={(e) => setTaskForm({ ...taskForm, descripcion: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fecha_limite">Fecha límite</Label>
-                <Input
-                  id="fecha_limite"
-                  type="date"
-                  value={taskForm.fecha_limite}
-                  onChange={(e) => setTaskForm({ ...taskForm, fecha_limite: e.target.value })}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Crear</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            value={view}
+            onValueChange={handleViewChange}
+            aria-label="Vista de tareas"
+          >
+            <ToggleGroupItem value="filas" aria-label="Vista por filas" title="Filas">
+              <List className="w-4 h-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="kanban" aria-label="Vista kanban" title="Kanban">
+              <Kanban className="w-4 h-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Nueva Tarea
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Crear Nueva Tarea</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateTask} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="titulo">Título</Label>
+                  <Input
+                    id="titulo"
+                    value={taskForm.titulo}
+                    onChange={(e) => setTaskForm({ ...taskForm, titulo: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="descripcion">Descripción</Label>
+                  <Textarea
+                    id="descripcion"
+                    value={taskForm.descripcion}
+                    onChange={(e) => setTaskForm({ ...taskForm, descripcion: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_limite">Fecha límite</Label>
+                  <Input
+                    id="fecha_limite"
+                    type="date"
+                    value={taskForm.fecha_limite}
+                    onChange={(e) => setTaskForm({ ...taskForm, fecha_limite: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">Crear</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         {/* Edit Task Dialog */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -429,6 +485,84 @@ export function TasksWidget() {
           <div className="text-center py-8">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
           </div>
+        ) : view === 'kanban' ? (
+          <>
+            {/* Progreso general */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Progreso General</span>
+                <span className="text-sm text-muted-foreground">{completionRate}%</span>
+              </div>
+              <Progress value={completionRate} className="h-2" />
+            </div>
+
+            {/* Tablero kanban */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {KANBAN_COLUMNS.map((status) => {
+                const statusConfig = getStatusConfig(status);
+                const Icon = statusConfig.icon;
+                const columnTasks = tasks.filter(task => task.estado === status);
+
+                return (
+                  <div
+                    key={status}
+                    className={`flex flex-col rounded-lg border p-2 min-h-[160px] transition-colors ${
+                      dragOverColumn === status ? 'border-primary bg-accent/50' : 'border-border bg-muted/30'
+                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverColumn(status);
+                    }}
+                    onDragLeave={() => setDragOverColumn(null)}
+                    onDrop={(e) => handleDrop(e, status)}
+                  >
+                    <div className={`flex items-center justify-between px-2 py-1.5 mb-2 rounded-md ${statusConfig.bgColor}`}>
+                      <div className="flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${statusConfig.textColor}`} />
+                        <span className={`text-sm font-medium ${statusConfig.textColor}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-bold ${statusConfig.textColor}`}>
+                        {columnTasks.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      {columnTasks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Sin tareas
+                        </p>
+                      ) : (
+                        columnTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', task.id);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragEnd={() => setDragOverColumn(null)}
+                            onClick={() => handleEditTask(task)}
+                            className="p-2.5 rounded-md border border-border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing"
+                          >
+                            <p className="text-sm font-medium text-foreground line-clamp-2">
+                              {task.titulo}
+                            </p>
+                            {task.fecha_limite && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : (
           <>
             {/* Resumen de estado */}
