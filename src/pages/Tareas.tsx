@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckSquare, Plus, Filter, Clock, AlertCircle, CheckCircle, Pencil } from "lucide-react";
+import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -255,10 +255,6 @@ export default function Tareas() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filtros
-          </Button>
           <Button className="gap-2">
             <Plus className="w-4 h-4" />
             Nueva Tarea
