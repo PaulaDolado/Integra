@@ -9,6 +9,7 @@ import { InicioSesionTab } from "@/components/configuracion/InicioSesionTab";
 import { ConfidencialidadTab } from "@/components/configuracion/ConfidencialidadTab";
 import { PagoTab } from "@/components/configuracion/PagoTab";
 import type { Empleado } from "@/components/configuracion/types";
+import { notifyEmployeeProfileUpdated } from "@/hooks/useEmployeeProfile";
 
 const TABS = [
   { value: "perfil", label: "Perfil" },
@@ -36,6 +37,11 @@ export default function Configuracion() {
   useEffect(() => {
     fetchEmpleado();
   }, [user]);
+
+  const handleUpdated = async () => {
+    await fetchEmpleado();
+    notifyEmployeeProfileUpdated();
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
@@ -68,13 +74,13 @@ export default function Configuracion() {
           {empleado ? (
             <>
               <TabsContent value="perfil" className="mt-6">
-                <PerfilTab empleado={empleado} onUpdated={fetchEmpleado} />
+                <PerfilTab empleado={empleado} onUpdated={handleUpdated} />
               </TabsContent>
               <TabsContent value="confidencialidad" className="mt-6">
-                <ConfidencialidadTab empleado={empleado} onUpdated={fetchEmpleado} />
+                <ConfidencialidadTab empleado={empleado} onUpdated={handleUpdated} />
               </TabsContent>
               <TabsContent value="pago" className="mt-6">
-                <PagoTab empleado={empleado} onUpdated={fetchEmpleado} />
+                <PagoTab empleado={empleado} onUpdated={handleUpdated} />
               </TabsContent>
             </>
           ) : (

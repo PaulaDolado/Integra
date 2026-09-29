@@ -7,7 +7,6 @@ import {
   FileText,
   Newspaper,
   Users,
-  User,
   GraduationCap,
   Plane,
   Clock
@@ -35,7 +34,6 @@ const menuItems = [
   { title: "Noticias", url: "/noticias", icon: Newspaper },
   { title: "Organigrama", url: "/organigrama", icon: Users },
   { title: "Registro de Fichajes", url: "/fichajes", icon: Clock },
-  { title: "Mi Perfil", url: "/perfil", icon: User },
 ];
 
 const requestItems = [

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Settings, LogOut, Clock, Moon, Sun } from "lucide-react";
+import { Bell, Settings, LogOut, Clock, Moon, Sun, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -134,6 +134,10 @@ export function AppHeader() {
               <DropdownMenuItem onClick={() => navigate("/configuracion")}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/perfil")}>
+                <User className="mr-2 h-4 w-4" />
+                Mi perfil
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />

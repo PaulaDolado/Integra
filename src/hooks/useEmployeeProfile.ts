@@ -13,10 +13,24 @@ interface EmployeeProfile {
   departamento_nombre?: string;
 }
 
+const PROFILE_UPDATED_EVENT = 'integra:empleado-actualizado';
+
+// Avisa a todos los componentes que usan el perfil de que deben recargarlo
+export function notifyEmployeeProfileUpdated() {
+  window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
+}
+
 export function useEmployeeProfile() {
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [version, setVersion] = useState(0);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const onUpdated = () => setVersion((v) => v + 1);
+    window.addEventListener(PROFILE_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onUpdated);
+  }, []);
 
   useEffect(() => {
     async function fetchEmployeeProfile() {
@@ -85,7 +99,7 @@ export function useEmployeeProfile() {
     }
 
     fetchEmployeeProfile();
-  }, [user]);
+  }, [user, version]);
 
   const getDisplayName = () => {
     if (profile) {
