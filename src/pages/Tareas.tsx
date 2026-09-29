@@ -1,20 +1,47 @@
 import { useState, useEffect } from "react";
-import { CheckSquare, Plus, Filter, Clock, AlertCircle, CheckCircle } from "lucide-react";
+import { CheckSquare, Plus, Filter, Clock, AlertCircle, CheckCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type TaskStatus = 'pendiente' | 'en_progreso' | 'completado';
 
 interface Task {
   id: string;
   titulo: string;
   descripcion: string | null;
-  estado: string;
+  estado: TaskStatus;
   fecha_limite: string | null;
   proyecto_id: string;
 }
+
+const COLUMNS: { status: TaskStatus; title: string; empty: string; icon: typeof Clock; iconClass: string }[] = [
+  { status: "pendiente", title: "Pendientes", empty: "No hay tareas pendientes", icon: AlertCircle, iconClass: "text-pending" },
+  { status: "en_progreso", title: "En Progreso", empty: "No hay tareas en progreso", icon: Clock, iconClass: "text-warning" },
+  { status: "completado", title: "Completadas", empty: "No hay tareas completadas", icon: CheckCircle, iconClass: "text-success" },
+];
+
+const emptyForm = { titulo: "", descripcion: "", fecha_limite: "", estado: "pendiente" as TaskStatus };
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -46,6 +73,10 @@ export default function Tareas() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -112,52 +143,103 @@ export default function Tareas() {
     }
   };
 
-  const updateTaskStatus = async (taskId: string, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
-    try {
-      const { error } = await supabase
-        .from('tareas')
-        .update({ estado: newStatus })
-        .eq('id', taskId);
+  const updateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
+    // Se mueve la tarjeta al instante y se revierte si Supabase falla
+    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: newStatus } : t)));
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "No se pudo actualizar la tarea",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Tarea actualizada",
-          description: "El estado se ha actualizado correctamente",
-        });
-      }
-    } catch (error) {
+    const { error } = await supabase
+      .from('tareas')
+      .update({ estado: newStatus })
+      .eq('id', task.id);
+
+    if (error) {
       console.error('Error updating task:', error);
+      setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: task.estado } : t)));
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la tarea",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDragStart = (task: Task) => {
+  const handleDragStart = (e: React.DragEvent, task: Task) => {
+    e.dataTransfer.setData('text/plain', task.id);
+    e.dataTransfer.effectAllowed = 'move';
     setDraggedTask(task);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = async (e: React.DragEvent, newStatus: 'pendiente' | 'en_progreso' | 'completado') => {
-    e.preventDefault();
-    if (!draggedTask) return;
-
-    if (draggedTask.estado !== newStatus) {
-      await updateTaskStatus(draggedTask.id, newStatus);
-    }
+  const handleDragEnd = () => {
     setDraggedTask(null);
+    setDragOverColumn(null);
   };
 
-  const groupedTasks = {
-    pendiente: tasks.filter(t => t.estado === "pendiente"),
-    en_progreso: tasks.filter(t => t.estado === "en_progreso"),
-    completado: tasks.filter(t => t.estado === "completado"),
+  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== status) setDragOverColumn(status);
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: TaskStatus) => {
+    e.preventDefault();
+    const task = draggedTask ?? tasks.find(t => t.id === e.dataTransfer.getData('text/plain'));
+    handleDragEnd();
+    if (task && task.estado !== newStatus) {
+      updateTaskStatus(task, newStatus);
+    }
+  };
+
+  const openEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      titulo: task.titulo,
+      descripcion: task.descripcion ?? "",
+      fecha_limite: task.fecha_limite ? task.fecha_limite.slice(0, 10) : "",
+      estado: task.estado,
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingTask) return;
+    if (!editForm.titulo.trim()) {
+      toast({
+        title: "Error",
+        description: "El título es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const changes = {
+      titulo: editForm.titulo.trim(),
+      descripcion: editForm.descripcion.trim() || null,
+      fecha_limite: editForm.fecha_limite || null,
+      estado: editForm.estado,
+    };
+
+    setSaving(true);
+    const { error } = await supabase
+      .from('tareas')
+      .update(changes)
+      .eq('id', editingTask.id);
+    setSaving(false);
+
+    if (error) {
+      console.error('Error editing task:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los cambios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks(prev => prev.map(t => (t.id === editingTask.id ? { ...t, ...changes } : t)));
+    setEditingTask(null);
+    toast({
+      title: "Tarea actualizada",
+      description: "Los cambios se han guardado correctamente",
+    });
   };
 
   return (
@@ -190,133 +272,138 @@ export default function Tareas() {
         </div>
       ) : (
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Pendientes */}
-          <Card 
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'pendiente')}
-            className={draggedTask && draggedTask.estado !== 'pendiente' ? 'ring-2 ring-primary/50' : ''}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <AlertCircle className="w-5 h-5 text-pending" />
-                Pendientes ({groupedTasks.pendiente.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 min-h-[200px]">
-              {groupedTasks.pendiente.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tareas pendientes
-                </p>
-              ) : (
-                groupedTasks.pendiente.map((task) => (
-                  <div 
-                    key={task.id} 
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md"
-                  >
-                    <h4 className="font-medium text-sm mb-1">{task.titulo}</h4>
-                    {task.descripcion && (
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                        {task.descripcion}
-                      </p>
-                    )}
-                    {task.fecha_limite && (
-                      <p className="text-xs text-muted-foreground">
-                        Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
-                      </p>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          {COLUMNS.map(({ status, title, empty, icon: Icon, iconClass }) => {
+            const columnTasks = tasks.filter(t => t.estado === status);
+            const isTarget = draggedTask !== null && draggedTask.estado !== status;
 
-          {/* En Progreso */}
-          <Card
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'en_progreso')}
-            className={draggedTask && draggedTask.estado !== 'en_progreso' ? 'ring-2 ring-primary/50' : ''}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="w-5 h-5 text-warning" />
-                En Progreso ({groupedTasks.en_progreso.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 min-h-[200px]">
-              {groupedTasks.en_progreso.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tareas en progreso
-                </p>
-              ) : (
-                groupedTasks.en_progreso.map((task) => (
-                  <div 
-                    key={task.id}
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md"
-                  >
-                    <h4 className="font-medium text-sm mb-1">{task.titulo}</h4>
-                    {task.descripcion && (
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                        {task.descripcion}
-                      </p>
-                    )}
-                    {task.fecha_limite && (
-                      <p className="text-xs text-muted-foreground">
-                        Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
-                      </p>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Completadas */}
-          <Card
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'completado')}
-            className={draggedTask && draggedTask.estado !== 'completado' ? 'ring-2 ring-primary/50' : ''}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CheckCircle className="w-5 h-5 text-success" />
-                Completadas ({groupedTasks.completado.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 min-h-[200px]">
-              {groupedTasks.completado.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tareas completadas
-                </p>
-              ) : (
-                groupedTasks.completado.map((task) => (
-                  <div 
-                    key={task.id}
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors opacity-75 cursor-move hover:shadow-md"
-                  >
-                    <h4 className="font-medium text-sm mb-1 line-through">{task.titulo}</h4>
-                    {task.descripcion && (
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                        {task.descripcion}
-                      </p>
-                    )}
-                    {task.fecha_limite && (
-                      <p className="text-xs text-muted-foreground">
-                        Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
-                      </p>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+            return (
+              <Card
+                key={status}
+                onDragOver={(e) => handleDragOver(e, status)}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null);
+                }}
+                onDrop={(e) => handleDrop(e, status)}
+                className={`transition-colors ${
+                  dragOverColumn === status && isTarget
+                    ? 'ring-2 ring-primary bg-accent/40'
+                    : isTarget
+                      ? 'ring-2 ring-primary/30'
+                      : ''
+                }`}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Icon className={`w-5 h-5 ${iconClass}`} />
+                    {title} ({columnTasks.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 min-h-[200px]">
+                  {columnTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {empty}
+                    </p>
+                  ) : (
+                    columnTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => openEdit(task)}
+                        className={`group p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md ${
+                          status === 'completado' ? 'opacity-75' : ''
+                        } ${draggedTask?.id === task.id ? 'opacity-40' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className={`font-medium text-sm mb-1 ${status === 'completado' ? 'line-through' : ''}`}>
+                            {task.titulo}
+                          </h4>
+                          <Pencil className="w-3.5 h-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                        </div>
+                        {task.descripcion && (
+                          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                            {task.descripcion}
+                          </p>
+                        )}
+                        {task.fecha_limite && (
+                          <p className="text-xs text-muted-foreground">
+                            Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-titulo">Título *</Label>
+              <Input
+                id="edit-titulo"
+                value={editForm.titulo}
+                onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-descripcion">Descripción</Label>
+              <Textarea
+                id="edit-descripcion"
+                rows={4}
+                value={editForm.descripcion}
+                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-fecha">Fecha límite</Label>
+                <Input
+                  id="edit-fecha"
+                  type="date"
+                  value={editForm.fecha_limite}
+                  onChange={(e) => setEditForm({ ...editForm, fecha_limite: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-estado">Estado</Label>
+                <Select
+                  value={editForm.estado}
+                  onValueChange={(value) => setEditForm({ ...editForm, estado: value as TaskStatus })}
+                >
+                  <SelectTrigger id="edit-estado">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLUMNS.map((c) => (
+                      <SelectItem key={c.status} value={c.status}>
+                        {getStatusConfig(c.status).label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTask(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEdit} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
