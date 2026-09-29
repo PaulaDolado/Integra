@@ -23,7 +23,7 @@ Portal del empleado: calendario, tareas, tickets, fichajes, vacaciones, noticias
 ## Requisitos
 
 - Node.js 18 o superior y npm
-- Acceso al proyecto de Supabase (`jvhttgkfviczreqhrozl`)
+- Acceso al proyecto de Supabase (`pqxghndxexdsonnkoacu`)
 - Opcional: [Supabase CLI](https://supabase.com/docs/guides/cli) para aplicar migraciones
 
 ## Puesta en marcha
@@ -32,6 +32,7 @@ Portal del empleado: calendario, tareas, tickets, fichajes, vacaciones, noticias
 git clone https://github.com/PaulaDolado/integra.git
 cd integra
 npm install
+cp .env.example .env   # y rellena los valores de Supabase
 npm run dev
 ```
 
@@ -49,9 +50,7 @@ La aplicación arranca en http://localhost:8080.
 
 ## Configuración de Supabase
 
-El cliente está en `src/integrations/supabase/client.ts`. Ahora mismo la URL y la clave pública (`anon`) están escritas directamente en ese archivo, así que la app funciona sin configurar nada. La clave `anon` es pública por diseño: la seguridad depende de las políticas RLS de la base de datos.
-
-El archivo `.env` define las mismas variables, aunque el cliente todavía no las lee:
+El cliente está en `src/integrations/supabase/client.ts` y lee la configuración de las variables de entorno. Copia `.env.example` a `.env` y rellénalo con los datos de **Project Settings → API**:
 
 ```
 VITE_SUPABASE_PROJECT_ID=
@@ -59,7 +58,9 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 ```
 
-No añadas nunca la clave `service_role` al frontend ni a `.env`.
+El archivo `.env` no se sube a git. La clave publicable es pública por diseño: la seguridad depende de las políticas RLS de la base de datos. No añadas nunca la clave `secret` (o `service_role`) al frontend ni a `.env`.
+
+Si cambias el `.env`, reinicia `npm run dev` para que Vite cargue los valores nuevos.
 
 ### Base de datos
 
@@ -85,6 +86,11 @@ Para aplicar las migraciones en un proyecto nuevo:
 supabase link --project-ref <project-id>
 supabase db push
 ```
+
+### Usuario demo
+
+1. En Supabase, entra en **Authentication → Users → Add user**, usa el email `demo@integra.local` y marca **Auto Confirm User**.
+2. Ejecuta `supabase/seed-demo.sql` en el **SQL Editor** para crear su perfil de empleado.
 
 Si cambias el esquema, regenera los tipos de TypeScript:
 
