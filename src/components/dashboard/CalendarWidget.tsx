@@ -158,12 +158,12 @@ export function CalendarWidget() {
 
   return (
     <Card className="col-span-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-4">
+      <CardHeader className="flex flex-col gap-3 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-primary" />
           <CardTitle className="text-lg font-semibold">Calendario Semanal</CardTitle>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon">
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -175,7 +175,7 @@ export function CalendarWidget() {
           </Button>
           <Button 
             size="sm" 
-            className="gap-2 ml-2"
+            className="gap-2 sm:ml-2"
             onClick={() => setIsCreateDialogOpen(true)}
           >
             <Plus className="w-4 h-4" />

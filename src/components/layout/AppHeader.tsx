@@ -65,29 +65,30 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center px-4 gap-4">
+      <div className="flex h-16 items-center px-3 sm:px-4 gap-2 sm:gap-4">
         <SidebarTrigger />
         
-        <div className="flex-1 flex items-center gap-4">
-          <div className="flex flex-col">
-            <h1 className="text-lg font-medium text-foreground">
+        <div className="flex-1 min-w-0 flex items-center gap-4">
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-base sm:text-lg font-medium text-foreground truncate">
               ¡Bienvenido, <span className="text-primary">{getFirstName()}</span>!
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="hidden sm:block text-sm text-muted-foreground truncate">
               {getCurrentDate()} - {getCurrentTime()}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
           {/* Botón de Fichaje */}
           <Button
             onClick={handleClockToggle}
             variant={isClockedIn ? "destructive" : "default"}
-            className="gap-2"
+            className="gap-2 px-3 sm:px-4"
+            aria-label={isClockedIn ? "Fichar salida" : "Fichar entrada"}
           >
             <Clock className="w-4 h-4" />
-            {isClockedIn ? "Fichar Salida" : "Fichar Entrada"}
+            <span className="hidden sm:inline">{isClockedIn ? "Fichar Salida" : "Fichar Entrada"}</span>
           </Button>
 
           {/* Toggle Tema */}
