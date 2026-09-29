@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Ticket, Plus, Filter, Search, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { Ticket, Plus, Filter, Search, AlertCircle, Clock, CheckCircle, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,13 @@ const getStatusConfig = (status: string) => {
         bgColor: "bg-orange-50",
         label: "En Progreso"
       };
+    case "resuelto":
+      return {
+        icon: CircleCheck,
+        color: "text-primary",
+        bgColor: "bg-blue-50",
+        label: "Resuelto"
+      };
     case "cerrado":
       return {
         icon: CheckCircle,
@@ -63,6 +70,13 @@ const getStatusConfig = (status: string) => {
       };
   }
 };
+
+const COLUMNS: { status: string; title: string; empty: string; icon: typeof Clock; iconClass: string }[] = [
+  { status: "abierto", title: "Abiertos", empty: "No hay tickets abiertos", icon: AlertCircle, iconClass: "text-destructive" },
+  { status: "en_progreso", title: "En Progreso", empty: "No hay tickets en progreso", icon: Clock, iconClass: "text-warning" },
+  { status: "resuelto", title: "Resueltos", empty: "No hay tickets resueltos", icon: CircleCheck, iconClass: "text-primary" },
+  { status: "cerrado", title: "Cerrados", empty: "No hay tickets cerrados", icon: CheckCircle, iconClass: "text-success" },
+];
 
 export default function Tickets() {
   const [tickets, setTickets] = useState<TicketData[]>([]);
@@ -139,12 +153,6 @@ export default function Tickets() {
     ticket.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const groupedTickets = {
-    abierto: filteredTickets.filter(t => t.estado === "abierto"),
-    en_progreso: filteredTickets.filter(t => t.estado === "en_progreso"),
-    cerrado: filteredTickets.filter(t => t.estado === "cerrado"),
-  };
-
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -184,171 +192,74 @@ export default function Tickets() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Abiertos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <AlertCircle className="w-5 h-5 text-destructive" />
-                Abiertos ({groupedTickets.abierto.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {groupedTickets.abierto.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tickets abiertos
-                </p>
-              ) : (
-                groupedTickets.abierto.map((ticket) => {
-                  const statusConfig = getStatusConfig(ticket.estado);
-                  const priorityConfig = getPriorityConfig(ticket.prioridad);
-                  const StatusIcon = statusConfig.icon;
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {COLUMNS.map(({ status, title, empty, icon: ColumnIcon, iconClass }) => {
+            const columnTickets = filteredTickets.filter(t => t.estado === status);
+            const isFinished = status === "resuelto" || status === "cerrado";
 
-                  return (
-                    <div key={ticket.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
-                              <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
+            return (
+              <Card key={status}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ColumnIcon className={`w-5 h-5 ${iconClass}`} />
+                    {title} ({columnTickets.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {columnTickets.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {empty}
+                    </p>
+                  ) : (
+                    columnTickets.map((ticket) => {
+                      const statusConfig = getStatusConfig(ticket.estado);
+                      const priorityConfig = getPriorityConfig(ticket.prioridad);
+                      const StatusIcon = statusConfig.icon;
+
+                      return (
+                        <div
+                          key={ticket.id}
+                          className={`p-3 border rounded-lg hover:bg-accent/50 transition-colors ${
+                            status === "cerrado" ? "opacity-75" : ""
+                          }`}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
+                                  <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
+                                </div>
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {ticket.id.slice(0, 8)}
+                                </span>
+                              </div>
+                              <Badge variant={priorityConfig.color} className="text-xs">
+                                {priorityConfig.label}
+                              </Badge>
                             </div>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              {ticket.id.slice(0, 8)}
-                            </span>
+
+                            <h4 className="text-sm font-medium text-foreground leading-tight">
+                              {ticket.titulo}
+                            </h4>
+
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {ticket.descripcion}
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              {isFinished && ticket.fecha_cierre
+                                ? `${statusConfig.label}: ${new Date(ticket.fecha_cierre).toLocaleDateString("es-ES")}`
+                                : new Date(ticket.fecha_creacion).toLocaleDateString("es-ES")}
+                            </p>
                           </div>
-                          <Badge variant={priorityConfig.color} className="text-xs">
-                            {priorityConfig.label}
-                          </Badge>
                         </div>
-                        
-                        <h4 className="text-sm font-medium text-foreground leading-tight">
-                          {ticket.titulo}
-                        </h4>
-                        
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {ticket.descripcion}
-                        </p>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(ticket.fecha_creacion).toLocaleDateString("es-ES")}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          {/* En Progreso */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="w-5 h-5 text-warning" />
-                En Progreso ({groupedTickets.en_progreso.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {groupedTickets.en_progreso.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tickets en progreso
-                </p>
-              ) : (
-                groupedTickets.en_progreso.map((ticket) => {
-                  const statusConfig = getStatusConfig(ticket.estado);
-                  const priorityConfig = getPriorityConfig(ticket.prioridad);
-                  const StatusIcon = statusConfig.icon;
-
-                  return (
-                    <div key={ticket.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
-                              <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              {ticket.id.slice(0, 8)}
-                            </span>
-                          </div>
-                          <Badge variant={priorityConfig.color} className="text-xs">
-                            {priorityConfig.label}
-                          </Badge>
-                        </div>
-                        
-                        <h4 className="text-sm font-medium text-foreground leading-tight">
-                          {ticket.titulo}
-                        </h4>
-                        
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {ticket.descripcion}
-                        </p>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(ticket.fecha_creacion).toLocaleDateString("es-ES")}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Cerrados */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CheckCircle className="w-5 h-5 text-success" />
-                Cerrados ({groupedTickets.cerrado.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {groupedTickets.cerrado.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tickets cerrados
-                </p>
-              ) : (
-                groupedTickets.cerrado.map((ticket) => {
-                  const statusConfig = getStatusConfig(ticket.estado);
-                  const priorityConfig = getPriorityConfig(ticket.prioridad);
-                  const StatusIcon = statusConfig.icon;
-
-                  return (
-                    <div key={ticket.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors opacity-75">
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
-                              <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              {ticket.id.slice(0, 8)}
-                            </span>
-                          </div>
-                          <Badge variant={priorityConfig.color} className="text-xs">
-                            {priorityConfig.label}
-                          </Badge>
-                        </div>
-                        
-                        <h4 className="text-sm font-medium text-foreground leading-tight">
-                          {ticket.titulo}
-                        </h4>
-                        
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {ticket.descripcion}
-                        </p>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          Cerrado: {ticket.fecha_cierre ? new Date(ticket.fecha_cierre).toLocaleDateString("es-ES") : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Ticket, Plus, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { Ticket, Plus, AlertCircle, Clock, CheckCircle, CircleCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,13 @@ const getStatusConfig = (status: string) => {
         color: "text-warning",
         bgColor: "bg-orange-50",
         label: "En Progreso"
+      };
+    case "resuelto":
+      return {
+        icon: CircleCheck,
+        color: "text-primary",
+        bgColor: "bg-blue-50",
+        label: "Resuelto"
       };
     case "cerrado":
       return {
@@ -199,7 +206,8 @@ export function TicketsWidget() {
   const ticketCounts = {
     open: tickets.filter(t => t.estado === "abierto").length,
     inProgress: tickets.filter(t => t.estado === "en_progreso").length,
-    resolved: tickets.filter(t => t.estado === "cerrado").length
+    resolved: tickets.filter(t => t.estado === "resuelto").length,
+    closed: tickets.filter(t => t.estado === "cerrado").length
   };
 
   return (
@@ -271,7 +279,7 @@ export function TicketsWidget() {
         ) : (
           <>
             {/* Resumen de estados */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="text-center p-2 rounded-lg bg-red-50 border border-red-200">
                 <div className="text-base font-bold text-destructive">{ticketCounts.open}</div>
                 <div className="text-xs text-destructive">Abiertos</div>
@@ -280,8 +288,12 @@ export function TicketsWidget() {
                 <div className="text-base font-bold text-warning">{ticketCounts.inProgress}</div>
                 <div className="text-xs text-warning">En Progreso</div>
               </div>
+              <div className="text-center p-2 rounded-lg bg-blue-50 border border-blue-200">
+                <div className="text-base font-bold text-primary">{ticketCounts.resolved}</div>
+                <div className="text-xs text-primary">Resueltos</div>
+              </div>
               <div className="text-center p-2 rounded-lg bg-green-50 border border-green-200">
-                <div className="text-base font-bold text-success">{ticketCounts.resolved}</div>
+                <div className="text-base font-bold text-success">{ticketCounts.closed}</div>
                 <div className="text-xs text-success">Cerrados</div>
               </div>
             </div>
