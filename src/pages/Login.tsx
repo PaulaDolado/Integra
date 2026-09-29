@@ -103,14 +103,14 @@ export default function Login() {
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center shadow-lg">
               <div className="w-12 h-12 bg-background rounded-lg flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary">HS</span>
+                <span className="text-2xl font-bold text-primary">I</span>
               </div>
             </div>
           </div>
           
           {/* Company Name */}
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-foreground">Hub Spark Joy</h1>
+            <h1 className="text-2xl font-bold text-foreground">Integra</h1>
             <p className="text-muted-foreground text-sm">Inicia sesión en tu cuenta</p>
           </div>
         </CardHeader>

@@ -59,8 +59,8 @@ export function AppSidebar() {
             </div>
             {!isCollapsed && (
               <div>
-                <h2 className="font-semibold text-foreground">Portal Empleados</h2>
-                <p className="text-sm text-muted-foreground">Mi Empresa</p>
+                <h2 className="font-semibold text-foreground">Integra</h2>
+                <p className="text-sm text-muted-foreground">Portal del empleado</p>
               </div>
             )}
           </div>
