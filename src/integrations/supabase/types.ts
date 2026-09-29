@@ -76,6 +76,77 @@ export type Database = {
         }
         Relationships: []
       }
+      conversacion_participantes: {
+        Row: {
+          conversacion_id: string
+          created_at: string
+          empleado_id: string
+          ultimo_leido_at: string
+        }
+        Insert: {
+          conversacion_id: string
+          created_at?: string
+          empleado_id: string
+          ultimo_leido_at?: string
+        }
+        Update: {
+          conversacion_id?: string
+          created_at?: string
+          empleado_id?: string
+          ultimo_leido_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversacion_participantes_conversacion_id_fkey"
+            columns: ["conversacion_id"]
+            isOneToOne: false
+            referencedRelation: "conversaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversacion_participantes_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversaciones: {
+        Row: {
+          created_at: string
+          creado_por: string | null
+          id: string
+          nombre: string | null
+          tipo: Database["public"]["Enums"]["conversacion_tipo"]
+          ultimo_mensaje_at: string
+        }
+        Insert: {
+          created_at?: string
+          creado_por?: string | null
+          id?: string
+          nombre?: string | null
+          tipo: Database["public"]["Enums"]["conversacion_tipo"]
+          ultimo_mensaje_at?: string
+        }
+        Update: {
+          created_at?: string
+          creado_por?: string | null
+          id?: string
+          nombre?: string | null
+          tipo?: Database["public"]["Enums"]["conversacion_tipo"]
+          ultimo_mensaje_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversaciones_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departamentos: {
         Row: {
           created_at: string
@@ -280,6 +351,45 @@ export type Database = {
           tipo?: string
         }
         Relationships: []
+      }
+      mensajes: {
+        Row: {
+          autor_id: string | null
+          contenido: string
+          conversacion_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          autor_id?: string | null
+          contenido: string
+          conversacion_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          autor_id?: string | null
+          contenido?: string
+          conversacion_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensajes_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensajes_conversacion_id_fkey"
+            columns: ["conversacion_id"]
+            isOneToOne: false
+            referencedRelation: "conversaciones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proyecto_miembros: {
         Row: {
@@ -504,9 +614,54 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      abrir_conversacion_directa: {
+        Args: { otro_empleado_id: string }
+        Returns: string
+      }
+      crear_grupo: {
+        Args: { nombre_grupo: string; participantes: string[] }
+        Returns: string
+      }
+      directorio_empleados: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          nombre: string
+          primer_apellido: string
+          segundo_apellido: string
+          cargo: string | null
+          departamento: string | null
+        }[]
+      }
+      es_participante: {
+        Args: { conv_id: string }
+        Returns: boolean
+      }
+      marcar_conversacion_leida: {
+        Args: { conv_id: string }
+        Returns: undefined
+      }
+      mi_empleado_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      mis_conversaciones: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          tipo: Database["public"]["Enums"]["conversacion_tipo"]
+          nombre: string | null
+          otro_empleado_id: string | null
+          num_participantes: number
+          ultimo_mensaje: string | null
+          ultimo_mensaje_autor_id: string | null
+          ultimo_mensaje_at: string
+          no_leidos: number
+        }[]
+      }
     }
     Enums: {
+      conversacion_tipo: "directa" | "grupo"
       proyecto_estado: "pendiente" | "en_progreso" | "completado" | "cancelado"
       tarea_estado: "pendiente" | "en_progreso" | "completado"
       ticket_estado: "abierto" | "en_progreso" | "resuelto" | "cerrado"
@@ -639,6 +794,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      conversacion_tipo: ["directa", "grupo"],
       proyecto_estado: ["pendiente", "en_progreso", "completado", "cancelado"],
       tarea_estado: ["pendiente", "en_progreso", "completado"],
       ticket_estado: ["abierto", "en_progreso", "resuelto", "cerrado"],
