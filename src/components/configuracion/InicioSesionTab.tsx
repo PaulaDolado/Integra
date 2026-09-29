@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SettingsSection } from "./SettingsSection";
+import { appUrl } from "@/lib/app-url";
 
 function MethodRow({
   icon: Icon,
@@ -57,7 +58,7 @@ function CorreoInicioSesion() {
     setSaving(true);
     const { error } = await supabase.auth.updateUser(
       { email: email.trim() },
-      { emailRedirectTo: `${window.location.origin}/configuracion` }
+      { emailRedirectTo: appUrl("/configuracion") }
     );
     setSaving(false);
 
@@ -224,7 +225,7 @@ function MetodosLogin() {
   const linkGoogle = async () => {
     const { error } = await supabase.auth.linkIdentity({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/configuracion` },
+      options: { redirectTo: appUrl("/configuracion") },
     });
     if (error) {
       console.error("Error linking Google:", error);

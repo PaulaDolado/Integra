@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { appUrl } from "@/lib/app-url";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -98,7 +99,7 @@ export default function Login() {
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: appUrl("/dashboard") },
     });
 
     if (error) {
@@ -117,7 +118,7 @@ export default function Login() {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: appUrl("/reset-password"),
       });
 
       if (error) {

@@ -163,3 +163,19 @@ npx shadcn@latest add <componente>
 La app usa rutas del lado del cliente, así que el hosting debe redirigir todas las rutas a `index.html`. Si no, al recargar una página como `/tareas` aparecerá un error 404.
 
 En Supabase, añade el dominio de producción en **Authentication → URL Configuration** para que funcionen el inicio de sesión y la recuperación de contraseña.
+
+### GitHub Pages
+
+El workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) publica la web en `https://<usuario>.github.io/<repositorio>/` en cada push a `main`. También se puede lanzar a mano desde **Actions → Publicar en GitHub Pages → Run workflow**.
+
+Configuración, una sola vez:
+
+1. En GitHub, **Settings → Pages → Build and deployment → Source**: elige **GitHub Actions**.
+2. En **Settings → Secrets and variables → Actions**, crea los secretos `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` con los mismos valores que en `.env`.
+3. En Supabase, **Authentication → URL Configuration**:
+   - **Site URL**: `https://<usuario>.github.io/<repositorio>/`
+   - **Redirect URLs**: añade `https://<usuario>.github.io/<repositorio>/**`
+
+El workflow compila con `BASE_PATH=/<repositorio>/` y copia `index.html` a `404.html`, para que al recargar una ruta como `/tareas` se cargue la app en lugar del 404 de GitHub.
+
+GitHub Pages no permite enviar cabeceras HTTP, así que la política de seguridad de contenido (CSP) va en una etiqueta `<meta>` que se añade en el build, y la protección contra la inclusión en iframes se hace en `src/main.tsx`.
