@@ -16,9 +16,9 @@ INSERT INTO public.empleados (
 )
 SELECT
   u.id,
-  'Usuario',
   'Demo',
   'Integra',
+  'Pruebas',
   u.email,
   '+34 600 000 000',
   (SELECT id FROM public.cargos WHERE nombre = 'Analista' LIMIT 1),

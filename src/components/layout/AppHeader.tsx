@@ -23,7 +23,7 @@ export function AppHeader() {
   const { toast } = useToast();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { profile, getDisplayName } = useEmployeeProfile();
+  const { profile, getDisplayName, getFirstName } = useEmployeeProfile();
 
   const handleClockToggle = () => {
     setIsClockedIn(!isClockedIn);
@@ -71,7 +71,7 @@ export function AppHeader() {
         <div className="flex-1 flex items-center gap-4">
           <div className="flex flex-col">
             <h1 className="text-lg font-medium text-foreground">
-              ¡Hola, <span className="text-primary">{getDisplayName()}</span>! 👋
+              ¡Bienvenido, <span className="text-primary">{getFirstName()}</span>!
             </h1>
             <p className="text-sm text-muted-foreground">
               {getCurrentDate()} - {getCurrentTime()}

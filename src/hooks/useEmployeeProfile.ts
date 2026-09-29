@@ -94,6 +94,13 @@ export function useEmployeeProfile() {
     return user?.email?.split('@')[0] || 'Usuario';
   };
 
+  const getFirstName = () => {
+    if (profile) {
+      return profile.nombre;
+    }
+    return getDisplayName();
+  };
+
   const getFullName = () => {
     if (profile) {
       return `${profile.nombre} ${profile.primer_apellido} ${profile.segundo_apellido}`;
@@ -105,6 +112,7 @@ export function useEmployeeProfile() {
     profile,
     loading,
     getDisplayName,
+    getFirstName,
     getFullName,
   };
 }

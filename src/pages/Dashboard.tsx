@@ -6,7 +6,7 @@ import { TicketsWidget } from "@/components/dashboard/TicketsWidget";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 
 export default function Dashboard() {
-  const { getDisplayName, loading } = useEmployeeProfile();
+  const { loading } = useEmployeeProfile();
 
   if (loading) {
     return (
@@ -20,7 +20,7 @@ export default function Dashboard() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          Dashboard - Bienvenido, {getDisplayName()}
+          Dashboard
         </h1>
         <p className="text-muted-foreground">
           Aquí tienes un resumen de tu actividad.
