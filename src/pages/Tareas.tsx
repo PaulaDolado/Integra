@@ -75,7 +75,9 @@ export default function Tareas() {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [creating, setCreating] = useState(false);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -119,6 +121,7 @@ export default function Tareas() {
         setLoading(false);
         return;
       }
+      setEmpleadoId(employeeData.id);
 
       const { data, error } = await supabase
         .from('tareas')
@@ -199,8 +202,88 @@ export default function Tareas() {
     });
   };
 
+  const openCreate = () => {
+    setEditingTask(null);
+    setEditForm(emptyForm);
+    setCreating(true);
+  };
+
+  const closeDialog = () => {
+    setEditingTask(null);
+    setCreating(false);
+  };
+
+  // Las tareas cuelgan de un proyecto: se usa el primero o se crea uno general
+  const getDefaultProjectId = async () => {
+    const { data: proyectos } = await supabase.from('proyectos').select('id').limit(1);
+    if (proyectos && proyectos.length > 0) return proyectos[0].id;
+
+    const today = new Date();
+    const nextYear = new Date(today);
+    nextYear.setFullYear(today.getFullYear() + 1);
+    const { data: newProject, error } = await supabase
+      .from('proyectos')
+      .insert({
+        nombre: 'Proyecto General',
+        descripcion: 'Proyecto por defecto para tareas',
+        fecha_inicio: today.toISOString().split('T')[0],
+        fecha_fin: nextYear.toISOString().split('T')[0],
+        estado: 'en_progreso',
+      })
+      .select('id')
+      .single();
+    if (error) console.error('Error creating default project:', error);
+    return newProject?.id ?? null;
+  };
+
+  const saveCreate = async () => {
+    if (!empleadoId) return;
+
+    setSaving(true);
+    const proyectoId = await getDefaultProjectId();
+    if (!proyectoId) {
+      setSaving(false);
+      toast({
+        title: "Error",
+        description: "No se pudo asignar un proyecto a la tarea",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('tareas')
+      .insert({
+        titulo: editForm.titulo.trim(),
+        descripcion: editForm.descripcion.trim() || null,
+        fecha_limite: editForm.fecha_limite || null,
+        estado: editForm.estado,
+        asignado_a_id: empleadoId,
+        proyecto_id: proyectoId,
+      })
+      .select('*')
+      .single();
+    setSaving(false);
+
+    if (error || !data) {
+      console.error('Error creating task:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la tarea",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTasks(prev => (prev.some(t => t.id === data.id) ? prev : [...prev, data]));
+    closeDialog();
+    toast({
+      title: "Tarea creada",
+      description: "La tarea se ha creado correctamente",
+    });
+  };
+
   const saveEdit = async () => {
-    if (!editingTask) return;
     if (!editForm.titulo.trim()) {
       toast({
         title: "Error",
@@ -209,6 +292,11 @@ export default function Tareas() {
       });
       return;
     }
+    if (creating) {
+      await saveCreate();
+      return;
+    }
+    if (!editingTask) return;
 
     const changes = {
       titulo: editForm.titulo.trim(),
@@ -255,7 +343,7 @@ export default function Tareas() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={openCreate} disabled={!empleadoId}>
             <Plus className="w-4 h-4" />
             Nueva Tarea
           </Button>
@@ -337,10 +425,10 @@ export default function Tareas() {
         </div>
       )}
 
-      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+      <Dialog open={creating || !!editingTask} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar tarea</DialogTitle>
+            <DialogTitle>{creating ? "Nueva tarea" : "Editar tarea"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -391,11 +479,11 @@ export default function Tareas() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingTask(null)} disabled={saving}>
+            <Button variant="outline" onClick={closeDialog} disabled={saving}>
               Cancelar
             </Button>
             <Button onClick={saveEdit} disabled={saving}>
-              {saving ? "Guardando..." : "Guardar cambios"}
+              {saving ? "Guardando..." : creating ? "Crear tarea" : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
