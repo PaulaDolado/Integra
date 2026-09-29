@@ -10,8 +10,7 @@ import {
   User,
   GraduationCap,
   Plane,
-  Clock,
-  ChevronRight
+  Clock
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
@@ -86,7 +85,6 @@ export function AppSidebar() {
                     >
                       <item.icon className="w-4 h-4" />
                       {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                      {!isCollapsed && <ChevronRight className="w-3 h-3 ml-auto opacity-50" />}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -114,7 +112,6 @@ export function AppSidebar() {
                     >
                       <item.icon className="w-4 h-4" />
                       {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                      {!isCollapsed && <ChevronRight className="w-3 h-3 ml-auto opacity-50" />}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
