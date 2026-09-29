@@ -604,9 +604,16 @@ export type Database = {
           created_at: string
           descripcion: string | null
           estado: Database["public"]["Enums"]["tarea_estado"]
+          etiquetas: string[]
           fecha_limite: string | null
           id: string
-          proyecto_id: string
+          imagen_path: string | null
+          propiedades: Json
+          proyecto_id: string | null
+          resumen: string | null
+          subtareas: Json
+          tiempo_estimado_min: number | null
+          tiempo_real_min: number
           titulo: string
           updated_at: string
         }
@@ -615,9 +622,16 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["tarea_estado"]
+          etiquetas?: string[]
           fecha_limite?: string | null
           id?: string
-          proyecto_id: string
+          imagen_path?: string | null
+          propiedades?: Json
+          proyecto_id?: string | null
+          resumen?: string | null
+          subtareas?: Json
+          tiempo_estimado_min?: number | null
+          tiempo_real_min?: number
           titulo: string
           updated_at?: string
         }
@@ -626,9 +640,16 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["tarea_estado"]
+          etiquetas?: string[]
           fecha_limite?: string | null
           id?: string
-          proyecto_id?: string
+          imagen_path?: string | null
+          propiedades?: Json
+          proyecto_id?: string | null
+          resumen?: string | null
+          subtareas?: Json
+          tiempo_estimado_min?: number | null
+          tiempo_real_min?: number
           titulo?: string
           updated_at?: string
         }

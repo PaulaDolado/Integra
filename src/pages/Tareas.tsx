@@ -1,39 +1,13 @@
 import { useState, useEffect } from "react";
-import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle, Pencil } from "lucide-react";
+import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle, Pencil, ListChecks, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-type TaskStatus = 'pendiente' | 'en_progreso' | 'completado';
-
-interface Task {
-  id: string;
-  titulo: string;
-  descripcion: string | null;
-  estado: TaskStatus;
-  fecha_limite: string | null;
-  proyecto_id: string;
-}
+import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
+import { type Task, type TaskStatus, getSubtareas } from "@/components/tareas/task-utils";
 
 const COLUMNS: { status: TaskStatus; title: string; empty: string; icon: typeof Clock; iconClass: string }[] = [
   { status: "pendiente", title: "Pendientes", empty: "No hay tareas pendientes", icon: AlertCircle, iconClass: "text-pending" },
@@ -41,50 +15,22 @@ const COLUMNS: { status: TaskStatus; title: string; empty: string; icon: typeof 
   { status: "completado", title: "Completadas", empty: "No hay tareas completadas", icon: CheckCircle, iconClass: "text-success" },
 ];
 
-const emptyForm = { titulo: "", descripcion: "", fecha_limite: "", estado: "pendiente" as TaskStatus };
-
-const getStatusConfig = (status: string) => {
-  switch (status) {
-    case "completado":
-      return {
-        icon: CheckCircle,
-        color: "success",
-        label: "Completada",
-        variant: "default" as const,
-      };
-    case "en_progreso":
-      return {
-        icon: Clock,
-        color: "warning",
-        label: "En Progreso",
-        variant: "secondary" as const,
-      };
-    default:
-      return {
-        icon: AlertCircle,
-        color: "pending",
-        label: "Pendiente",
-        variant: "outline" as const,
-      };
-  }
-};
+const MAX_CARD_TAGS = 3;
 
 export default function Tareas() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [editForm, setEditForm] = useState(emptyForm);
+  // undefined = cerrado, null = nueva tarea
+  const [openTask, setOpenTask] = useState<Task | null | undefined>(undefined);
   const [empleadoId, setEmpleadoId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTasks();
-    
+
     // Setup realtime subscription
     const channel = supabase
       .channel('tareas-page-changes')
@@ -192,142 +138,16 @@ export default function Tareas() {
     }
   };
 
-  const openEdit = (task: Task) => {
-    setEditingTask(task);
-    setEditForm({
-      titulo: task.titulo,
-      descripcion: task.descripcion ?? "",
-      fecha_limite: task.fecha_limite ? task.fecha_limite.slice(0, 10) : "",
-      estado: task.estado,
-    });
+  const handleSaved = (saved: Task) => {
+    setTasks(prev =>
+      prev.some(t => t.id === saved.id) ? prev.map(t => (t.id === saved.id ? saved : t)) : [...prev, saved]
+    );
+    setOpenTask(undefined);
   };
 
-  const openCreate = () => {
-    setEditingTask(null);
-    setEditForm(emptyForm);
-    setCreating(true);
-  };
-
-  const closeDialog = () => {
-    setEditingTask(null);
-    setCreating(false);
-  };
-
-  // Las tareas cuelgan de un proyecto: se usa el primero o se crea uno general
-  const getDefaultProjectId = async () => {
-    const { data: proyectos } = await supabase.from('proyectos').select('id').limit(1);
-    if (proyectos && proyectos.length > 0) return proyectos[0].id;
-
-    const today = new Date();
-    const nextYear = new Date(today);
-    nextYear.setFullYear(today.getFullYear() + 1);
-    const { data: newProject, error } = await supabase
-      .from('proyectos')
-      .insert({
-        nombre: 'Proyecto General',
-        descripcion: 'Proyecto por defecto para tareas',
-        fecha_inicio: today.toISOString().split('T')[0],
-        fecha_fin: nextYear.toISOString().split('T')[0],
-        estado: 'en_progreso',
-      })
-      .select('id')
-      .single();
-    if (error) console.error('Error creating default project:', error);
-    return newProject?.id ?? null;
-  };
-
-  const saveCreate = async () => {
-    if (!empleadoId) return;
-
-    setSaving(true);
-    const proyectoId = await getDefaultProjectId();
-    if (!proyectoId) {
-      setSaving(false);
-      toast({
-        title: "Error",
-        description: "No se pudo asignar un proyecto a la tarea",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('tareas')
-      .insert({
-        titulo: editForm.titulo.trim(),
-        descripcion: editForm.descripcion.trim() || null,
-        fecha_limite: editForm.fecha_limite || null,
-        estado: editForm.estado,
-        asignado_a_id: empleadoId,
-        proyecto_id: proyectoId,
-      })
-      .select('*')
-      .single();
-    setSaving(false);
-
-    if (error || !data) {
-      console.error('Error creating task:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo crear la tarea",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setTasks(prev => (prev.some(t => t.id === data.id) ? prev : [...prev, data]));
-    closeDialog();
-    toast({
-      title: "Tarea creada",
-      description: "La tarea se ha creado correctamente",
-    });
-  };
-
-  const saveEdit = async () => {
-    if (!editForm.titulo.trim()) {
-      toast({
-        title: "Error",
-        description: "El título es obligatorio",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (creating) {
-      await saveCreate();
-      return;
-    }
-    if (!editingTask) return;
-
-    const changes = {
-      titulo: editForm.titulo.trim(),
-      descripcion: editForm.descripcion.trim() || null,
-      fecha_limite: editForm.fecha_limite || null,
-      estado: editForm.estado,
-    };
-
-    setSaving(true);
-    const { error } = await supabase
-      .from('tareas')
-      .update(changes)
-      .eq('id', editingTask.id);
-    setSaving(false);
-
-    if (error) {
-      console.error('Error editing task:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron guardar los cambios",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setTasks(prev => prev.map(t => (t.id === editingTask.id ? { ...t, ...changes } : t)));
-    setEditingTask(null);
-    toast({
-      title: "Tarea actualizada",
-      description: "Los cambios se han guardado correctamente",
-    });
+  const handleDeleted = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setOpenTask(undefined);
   };
 
   return (
@@ -343,7 +163,7 @@ export default function Tareas() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button className="gap-2" onClick={openCreate} disabled={!empleadoId}>
+          <Button className="gap-2" onClick={() => setOpenTask(null)} disabled={!empleadoId}>
             <Plus className="w-4 h-4" />
             Nueva Tarea
           </Button>
@@ -388,35 +208,69 @@ export default function Tareas() {
                       {empty}
                     </p>
                   ) : (
-                    columnTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, task)}
-                        onDragEnd={handleDragEnd}
-                        onClick={() => openEdit(task)}
-                        className={`group p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md ${
-                          status === 'completado' ? 'opacity-75' : ''
-                        } ${draggedTask?.id === task.id ? 'opacity-40' : ''}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className={`font-medium text-sm mb-1 ${status === 'completado' ? 'line-through' : ''}`}>
-                            {task.titulo}
-                          </h4>
-                          <Pencil className="w-3.5 h-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    columnTasks.map((task) => {
+                      const subtareas = getSubtareas(task);
+                      const hechas = subtareas.filter(s => s.completada).length;
+                      const resumen = task.resumen || task.descripcion;
+                      const etiquetas = task.etiquetas ?? [];
+
+                      return (
+                        <div
+                          key={task.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, task)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => setOpenTask(task)}
+                          className={`group p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md ${
+                            status === 'completado' ? 'opacity-75' : ''
+                          } ${draggedTask?.id === task.id ? 'opacity-40' : ''}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className={`font-medium text-sm mb-1 ${status === 'completado' ? 'line-through' : ''}`}>
+                              {task.titulo}
+                            </h4>
+                            <Pencil className="w-3.5 h-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                          </div>
+                          {resumen && (
+                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                              {resumen}
+                            </p>
+                          )}
+                          {etiquetas.length > 0 && (
+                            <div className="mb-2 flex flex-wrap gap-1">
+                              {etiquetas.slice(0, MAX_CARD_TAGS).map((etiqueta) => (
+                                <Badge key={etiqueta} variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">
+                                  {etiqueta}
+                                </Badge>
+                              ))}
+                              {etiquetas.length > MAX_CARD_TAGS && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  +{etiquetas.length - MAX_CARD_TAGS}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            {task.fecha_limite && (
+                              <span>Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}</span>
+                            )}
+                            {subtareas.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <ListChecks className="w-3 h-3" />
+                                {hechas}/{subtareas.length}
+                              </span>
+                            )}
+                            {(task.tiempo_estimado_min || (task.tiempo_real_min ?? 0) > 0) && (
+                              <span className="flex items-center gap-1">
+                                <Timer className="w-3 h-3" />
+                                {task.tiempo_real_min ?? 0}
+                                {task.tiempo_estimado_min ? `/${task.tiempo_estimado_min}` : ""} min
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {task.descripcion && (
-                          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                            {task.descripcion}
-                          </p>
-                        )}
-                        {task.fecha_limite && (
-                          <p className="text-xs text-muted-foreground">
-                            Vence: {new Date(task.fecha_limite).toLocaleDateString("es-ES")}
-                          </p>
-                        )}
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </CardContent>
               </Card>
@@ -425,69 +279,14 @@ export default function Tareas() {
         </div>
       )}
 
-      <Dialog open={creating || !!editingTask} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{creating ? "Nueva tarea" : "Editar tarea"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-titulo">Título *</Label>
-              <Input
-                id="edit-titulo"
-                value={editForm.titulo}
-                onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-descripcion">Descripción</Label>
-              <Textarea
-                id="edit-descripcion"
-                rows={4}
-                value={editForm.descripcion}
-                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-fecha">Fecha límite</Label>
-                <Input
-                  id="edit-fecha"
-                  type="date"
-                  value={editForm.fecha_limite}
-                  onChange={(e) => setEditForm({ ...editForm, fecha_limite: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-estado">Estado</Label>
-                <Select
-                  value={editForm.estado}
-                  onValueChange={(value) => setEditForm({ ...editForm, estado: value as TaskStatus })}
-                >
-                  <SelectTrigger id="edit-estado">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COLUMNS.map((c) => (
-                      <SelectItem key={c.status} value={c.status}>
-                        {getStatusConfig(c.status).label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button onClick={saveEdit} disabled={saving}>
-              {saving ? "Guardando..." : creating ? "Crear tarea" : "Guardar cambios"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TaskDetailDialog
+        open={openTask !== undefined}
+        task={openTask ?? null}
+        empleadoId={empleadoId}
+        onClose={() => setOpenTask(undefined)}
+        onSaved={handleSaved}
+        onDeleted={handleDeleted}
+      />
     </div>
   );
 }
