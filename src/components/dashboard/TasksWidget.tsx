@@ -1,25 +1,15 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, AlertCircle, Plus, Trash2, List, Kanban } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, Plus, List, Kanban } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-
-interface Task {
-  id: string;
-  titulo: string;
-  estado: string;
-  fecha_limite: string | null;
-}
+import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
+import { type Task, type TaskStatus } from "@/components/tareas/task-utils";
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -50,7 +40,6 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-type TaskStatus = 'pendiente' | 'en_progreso' | 'completado';
 type TasksView = 'filas' | 'kanban';
 
 const VIEW_STORAGE_KEY = 'integra:tasks-view';
@@ -70,21 +59,15 @@ export function TasksWidget() {
   const [view, setView] = useState<TasksView>(getStoredView);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [taskForm, setTaskForm] = useState({
-    titulo: '',
-    descripcion: '',
-    fecha_limite: ''
-  });
+  // undefined = cerrado, null = nueva tarea
+  const [openTask, setOpenTask] = useState<Task | null | undefined>(undefined);
+  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTasks();
-    
+
     // Setup realtime subscription
     const channel = supabase
       .channel('tasks-changes')
@@ -123,11 +106,12 @@ export function TasksWidget() {
         setLoading(false);
         return;
       }
+      setEmpleadoId(employeeData.id);
 
       // Then get tasks assigned to this employee
       const { data, error } = await supabase
         .from('tareas')
-        .select('id, titulo, estado, fecha_limite')
+        .select('*')
         .eq('asignado_a_id', employeeData.id)
         .order('fecha_limite', { ascending: true, nullsFirst: false })
         .limit(10);
@@ -149,95 +133,6 @@ export function TasksWidget() {
     }
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user) return;
-
-    try {
-      const { data: employeeData } = await supabase
-        .from('empleados')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!employeeData) return;
-
-      // Get or create a default project
-      let { data: proyectos } = await supabase
-        .from('proyectos')
-        .select('id')
-        .limit(1);
-
-      let proyectoId;
-      
-      if (!proyectos || proyectos.length === 0) {
-        // Create a default project if none exists
-        const { data: newProject, error: projectError } = await supabase
-          .from('proyectos')
-          .insert([
-            {
-              nombre: 'Proyecto General',
-              descripcion: 'Proyecto por defecto para tareas',
-              fecha_inicio: new Date().toISOString().split('T')[0],
-              fecha_fin: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-              estado: 'en_progreso'
-            }
-          ])
-          .select()
-          .single();
-
-        if (projectError || !newProject) {
-          toast({
-            title: "Error",
-            description: "No se pudo crear el proyecto",
-            variant: "destructive",
-          });
-          return;
-        }
-        proyectoId = newProject.id;
-      } else {
-        proyectoId = proyectos[0].id;
-      }
-
-      const { error } = await supabase
-        .from('tareas')
-        .insert([
-          {
-            titulo: taskForm.titulo,
-            descripcion: taskForm.descripcion,
-            fecha_limite: taskForm.fecha_limite || null,
-            asignado_a_id: employeeData.id,
-            proyecto_id: proyectoId,
-            estado: 'pendiente'
-          }
-        ]);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "No se pudo crear la tarea",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Tarea creada",
-          description: "La tarea se ha creado exitosamente",
-        });
-        setIsCreateOpen(false);
-        setTaskForm({ titulo: '', descripcion: '', fecha_limite: '' });
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
-  };
-
-  const handleEditTask = (task: Task) => {
-    setSelectedTask(task);
-    setIsEditOpen(true);
-  };
-
   const handleViewChange = (value: string) => {
     if (value !== 'filas' && value !== 'kanban') return;
     setView(value);
@@ -255,63 +150,39 @@ export function TasksWidget() {
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.estado === status) return;
 
-    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, estado: status } : t)));
-    handleUpdateTaskStatus(taskId, status);
+    handleUpdateTaskStatus(task, status);
   };
 
-  const handleUpdateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
-    try {
-      const { error } = await supabase
-        .from('tareas')
-        .update({ estado: newStatus })
-        .eq('id', taskId);
+  const handleUpdateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
+    // Se mueve la tarjeta al instante y se revierte si Supabase falla
+    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: newStatus } : t)));
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "No se pudo actualizar la tarea",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Tarea actualizada",
-          description: "El estado de la tarea se ha actualizado",
-        });
-        fetchTasks();
-      }
-    } catch (error) {
+    const { error } = await supabase
+      .from('tareas')
+      .update({ estado: newStatus })
+      .eq('id', task.id);
+
+    if (error) {
       console.error('Error updating task:', error);
+      setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: task.estado } : t)));
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la tarea",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDeleteTask = async () => {
-    if (!selectedTask) return;
+  const handleSaved = (saved: Task) => {
+    setTasks(prev =>
+      prev.some(t => t.id === saved.id) ? prev.map(t => (t.id === saved.id ? saved : t)) : [...prev, saved]
+    );
+    setOpenTask(undefined);
+  };
 
-    try {
-      const { error } = await supabase
-        .from('tareas')
-        .delete()
-        .eq('id', selectedTask.id);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "No se pudo eliminar la tarea",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Tarea eliminada",
-          description: "La tarea se ha eliminado exitosamente",
-        });
-        setIsDeleteAlertOpen(false);
-        setIsEditOpen(false);
-        setSelectedTask(null);
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error deleting task:', error);
-    }
+  const handleDeleted = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setOpenTask(undefined);
   };
 
   const completedTasks = tasks.filter(task => task.estado === "completado").length;
@@ -344,141 +215,11 @@ export function TasksWidget() {
               <Kanban className="w-4 h-4" />
             </ToggleGroupItem>
           </ToggleGroup>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Nueva Tarea
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Crear Nueva Tarea</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateTask} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="titulo">Título</Label>
-                  <Input
-                    id="titulo"
-                    value={taskForm.titulo}
-                    onChange={(e) => setTaskForm({ ...taskForm, titulo: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="descripcion">Descripción</Label>
-                  <Textarea
-                    id="descripcion"
-                    value={taskForm.descripcion}
-                    onChange={(e) => setTaskForm({ ...taskForm, descripcion: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fecha_limite">Fecha límite</Label>
-                  <Input
-                    id="fecha_limite"
-                    type="date"
-                    value={taskForm.fecha_limite}
-                    onChange={(e) => setTaskForm({ ...taskForm, fecha_limite: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">Crear</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button size="sm" className="gap-2" onClick={() => setOpenTask(null)} disabled={!empleadoId}>
+            <Plus className="w-4 h-4" />
+            Nueva Tarea
+          </Button>
         </div>
-
-        {/* Edit Task Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Tarea</DialogTitle>
-            </DialogHeader>
-            {selectedTask && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título</Label>
-                  <p className="text-sm font-medium">{selectedTask.titulo}</p>
-                </div>
-                {selectedTask.fecha_limite && (
-                  <div className="space-y-2">
-                    <Label>Fecha límite</Label>
-                    <p className="text-sm">{new Date(selectedTask.fecha_limite).toLocaleDateString("es-ES")}</p>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={selectedTask.estado === 'pendiente' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        handleUpdateTaskStatus(selectedTask.id, 'pendiente');
-                        setIsEditOpen(false);
-                      }}
-                    >
-                      Pendiente
-                    </Button>
-                    <Button
-                      variant={selectedTask.estado === 'en_progreso' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        handleUpdateTaskStatus(selectedTask.id, 'en_progreso');
-                        setIsEditOpen(false);
-                      }}
-                    >
-                      En Progreso
-                    </Button>
-                    <Button
-                      variant={selectedTask.estado === 'completado' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        handleUpdateTaskStatus(selectedTask.id, 'completado');
-                        setIsEditOpen(false);
-                      }}
-                    >
-                      Completada
-                    </Button>
-                  </div>
-                </div>
-                <div className="pt-4 border-t">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => setIsDeleteAlertOpen(true)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Eliminar Tarea
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. La tarea será eliminada permanentemente.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteTask}>
-                Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
@@ -543,7 +284,7 @@ export function TasksWidget() {
                               e.dataTransfer.effectAllowed = 'move';
                             }}
                             onDragEnd={() => setDragOverColumn(null)}
-                            onClick={() => handleEditTask(task)}
+                            onClick={() => setOpenTask(task)}
                             className="p-2.5 rounded-md border border-border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing"
                           >
                             <p className="text-sm font-medium text-foreground line-clamp-2">
@@ -602,12 +343,12 @@ export function TasksWidget() {
                 tasks.slice(0, 3).map((task) => {
                   const statusConfig = getStatusConfig(task.estado);
                   const Icon = statusConfig.icon;
-                  
+
                   return (
-                    <div 
-                      key={task.id} 
+                    <div
+                      key={task.id}
                       className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => handleEditTask(task)}
+                      onClick={() => setOpenTask(task)}
                     >
                       <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
                         <Icon className={`w-3 h-3 ${statusConfig.textColor}`} />
@@ -633,6 +374,15 @@ export function TasksWidget() {
           </>
         )}
       </CardContent>
+
+      <TaskDetailDialog
+        open={openTask !== undefined}
+        task={openTask ?? null}
+        empleadoId={empleadoId}
+        onClose={() => setOpenTask(undefined)}
+        onSaved={handleSaved}
+        onDeleted={handleDeleted}
+      />
     </Card>
   );
 }
