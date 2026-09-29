@@ -191,6 +191,21 @@ export function CalendarWidget() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // creador_id apunta a empleados, no al usuario de autenticación
+    const { data: empleado } = await supabase
+      .from("empleados")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!empleado) {
+      toast({
+        title: "Error",
+        description: "Tu usuario no tiene un perfil de empleado asociado",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase.from("eventos").insert({
       titulo: formData.titulo,
       descripcion: formData.descripcion,
@@ -198,7 +213,7 @@ export function CalendarWidget() {
       fecha_fin: formData.fecha_fin,
       ubicacion: formData.ubicacion,
       es_privado: formData.es_privado,
-      creador_id: user.id,
+      creador_id: empleado.id,
     });
 
     if (error) {
