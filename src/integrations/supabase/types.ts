@@ -290,6 +290,7 @@ export type Database = {
           created_at: string
           departamento_id: string | null
           direccion: string | null
+          es_admin: boolean
           fecha_ingreso: string
           id: string
           idioma: string
@@ -313,6 +314,7 @@ export type Database = {
           created_at?: string
           departamento_id?: string | null
           direccion?: string | null
+          es_admin?: boolean
           fecha_ingreso?: string
           id?: string
           idioma?: string
@@ -336,6 +338,7 @@ export type Database = {
           created_at?: string
           departamento_id?: string | null
           direccion?: string | null
+          es_admin?: boolean
           fecha_ingreso?: string
           id?: string
           idioma?: string

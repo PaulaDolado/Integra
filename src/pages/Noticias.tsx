@@ -266,7 +266,12 @@ export default function Noticias() {
                     <Trash2 className="w-4 h-4" />
                     Eliminar
                   </Button>
-                  <Button variant="outline" className="gap-2" onClick={() => setEditando(abierta)}>
+                  <Button variant="outline" className="gap-2" onClick={() => {
+                      // Sustituye el detalle por el formulario (sin dos diálogos apilados)
+                      setEditando(abierta);
+                      setAbierta(null);
+                    }}
+                  >
                     <Pencil className="w-4 h-4" />
                     Editar
                   </Button>
