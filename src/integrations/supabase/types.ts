@@ -598,41 +598,50 @@ export type Database = {
       }
       solicitudes_vacacion: {
         Row: {
+          comentario_revision: string | null
           created_at: string
           empleado_id: string
           estado: Database["public"]["Enums"]["vacacion_estado"]
+          fecha_revision: string | null
           fecha_fin: string
           fecha_inicio: string
           id: string
           justificante_path: string | null
           motivo: string | null
           razon_especifica: string | null
+          revisado_por: string | null
           tipo_ausencia: string
           updated_at: string
         }
         Insert: {
+          comentario_revision?: string | null
           created_at?: string
           empleado_id: string
           estado?: Database["public"]["Enums"]["vacacion_estado"]
+          fecha_revision?: string | null
           fecha_fin: string
           fecha_inicio: string
           id?: string
           justificante_path?: string | null
           motivo?: string | null
           razon_especifica?: string | null
+          revisado_por?: string | null
           tipo_ausencia?: string
           updated_at?: string
         }
         Update: {
+          comentario_revision?: string | null
           created_at?: string
           empleado_id?: string
           estado?: Database["public"]["Enums"]["vacacion_estado"]
+          fecha_revision?: string | null
           fecha_fin?: string
           fecha_inicio?: string
           id?: string
           justificante_path?: string | null
           motivo?: string | null
           razon_especifica?: string | null
+          revisado_por?: string | null
           tipo_ausencia?: string
           updated_at?: string
         }
@@ -788,6 +797,27 @@ export type Database = {
         Args: { nombre_grupo: string; participantes: string[] }
         Returns: string
       }
+      bandeja_ausencias: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          empleado_id: string
+          empleado_nombre: string
+          departamento: string | null
+          tipo_ausencia: string
+          razon_especifica: string | null
+          fecha_inicio: string
+          fecha_fin: string
+          motivo: string | null
+          justificante_path: string | null
+          estado: Database["public"]["Enums"]["vacacion_estado"]
+          created_at: string
+          revisado_por_nombre: string | null
+          fecha_revision: string | null
+          comentario_revision: string | null
+          es_mia: boolean
+        }[]
+      }
       directorio_empleados: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -816,6 +846,14 @@ export type Database = {
       mis_permisos: {
         Args: Record<PropertyKey, never>
         Returns: string[]
+      }
+      revisar_ausencia: {
+        Args: {
+          solicitud_id: string
+          decision: Database["public"]["Enums"]["vacacion_estado"]
+          comentario?: string
+        }
+        Returns: undefined
       }
       tengo_permiso: {
         Args: { codigo: string }

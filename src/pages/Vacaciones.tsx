@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Calendar, Loader2, Plus, Filter, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -26,6 +25,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import {
+  TIPOS_AUSENCIA,
+  RAZONES_ESPECIFICAS,
+  getTipoLabel,
+  getRazonLabel,
+  calcularDias,
+} from "@/components/ausencias/tipos";
+import { EstadoAusenciaBadge } from "@/components/ausencias/EstadoAusenciaBadge";
+
 interface AbsenceRequest {
   id: string;
   tipo_ausencia: string;
@@ -36,35 +44,12 @@ interface AbsenceRequest {
   motivo: string | null;
   estado: "pendiente" | "aprobada" | "rechazada";
   created_at: string;
+  fecha_revision: string | null;
+  comentario_revision: string | null;
 }
-
-const TIPOS_AUSENCIA = [
-  { value: "vacaciones", label: "Vacaciones" },
-  { value: "compensacion_dias_trabajados", label: "Compensación de días trabajados" },
-  { value: "asunto_familiar", label: "Asunto familiar" },
-  { value: "asunto_personal", label: "Asunto personal" },
-  { value: "permisos", label: "Permisos" },
-  { value: "teletrabajo", label: "Teletrabajo" },
-  { value: "visita_medica", label: "Visita médica" },
-  { value: "cuidado_hijos", label: "Cuidado de hijos" },
-];
-
-// Razones específicas por tipo de ausencia; se irán añadiendo para el resto de tipos
-const RAZONES_ESPECIFICAS: Record<string, { value: string; label: string }[]> = {
-  compensacion_dias_trabajados: [
-    { value: "descanso_horas_extras", label: "Descanso por horas extras" },
-    { value: "descanso_festivo_trabajado", label: "Descanso por festivo trabajado" },
-  ],
-};
 
 const JUSTIFICANTE_MAX_BYTES = 5 * 1024 * 1024;
 const JUSTIFICANTE_ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx";
-
-const getTipoLabel = (value: string) =>
-  TIPOS_AUSENCIA.find((t) => t.value === value)?.label ?? value;
-
-const getRazonLabel = (tipo: string, value: string) =>
-  RAZONES_ESPECIFICAS[tipo]?.find((r) => r.value === value)?.label ?? value;
 
 const emptyForm = {
   tipo_ausencia: "",
@@ -95,9 +80,22 @@ export default function Vacaciones() {
   }, [user]);
 
   useEffect(() => {
-    if (empleadoId) {
-      fetchRequests();
-    }
+    if (!empleadoId) return;
+    fetchRequests();
+
+    // Cuando RRHH o Dirección revisan una solicitud, el historial se actualiza solo
+    const channel = supabase
+      .channel("mis-ausencias-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "solicitudes_vacacion", filter: `empleado_id=eq.${empleadoId}` },
+        () => fetchRequests()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [empleadoId, filterStatus]);
 
   const fetchEmpleadoId = async () => {
@@ -278,27 +276,6 @@ export default function Vacaciones() {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
-  const getStatusBadge = (estado: string) => {
-    switch (estado) {
-      case "pendiente":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Pendiente</Badge>;
-      case "aprobada":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Aprobada</Badge>;
-      case "rechazada":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Rechazada</Badge>;
-      default:
-        return <Badge variant="outline">{estado}</Badge>;
-    }
-  };
-
-  const calculateDays = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
-  };
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -471,11 +448,11 @@ export default function Vacaciones() {
                           {format(new Date(request.fecha_inicio), "dd 'de' MMMM", { locale: es })} -{" "}
                           {format(new Date(request.fecha_fin), "dd 'de' MMMM yyyy", { locale: es })}
                           {" · "}
-                          {calculateDays(request.fecha_inicio, request.fecha_fin)} día(s)
+                          {calcularDias(request.fecha_inicio, request.fecha_fin)} día(s)
                         </div>
                       </div>
                     </div>
-                    {getStatusBadge(request.estado)}
+                    <EstadoAusenciaBadge estado={request.estado} />
                   </div>
                   {request.razon_especifica && (
                     <div className="mt-2 text-sm text-muted-foreground pl-8">
@@ -503,7 +480,19 @@ export default function Vacaciones() {
                   )}
                   <div className="mt-2 text-xs text-muted-foreground pl-8">
                     Solicitado el {format(new Date(request.created_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
+                    {request.fecha_revision && request.estado !== "pendiente" && (
+                      <>
+                        {" · "}
+                        {request.estado === "aprobada" ? "Aprobada" : "Rechazada"} el{" "}
+                        {format(new Date(request.fecha_revision), "dd/MM/yyyy", { locale: es })}
+                      </>
+                    )}
                   </div>
+                  {request.comentario_revision && (
+                    <div className="mt-2 ml-8 rounded-md bg-muted px-3 py-2 text-sm">
+                      <span className="font-medium">Comentario de la revisión:</span> {request.comentario_revision}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

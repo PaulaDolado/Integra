@@ -9,9 +9,11 @@ import {
   Users,
   GraduationCap,
   Plane,
-  Clock
+  Clock,
+  Inbox
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { usePermisos, type Permiso } from "@/hooks/usePermisos";
 import {
   Sidebar,
   SidebarContent,
@@ -42,9 +44,16 @@ const requestItems = [
   { title: "Cambio de Turno", url: "/cambio-turno", icon: Clock },
 ];
 
+// Pantallas de gestión: solo se muestran a los departamentos con el permiso
+const managementItems: { title: string; url: string; icon: typeof Inbox; permiso: Permiso }[] = [
+  { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permiso: "ausencias.aprobar" },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const { tiene } = usePermisos();
+  const visibleManagementItems = managementItems.filter((item) => tiene(item.permiso));
 
   return (
     <Sidebar className="border-r border-border bg-card">
@@ -117,6 +126,35 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {visibleManagementItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Gestión</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleManagementItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild className="h-10">
+                      <NavLink
+                        to={item.url}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                            isActive
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+                          }`
+                        }
+                      >
+                        <item.icon className="w-4 h-4" />
+                        {!isCollapsed && <span className="text-sm">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
