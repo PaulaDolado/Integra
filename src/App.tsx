@@ -19,6 +19,7 @@ import Organigrama from "./pages/Organigrama";
 import Fichajes from "./pages/Fichajes";
 import Vacaciones from "./pages/Vacaciones";
 import BandejaAusencias from "./pages/BandejaAusencias";
+import GestionEmpleados from "./pages/GestionEmpleados";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -119,6 +120,13 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <div className="p-6"><h1 className="text-2xl font-bold">Inscripción a Cursos</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/gestion-empleados" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <GestionEmpleados />
                 </AppLayout>
               </ProtectedRoute>
             } />

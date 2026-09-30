@@ -11,6 +11,7 @@ import {
   Plane,
   Clock,
   Inbox,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router-dom";
@@ -54,6 +55,7 @@ const requestItems: NavEntry[] = [
 // Pantallas de gestión: solo se muestran a los departamentos con el permiso
 const managementItems: (NavEntry & { permiso: Permiso })[] = [
   { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permiso: "ausencias.aprobar" },
+  { title: "Gestión de Empleados", url: "/gestion-empleados", icon: UserCog, permiso: "empleados.gestionar" },
 ];
 
 // El estado activo se pasa a SidebarMenuButton: con asChild, un className en

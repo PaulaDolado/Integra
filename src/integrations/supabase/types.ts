@@ -302,7 +302,7 @@ export type Database = {
           primer_apellido: string
           segundo_apellido: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           activo?: boolean
@@ -326,7 +326,7 @@ export type Database = {
           primer_apellido: string
           segundo_apellido: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           activo?: boolean
@@ -350,7 +350,7 @@ export type Database = {
           primer_apellido?: string
           segundo_apellido?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -837,6 +837,41 @@ export type Database = {
       es_participante: {
         Args: { conv_id: string }
         Returns: boolean
+      }
+      gestion_empleados: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          nombre: string
+          primer_apellido: string
+          segundo_apellido: string
+          correo_electronico: string
+          numero_telefono: string | null
+          cargo_id: string | null
+          cargo: string | null
+          departamento_id: string | null
+          departamento: string | null
+          fecha_ingreso: string
+          activo: boolean
+          es_admin: boolean
+          tiene_cuenta: boolean
+          es_yo: boolean | null
+        }[]
+      }
+      guardar_empleado: {
+        Args: {
+          p_id: string | null
+          p_nombre: string
+          p_primer_apellido: string
+          p_segundo_apellido: string
+          p_correo: string
+          p_telefono: string | null
+          p_cargo_id: string | null
+          p_departamento_id: string | null
+          p_fecha_ingreso: string | null
+          p_activo: boolean
+        }
+        Returns: string
       }
       marcar_conversacion_leida: {
         Args: { conv_id: string }
