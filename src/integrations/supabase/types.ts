@@ -530,6 +530,27 @@ export type Database = {
         }
         Relationships: []
       }
+      plantillas_solucion: {
+        Row: {
+          contenido: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          contenido: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          contenido?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
       proyecto_miembros: {
         Row: {
           created_at: string
@@ -730,17 +751,61 @@ export type Database = {
           },
         ]
       }
+      ticket_seguimientos: {
+        Row: {
+          autor_id: string | null
+          contenido: string
+          created_at: string
+          id: string
+          ticket_id: string
+          tipo: string
+        }
+        Insert: {
+          autor_id?: string | null
+          contenido: string
+          created_at?: string
+          id?: string
+          ticket_id: string
+          tipo: string
+        }
+        Update: {
+          autor_id?: string | null
+          contenido?: string
+          created_at?: string
+          id?: string
+          ticket_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_seguimientos_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_seguimientos_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           asignado_a_id: string | null
           autor_id: string
           created_at: string
           descripcion: string
-          estado: Database["public"]["Enums"]["ticket_estado"]
+          estado: string
           fecha_cierre: string | null
           fecha_creacion: string
+          fecha_resolucion: string | null
           id: string
-          prioridad: Database["public"]["Enums"]["ticket_prioridad"]
+          prioridad: string
+          tipo: string
           titulo: string
           updated_at: string
         }
@@ -749,11 +814,13 @@ export type Database = {
           autor_id: string
           created_at?: string
           descripcion: string
-          estado?: Database["public"]["Enums"]["ticket_estado"]
+          estado?: string
           fecha_cierre?: string | null
           fecha_creacion?: string
+          fecha_resolucion?: string | null
           id?: string
-          prioridad?: Database["public"]["Enums"]["ticket_prioridad"]
+          prioridad?: string
+          tipo?: string
           titulo: string
           updated_at?: string
         }
@@ -762,11 +829,13 @@ export type Database = {
           autor_id?: string
           created_at?: string
           descripcion?: string
-          estado?: Database["public"]["Enums"]["ticket_estado"]
+          estado?: string
           fecha_cierre?: string | null
           fecha_creacion?: string
+          fecha_resolucion?: string | null
           id?: string
-          prioridad?: Database["public"]["Enums"]["ticket_prioridad"]
+          prioridad?: string
+          tipo?: string
           titulo?: string
           updated_at?: string
         }
@@ -799,6 +868,16 @@ export type Database = {
       crear_grupo: {
         Args: { nombre_grupo: string; participantes: string[] }
         Returns: string
+      }
+      actualizar_ticket: {
+        Args: {
+          p_ticket: string
+          p_tipo: string
+          p_prioridad: string
+          p_estado: string
+          p_asignado: string | null
+        }
+        Returns: undefined
       }
       bandeja_ausencias: {
         Args: Record<PropertyKey, never>
@@ -885,6 +964,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string[]
       }
+      personas_tickets: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nombre: string }[]
+      }
+      responder_ticket: {
+        Args: { p_ticket: string; p_contenido: string }
+        Returns: undefined
+      }
       revisar_ausencia: {
         Args: {
           solicitud_id: string
@@ -893,9 +980,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      solucionar_ticket: {
+        Args: { p_ticket: string; p_contenido: string }
+        Returns: undefined
+      }
+      tecnicos_tickets: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nombre: string }[]
+      }
       tengo_permiso: {
         Args: { codigo: string }
         Returns: boolean
+      }
+      valorar_solucion: {
+        Args: { p_ticket: string; p_aprobar: boolean; p_comentario?: string }
+        Returns: undefined
       }
       mis_conversaciones: {
         Args: Record<PropertyKey, never>
@@ -916,8 +1015,6 @@ export type Database = {
       conversacion_tipo: "directa" | "grupo"
       proyecto_estado: "pendiente" | "en_progreso" | "completado" | "cancelado"
       tarea_estado: "pendiente" | "en_progreso" | "completado"
-      ticket_estado: "abierto" | "en_progreso" | "resuelto" | "cerrado"
-      ticket_prioridad: "baja" | "media" | "alta" | "urgente"
       vacacion_estado: "pendiente" | "aprobada" | "rechazada"
     }
     CompositeTypes: {
@@ -1049,8 +1146,6 @@ export const Constants = {
       conversacion_tipo: ["directa", "grupo"],
       proyecto_estado: ["pendiente", "en_progreso", "completado", "cancelado"],
       tarea_estado: ["pendiente", "en_progreso", "completado"],
-      ticket_estado: ["abierto", "en_progreso", "resuelto", "cerrado"],
-      ticket_prioridad: ["baja", "media", "alta", "urgente"],
       vacacion_estado: ["pendiente", "aprobada", "rechazada"],
     },
   },

@@ -1,267 +1,290 @@
-import { useState, useEffect } from "react";
-import { Ticket, Plus, Filter, Search, AlertCircle, Clock, CheckCircle, CircleCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { format, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import { Loader2, Lock, Plus, Search, Ticket as TicketIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { usePermisos } from "@/hooks/usePermisos";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { NuevoTicketDialog } from "@/components/tickets/NuevoTicketDialog";
+import { TicketBadge } from "@/components/tickets/TicketBadge";
+import {
+  ESTADOS,
+  ORDEN_ESTADOS,
+  ORDEN_PRIORIDADES,
+  ORDEN_TIPOS,
+  PESO_PRIORIDAD,
+  PRIORIDADES,
+  TIPOS,
+  numeroTicket,
+  type EstadoTicket,
+  type Ticket,
+} from "@/components/tickets/ticket-config";
 
-interface TicketData {
-  id: string;
-  titulo: string;
-  descripcion: string;
-  prioridad: string;
-  estado: string;
-  fecha_creacion: string;
-  fecha_cierre: string | null;
+type FiltroEstado = "abiertos" | EstadoTicket | "todos";
+const TODOS = "todos";
+
+interface TicketsProps {
+  // "todos": vista de soporte con todos los tickets (requiere tickets.gestionar)
+  vista?: "mios" | "todos";
 }
 
-const getPriorityConfig = (priority: string) => {
-  switch (priority) {
-    case "urgente":
-      return { color: "destructive" as const, label: "Urgente" };
-    case "alta":
-      return { color: "destructive" as const, label: "Alta" };
-    case "media":
-      return { color: "secondary" as const, label: "Media" };
-    default:
-      return { color: "outline" as const, label: "Baja" };
-  }
-};
-
-const getStatusConfig = (status: string) => {
-  switch (status) {
-    case "abierto":
-      return {
-        icon: AlertCircle,
-        color: "text-destructive",
-        bgColor: "bg-red-50",
-        label: "Abierto"
-      };
-    case "en_progreso":
-      return {
-        icon: Clock,
-        color: "text-warning",
-        bgColor: "bg-orange-50",
-        label: "En Progreso"
-      };
-    case "resuelto":
-      return {
-        icon: CircleCheck,
-        color: "text-primary",
-        bgColor: "bg-blue-50",
-        label: "Resuelto"
-      };
-    case "cerrado":
-      return {
-        icon: CheckCircle,
-        color: "text-success",
-        bgColor: "bg-green-50",
-        label: "Cerrado"
-      };
-    default:
-      return {
-        icon: AlertCircle,
-        color: "text-muted-foreground",
-        bgColor: "bg-muted",
-        label: "Desconocido"
-      };
-  }
-};
-
-const COLUMNS: { status: string; title: string; empty: string; icon: typeof Clock; iconClass: string }[] = [
-  { status: "abierto", title: "Abiertos", empty: "No hay tickets abiertos", icon: AlertCircle, iconClass: "text-destructive" },
-  { status: "en_progreso", title: "En Progreso", empty: "No hay tickets en progreso", icon: Clock, iconClass: "text-warning" },
-  { status: "resuelto", title: "Resueltos", empty: "No hay tickets resueltos", icon: CircleCheck, iconClass: "text-primary" },
-  { status: "cerrado", title: "Cerrados", empty: "No hay tickets cerrados", icon: CheckCircle, iconClass: "text-success" },
-];
-
-export default function Tickets() {
-  const [tickets, setTickets] = useState<TicketData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const { user } = useAuth();
+export default function Tickets({ vista = "mios" }: TicketsProps) {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const { tiene, loading: cargandoPermisos } = usePermisos();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [nombres, setNombres] = useState<Map<string, string>>(new Map());
+  const [miId, setMiId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [estado, setEstado] = useState<FiltroEstado>("abiertos");
+  const [tipo, setTipo] = useState(TODOS);
+  const [prioridad, setPrioridad] = useState(TODOS);
+  const [busqueda, setBusqueda] = useState("");
+  const [creando, setCreando] = useState(false);
+
+  const esSoporte = vista === "todos";
+  const puedeVer = !esSoporte || tiene("tickets.gestionar");
+
+  const fetchTickets = useCallback(async () => {
+    const [{ data: yo }, { data, error }, { data: personas }] = await Promise.all([
+      supabase.rpc("mi_empleado_id"),
+      supabase.from("tickets").select("*").order("updated_at", { ascending: false }),
+      supabase.rpc("personas_tickets"),
+    ]);
+
+    if (error) {
+      console.error("Error fetching tickets:", error);
+      toast({ title: "Error", description: "No se pudieron cargar los tickets", variant: "destructive" });
+    } else {
+      setMiId(yo ?? null);
+      // La base de datos ya limita lo que cada uno puede ver; aquí se separa "mis tickets" de "todos"
+      setTickets((data ?? []).filter((t) => esSoporte || t.autor_id === yo || t.asignado_a_id === yo));
+      setNombres(new Map((personas ?? []).map((p) => [p.id, p.nombre])));
+    }
+    setLoading(false);
+  }, [toast, esSoporte]);
 
   useEffect(() => {
+    if (cargandoPermisos || !puedeVer) return;
     fetchTickets();
-    
-    // Setup realtime subscription
+
     const channel = supabase
-      .channel('tickets-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tickets'
-        },
-        () => {
-          fetchTickets();
-        }
-      )
+      .channel(`tickets-${vista}-changes`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => fetchTickets())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [cargandoPermisos, puedeVer, fetchTickets, vista]);
 
-  const fetchTickets = async () => {
-    if (!user) return;
-
-    try {
-      const { data: employeeData, error: empError } = await supabase
-        .from('empleados')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (empError || !employeeData) {
-        console.error('Error fetching employee:', empError);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .or(`autor_id.eq.${employeeData.id},asignado_a_id.eq.${employeeData.id}`)
-        .order('fecha_creacion', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching tickets:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los tickets",
-          variant: "destructive",
-        });
-      } else {
-        setTickets(data || []);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredTickets = tickets.filter(ticket =>
-    ticket.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+  const texto = busqueda.trim().toLowerCase();
+  const filtrados = useMemo(
+    () =>
+      tickets
+        .filter((t) => tipo === TODOS || t.tipo === tipo)
+        .filter((t) => prioridad === TODOS || t.prioridad === prioridad)
+        .filter(
+          (t) =>
+            !texto ||
+            t.titulo.toLowerCase().includes(texto) ||
+            numeroTicket(t.id).toLowerCase().includes(texto) ||
+            (nombres.get(t.autor_id) ?? "").toLowerCase().includes(texto)
+        ),
+    [tickets, tipo, prioridad, texto, nombres]
   );
 
+  const coincideEstado = (t: Ticket, f: FiltroEstado) =>
+    f === "todos" || (f === "abiertos" ? t.estado !== "cerrado" && t.estado !== "resuelto" : t.estado === f);
+
+  // Primero lo más urgente; dentro de cada prioridad, lo último actualizado
+  const visibles = filtrados
+    .filter((t) => coincideEstado(t, estado))
+    .sort((a, b) => (PESO_PRIORIDAD[a.prioridad] ?? 9) - (PESO_PRIORIDAD[b.prioridad] ?? 9));
+
+  const contar = (f: FiltroEstado) => filtrados.filter((t) => coincideEstado(t, f)).length;
+
+  if (cargandoPermisos) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!puedeVer) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Lock className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+            <p className="font-medium">No tienes acceso a todos los tickets</p>
+            <p className="text-sm text-muted-foreground">Solo lo puede ver el equipo de soporte (Tecnología).</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const filtrosEstado: { value: FiltroEstado; label: string }[] = [
+    { value: "abiertos", label: "Abiertos" },
+    ...ORDEN_ESTADOS.map((e) => ({ value: e as FiltroEstado, label: ESTADOS[e].label.replace(" (asignada)", "") })),
+    { value: "todos", label: "Todos" },
+  ];
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <Ticket className="w-6 h-6 text-primary" />
-            Sistema de Tickets
+            <TicketIcon className="w-6 h-6 text-primary" />
+            {esSoporte ? "Todos los tickets" : "Mis tickets"}
           </h1>
-          <p className="text-muted-foreground">
-            Gestiona solicitudes de soporte y reportes de incidencias.
+          <p className="text-muted-foreground mt-1">
+            {esSoporte
+              ? "Incidencias y peticiones de toda la plantilla."
+              : "Incidencias y peticiones que has abierto o que tienes asignadas."}
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setCreando(true)}>
           <Plus className="w-4 h-4" />
-          Nuevo Ticket
+          Nuevo ticket
         </Button>
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tickets..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="space-y-3">
+        <Tabs value={estado} onValueChange={(v) => setEstado(v as FiltroEstado)}>
+          <TabsList className="h-auto flex-wrap justify-start">
+            {filtrosEstado.map((f) => (
+              <TabsTrigger key={f.value} value={f.value}>
+                {f.label} <span className="ml-1 tabular-nums text-muted-foreground">{contar(f.value)}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={esSoporte ? "Buscar por título, número o solicitante..." : "Buscar por título o número..."}
+              className="pl-9"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
+          <Select value={tipo} onValueChange={setTipo}>
+            <SelectTrigger className="sm:w-44" aria-label="Filtrar por tipo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos los tipos</SelectItem>
+              {ORDEN_TIPOS.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TIPOS[t].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={prioridad} onValueChange={setPrioridad}>
+            <SelectTrigger className="sm:w-48" aria-label="Filtrar por prioridad">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todas las prioridades</SelectItem>
+              {ORDEN_PRIORIDADES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {PRIORIDADES[p].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Filtros
-        </Button>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {COLUMNS.map(({ status, title, empty, icon: ColumnIcon, iconClass }) => {
-            const columnTickets = filteredTickets.filter(t => t.estado === status);
-            const isFinished = status === "resuelto" || status === "cerrado";
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibles.length === 0 ? (
+          <div className="py-12 text-center">
+            <TicketIcon className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-muted-foreground">No hay tickets que coincidan</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-24">Nº</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Prioridad</TableHead>
+                  <TableHead>Solicitante</TableHead>
+                  <TableHead>Asignado a</TableHead>
+                  <TableHead className="text-right">Actualizado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibles.map((t) => (
+                  <TableRow
+                    key={t.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/tickets/${t.id}`)}
+                    onKeyDown={(e) => e.key === "Enter" && navigate(`/tickets/${t.id}`)}
+                    tabIndex={0}
+                  >
+                    <TableCell className="font-mono text-xs text-muted-foreground">{numeroTicket(t.id)}</TableCell>
+                    <TableCell className="max-w-[22rem]">
+                      <div className="flex items-center gap-2">
+                        <TicketBadge clase="tipo" valor={t.tipo} className="shrink-0" />
+                        <span className="truncate font-medium">{t.titulo}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <TicketBadge clase="estado" valor={t.estado} />
+                    </TableCell>
+                    <TableCell>
+                      <TicketBadge clase="prioridad" valor={t.prioridad} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {t.autor_id === miId ? "Tú" : nombres.get(t.autor_id) ?? "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {t.asignado_a_id ? (
+                        t.asignado_a_id === miId ? "Tú" : nombres.get(t.asignado_a_id) ?? "—"
+                      ) : (
+                        <span className="text-muted-foreground">Sin asignar</span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className="whitespace-nowrap text-right text-sm text-muted-foreground"
+                      title={format(new Date(t.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                    >
+                      {formatDistanceToNow(new Date(t.updated_at), { addSuffix: true, locale: es })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
 
-            return (
-              <Card key={status}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <ColumnIcon className={`w-5 h-5 ${iconClass}`} />
-                    {title} ({columnTickets.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {columnTickets.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      {empty}
-                    </p>
-                  ) : (
-                    columnTickets.map((ticket) => {
-                      const statusConfig = getStatusConfig(ticket.estado);
-                      const priorityConfig = getPriorityConfig(ticket.prioridad);
-                      const StatusIcon = statusConfig.icon;
-
-                      return (
-                        <div
-                          key={ticket.id}
-                          className={`p-3 border rounded-lg hover:bg-accent/50 transition-colors ${
-                            status === "cerrado" ? "opacity-75" : ""
-                          }`}
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
-                                  <StatusIcon className={`w-3 h-3 ${statusConfig.color}`} />
-                                </div>
-                                <span className="text-xs font-medium text-muted-foreground">
-                                  {ticket.id.slice(0, 8)}
-                                </span>
-                              </div>
-                              <Badge variant={priorityConfig.color} className="text-xs">
-                                {priorityConfig.label}
-                              </Badge>
-                            </div>
-
-                            <h4 className="text-sm font-medium text-foreground leading-tight">
-                              {ticket.titulo}
-                            </h4>
-
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {ticket.descripcion}
-                            </p>
-
-                            <p className="text-xs text-muted-foreground">
-                              {isFinished && ticket.fecha_cierre
-                                ? `${statusConfig.label}: ${new Date(ticket.fecha_cierre).toLocaleDateString("es-ES")}`
-                                : new Date(ticket.fecha_creacion).toLocaleDateString("es-ES")}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <NuevoTicketDialog open={creando} onOpenChange={setCreando} onCreated={(id) => navigate(`/tickets/${id}`)} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   Clock,
   Inbox,
   UserCog,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router-dom";
@@ -56,6 +57,7 @@ const requestItems: NavEntry[] = [
 const managementItems: (NavEntry & { permiso: Permiso })[] = [
   { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permiso: "ausencias.aprobar" },
   { title: "Gestión de Empleados", url: "/gestion-empleados", icon: UserCog, permiso: "empleados.gestionar" },
+  { title: "Todos los Tickets", url: "/gestion-tickets", icon: LifeBuoy, permiso: "tickets.gestionar" },
 ];
 
 // El estado activo se pasa a SidebarMenuButton: con asChild, un className en

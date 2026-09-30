@@ -12,6 +12,7 @@ import Calendario from "./pages/Calendario";
 import Tareas from "./pages/Tareas";
 import Comunicacion from "./pages/Comunicacion";
 import Tickets from "./pages/Tickets";
+import TicketDetalle from "./pages/TicketDetalle";
 import Perfil from "./pages/Perfil";
 import Configuracion from "./pages/Configuracion";
 import Noticias from "./pages/Noticias";
@@ -64,6 +65,20 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Comunicacion />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/tickets/:id" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TicketDetalle />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/gestion-tickets" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Tickets vista="todos" />
                 </AppLayout>
               </ProtectedRoute>
             } />
