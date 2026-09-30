@@ -46,8 +46,8 @@ export default function Configuracion() {
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
       <div>
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <Settings className="w-8 h-8 text-primary" />
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+          <Settings className="w-6 h-6 text-primary" />
           Configuración personal
         </h1>
         <p className="text-muted-foreground mt-1">Gestiona tus datos, tu acceso y tu privacidad.</p>

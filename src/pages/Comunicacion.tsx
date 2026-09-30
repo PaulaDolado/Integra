@@ -165,8 +165,8 @@ export default function Comunicacion() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem-1px)] p-4 sm:p-6 gap-4">
       <div>
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquare className="w-8 h-8 text-primary" />
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+          <MessageSquare className="w-6 h-6 text-primary" />
           Comunicación
         </h1>
         <p className="text-muted-foreground">

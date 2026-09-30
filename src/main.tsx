@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import "@fontsource-variable/inter";
 import "./index.css";
 
 // Evita que otra web muestre Integra dentro de un iframe (clickjacking).

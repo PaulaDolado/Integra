@@ -57,8 +57,8 @@ export default function Perfil() {
     <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <User className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <User className="w-6 h-6 text-primary" />
             Mi Perfil
           </h1>
           <p className="text-muted-foreground">

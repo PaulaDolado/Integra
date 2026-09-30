@@ -154,8 +154,8 @@ export default function Tareas() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <CheckSquare className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <CheckSquare className="w-6 h-6 text-primary" />
             Gestión de Tareas
           </h1>
           <p className="text-muted-foreground">
@@ -221,7 +221,7 @@ export default function Tareas() {
                           onDragStart={(e) => handleDragStart(e, task)}
                           onDragEnd={handleDragEnd}
                           onClick={() => setOpenTask(task)}
-                          className={`group p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move hover:shadow-md ${
+                          className={`group p-3 border rounded-lg hover:bg-accent/50 transition-[background-color,box-shadow] duration-150 ease-out cursor-move hover:shadow-md ${
                             status === 'completado' ? 'opacity-75' : ''
                           } ${draggedTask?.id === task.id ? 'opacity-40' : ''}`}
                         >

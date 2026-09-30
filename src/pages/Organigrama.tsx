@@ -116,7 +116,7 @@ export default function Organigrama() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Organigrama</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Organigrama</h1>
         <p className="text-muted-foreground">
           Estructura organizacional de la empresa
         </p>

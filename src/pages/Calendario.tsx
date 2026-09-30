@@ -837,8 +837,8 @@ export default function Calendario() {
       {/* Cabecera de la página */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <CalendarIcon className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <CalendarIcon className="w-6 h-6 text-primary" />
             Calendario
           </h1>
           <p className="text-muted-foreground">

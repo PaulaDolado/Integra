@@ -64,16 +64,16 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="flex h-16 items-center px-3 sm:px-4 gap-2 sm:gap-4">
         <SidebarTrigger />
         
         <div className="flex-1 min-w-0 flex items-center gap-4">
           <div className="flex flex-col min-w-0">
-            <h1 className="text-base sm:text-lg font-medium text-foreground truncate">
+            <h1 className="text-sm sm:text-base font-semibold text-foreground truncate">
               ¡Bienvenido, <span className="text-primary">{getFirstName()}</span>!
             </h1>
-            <p className="hidden sm:block text-sm text-muted-foreground truncate">
+            <p className="hidden sm:block text-xs text-muted-foreground truncate first-letter:uppercase">
               {getCurrentDate()} - {getCurrentTime()}
             </p>
           </div>

@@ -280,7 +280,7 @@ export default function Vacaciones() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Solicitud de Ausencia</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Solicitud de Ausencia</h1>
           <p className="text-muted-foreground mt-1">
             Gestiona tus solicitudes de ausencia
           </p>

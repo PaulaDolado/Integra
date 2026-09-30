@@ -42,6 +42,10 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      // Carpetas de herramientas (skills de agentes) que no forman parte de la web
+      watch: {
+        ignored: ["**/.agents/**", "**/.claude/**"],
+      },
     },
     plugins: [react(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
     resolve: {

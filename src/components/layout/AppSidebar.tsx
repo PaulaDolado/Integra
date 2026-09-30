@@ -10,9 +10,10 @@ import {
   GraduationCap,
   Plane,
   Clock,
-  Inbox
+  Inbox,
+  type LucideIcon,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, matchPath, useLocation } from "react-router-dom";
 import { usePermisos, type Permiso } from "@/hooks/usePermisos";
 import {
   Sidebar,
@@ -26,8 +27,14 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
-  { title: "Dashboard", url: "/", icon: Home },
+interface NavEntry {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+const menuItems: NavEntry[] = [
+  { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Calendario", url: "/calendario", icon: Calendar },
   { title: "Tareas", url: "/tareas", icon: CheckSquare },
   { title: "Comunicación", url: "/comunicacion", icon: MessageSquare },
@@ -38,16 +45,54 @@ const menuItems = [
   { title: "Registro de Fichajes", url: "/fichajes", icon: Clock },
 ];
 
-const requestItems = [
+const requestItems: NavEntry[] = [
   { title: "Inscripción Cursos", url: "/cursos", icon: GraduationCap },
   { title: "Solicitar Ausencia", url: "/vacaciones", icon: Plane },
   { title: "Cambio de Turno", url: "/cambio-turno", icon: Clock },
 ];
 
 // Pantallas de gestión: solo se muestran a los departamentos con el permiso
-const managementItems: { title: string; url: string; icon: typeof Inbox; permiso: Permiso }[] = [
+const managementItems: (NavEntry & { permiso: Permiso })[] = [
   { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permiso: "ausencias.aprobar" },
 ];
+
+// El estado activo se pasa a SidebarMenuButton: con asChild, un className en
+// forma de función del NavLink se convertiría en texto y no funcionaría
+function NavItem({ item, isCollapsed }: { item: NavEntry; isCollapsed: boolean }) {
+  const { pathname } = useLocation();
+  const isActive = !!matchPath({ path: item.url, end: false }, pathname);
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={isActive}
+        tooltip={isCollapsed ? item.title : undefined}
+        className="h-9 gap-3 rounded-lg px-3 text-sidebar-foreground transition-colors duration-150 ease-out hover:bg-muted hover:text-foreground data-[active=true]:hover:bg-sidebar-accent data-[active=true]:hover:text-sidebar-accent-foreground"
+      >
+        <NavLink to={item.url} aria-current={isActive ? "page" : undefined}>
+          <item.icon className="w-4 h-4" />
+          <span className="text-sm">{item.title}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+function NavGroup({ label, items, isCollapsed }: { label: string; items: NavEntry[]; isCollapsed: boolean }) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-0.5">
+          {items.map((item) => (
+            <NavItem key={item.url} item={item} isCollapsed={isCollapsed} />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -58,102 +103,25 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border bg-card">
       <SidebarContent className="gap-0">
-        <div className="p-6 border-b border-border">
+        {/* Misma altura que la barra superior (h-16) para que las líneas coincidan */}
+        <div className="flex h-16 shrink-0 items-center border-b border-border px-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-xs">
               <Home className="w-4 h-4 text-primary-foreground" />
             </div>
             {!isCollapsed && (
-              <div>
-                <h2 className="font-semibold text-foreground">Integra</h2>
-                <p className="text-sm text-muted-foreground">Portal del empleado</p>
+              <div className="leading-tight">
+                <h2 className="text-sm font-semibold text-foreground">Integra</h2>
+                <p className="text-xs text-muted-foreground">Portal del empleado</p>
               </div>
             )}
           </div>
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Menú Principal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-10">
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                        }`
-                      }
-                    >
-                      <item.icon className="w-4 h-4" />
-                      {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Solicitudes</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {requestItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-10">
-                    <NavLink
-                      to={item.url}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                        }`
-                      }
-                    >
-                      <item.icon className="w-4 h-4" />
-                      {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
+        <NavGroup label="Menú Principal" items={menuItems} isCollapsed={isCollapsed} />
+        <NavGroup label="Solicitudes" items={requestItems} isCollapsed={isCollapsed} />
         {visibleManagementItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Gestión</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {visibleManagementItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild className="h-10">
-                      <NavLink
-                        to={item.url}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                            isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                          }`
-                        }
-                      >
-                        <item.icon className="w-4 h-4" />
-                        {!isCollapsed && <span className="text-sm">{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <NavGroup label="Gestión" items={visibleManagementItems} isCollapsed={isCollapsed} />
         )}
       </SidebarContent>
     </Sidebar>

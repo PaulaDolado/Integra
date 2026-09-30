@@ -8,8 +8,8 @@ Todos los colores deben ser HSL para compatibilidad completa.
 
 @layer base {
   :root {
-    --background: 240 10% 98%;
-    --foreground: 224 16% 12%;
+    --background: 220 20% 98%;
+    --foreground: 224 20% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 224 16% 12%;
@@ -48,33 +48,37 @@ Todos los colores deben ser HSL para compatibilidad completa.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 220 14% 90%;
+    --input: 220 14% 88%;
     --ring: 217 91% 52%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
     /* Gradientes corporativos */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(217 91% 60%));
     --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(142 76% 45%));
-    
-    /* Sombras elegantes */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    
-    /* Transiciones suaves */
-    --transition-fast: all 0.15s ease-out;
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sombras en capas: sutiles, con el tono del texto en lugar de negro puro */
+    --shadow-color: 224 30% 20%;
+    --shadow-xs: 0 1px 2px 0 hsl(var(--shadow-color) / 0.05);
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.04), 0 1px 3px 0 hsl(var(--shadow-color) / 0.06);
+    --shadow-md: 0 2px 4px -1px hsl(var(--shadow-color) / 0.05), 0 6px 12px -2px hsl(var(--shadow-color) / 0.08);
+    --shadow-lg: 0 4px 8px -2px hsl(var(--shadow-color) / 0.06), 0 16px 32px -6px hsl(var(--shadow-color) / 0.14);
+    --shadow-xl: 0 8px 16px -4px hsl(var(--shadow-color) / 0.08), 0 24px 48px -12px hsl(var(--shadow-color) / 0.22);
+
+    /* Curvas de animación: más marcadas que las de CSS por defecto */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 224 12% 30%;
+    --sidebar-primary: 217 91% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 91% 96%;
+    --sidebar-accent-foreground: 217 91% 38%;
+    --sidebar-border: 220 14% 91%;
+    --sidebar-ring: 217 91% 52%;
   }
 
   .dark {
@@ -115,18 +119,20 @@ Todos los colores deben ser HSL para compatibilidad completa.
     --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 224 16% 20%;
-    --input: 224 16% 20%;
+    --border: 224 16% 18%;
+    --input: 224 16% 22%;
     --ring: 217 91% 65%;
-    
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --shadow-color: 224 40% 2%;
+
+    --sidebar-background: 224 16% 9%;
+    --sidebar-foreground: 220 12% 75%;
+    --sidebar-primary: 217 91% 65%;
+    --sidebar-primary-foreground: 224 16% 8%;
+    --sidebar-accent: 217 60% 18%;
+    --sidebar-accent-foreground: 217 91% 85%;
+    --sidebar-border: 224 16% 16%;
+    --sidebar-ring: 217 91% 65%;
   }
 }
 
@@ -135,7 +141,35 @@ Todos los colores deben ser HSL para compatibilidad completa.
     @apply border-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+/* Movimiento reducido: sin desplazamientos ni escalados, solo cambios de opacidad */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-property: color, background-color, border-color, opacity !important;
   }
 }

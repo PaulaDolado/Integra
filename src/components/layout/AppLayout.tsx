@@ -14,7 +14,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="flex-1 min-w-0 flex flex-col">
           <AppHeader />
           <main className="flex-1 overflow-auto">
-            {children}
+            {/* En pantallas muy anchas el contenido no se estira de lado a lado */}
+            <div className="mx-auto w-full max-w-[1440px]">{children}</div>
           </main>
         </div>
       </div>

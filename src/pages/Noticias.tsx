@@ -128,8 +128,8 @@ export default function Noticias() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Newspaper className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <Newspaper className="w-6 h-6 text-primary" />
             Tablón de anuncios
           </h1>
           <p className="text-muted-foreground">
@@ -216,7 +216,7 @@ export default function Noticias() {
                   key={noticia.id}
                   onClick={() => setAbierta(noticia)}
                   style={{ "--giro": `${getRotation(noticia.id)}deg` } as React.CSSProperties}
-                  className={`relative mb-6 block w-full break-inside-avoid rounded-sm p-5 pt-7 text-left shadow-md transition-all [transform:rotate(var(--giro))] hover:z-10 hover:shadow-xl hover:[transform:rotate(0deg)_scale(1.02)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${area.nota}`}
+                  className={`relative mb-6 block w-full break-inside-avoid rounded-sm p-5 pt-7 text-left shadow-md transition-[transform,box-shadow] duration-200 ease-out [transform:rotate(var(--giro))] hover:z-10 hover:shadow-xl hover:[transform:rotate(0deg)_scale(1.02)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${area.nota}`}
                 >
                   <Pin
                     className={`absolute left-1/2 top-1.5 h-5 w-5 -translate-x-1/2 rotate-12 fill-current ${area.chincheta}`}
