@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       anuncios: {
         Row: {
+          area: string
           autor_id: string | null
           contenido: string
           created_at: string
@@ -25,6 +26,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          area?: string
           autor_id?: string | null
           contenido: string
           created_at?: string
@@ -34,6 +36,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          area?: string
           autor_id?: string | null
           contenido?: string
           created_at?: string
@@ -213,6 +216,7 @@ export type Database = {
       }
       departamentos: {
         Row: {
+          area_comunicados: string | null
           created_at: string
           descripcion: string | null
           id: string
@@ -221,6 +225,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          area_comunicados?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
@@ -229,6 +234,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          area_comunicados?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
@@ -760,6 +766,10 @@ export type Database = {
       marcar_conversacion_leida: {
         Args: { conv_id: string }
         Returns: undefined
+      }
+      mi_area_comunicados: {
+        Args: Record<PropertyKey, never>
+        Returns: string | null
       }
       mi_empleado_id: {
         Args: Record<PropertyKey, never>

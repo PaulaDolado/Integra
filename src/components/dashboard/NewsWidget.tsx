@@ -1,9 +1,9 @@
 import { Newspaper } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { getArea } from "@/components/noticias/areas";
 
 interface Anuncio {
   id: string;
@@ -11,6 +11,7 @@ interface Anuncio {
   contenido: string;
   fecha_publicacion: string;
   autor_id: string | null;
+  area: string;
 }
 
 export function NewsWidget() {
@@ -45,7 +46,7 @@ export function NewsWidget() {
   const fetchNews = async () => {
     const { data, error } = await supabase
       .from("anuncios")
-      .select("id, titulo, contenido, fecha_publicacion, autor_id")
+      .select("id, titulo, contenido, fecha_publicacion, autor_id, area")
       .order("fecha_publicacion", { ascending: false })
       .limit(3);
 
@@ -89,12 +90,9 @@ export function NewsWidget() {
                 </p>
                 
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-4 w-4">
-                    <AvatarImage src="" alt="Autor" />
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      A
-                    </AvatarFallback>
-                  </Avatar>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getArea(item.area).etiqueta}`}>
+                    {getArea(item.area).label}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(item.fecha_publicacion).toLocaleDateString("es-ES")}
                   </span>
@@ -109,7 +107,7 @@ export function NewsWidget() {
             onClick={() => navigate("/noticias")}
             className="text-sm text-primary hover:text-primary-hover font-medium w-full text-center p-2 rounded-md hover:bg-accent/50 transition-colors"
           >
-            Ver todas las noticias →
+            Ver el tablón de anuncios →
           </button>
         </div>
       </CardContent>
