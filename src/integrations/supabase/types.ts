@@ -1019,6 +1019,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string[]
       }
+      plantilla_fichajes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          nombre: string
+          departamento_id: string | null
+          departamento: string | null
+        }[]
+      }
       personas_tickets: {
         Args: Record<PropertyKey, never>
         Returns: { id: string; nombre: string }[]

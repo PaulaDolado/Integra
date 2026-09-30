@@ -24,9 +24,20 @@ export default function Fichajes() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (profile) {
-      fetchFichajes();
-    }
+    if (!profile) return;
+    fetchFichajes();
+
+    // Refleja también los fichajes hechos desde el botón de la barra superior
+    const channel = supabase
+      .channel(`fichajes-pagina-${profile.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
+        fetchFichajes()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [profile]);
 
   async function fetchFichajes() {

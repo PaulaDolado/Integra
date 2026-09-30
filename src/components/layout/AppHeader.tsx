@@ -16,20 +16,26 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { useFichajeActual } from "@/hooks/useFichajeActual";
 
 export function AppHeader() {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isClockedIn, setIsClockedIn] = useState(false);
   const { toast } = useToast();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const { profile, getDisplayName, getFirstName } = useEmployeeProfile();
+  const { dentro: isClockedIn, loading: cargandoFichaje, registrando, fichar } = useFichajeActual();
 
-  const handleClockToggle = () => {
-    setIsClockedIn(!isClockedIn);
+  // Registra el fichaje en la base de datos (antes solo cambiaba el botón en pantalla)
+  const handleClockToggle = async () => {
+    const { tipo, error } = await fichar();
+    if (error) {
+      toast({ title: "Error", description: error, variant: "destructive" });
+      return;
+    }
     toast({
-      title: isClockedIn ? "Fichaje de Salida" : "Fichaje de Entrada",
-      description: `Has fichado la ${isClockedIn ? "salida" : "entrada"} correctamente - ${new Date().toLocaleTimeString()}`,
+      title: tipo === "entrada" ? "Fichaje de Entrada" : "Fichaje de Salida",
+      description: `Has fichado la ${tipo} correctamente - ${new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`,
     });
   };
 
@@ -83,6 +89,7 @@ export function AppHeader() {
           {/* Botón de Fichaje */}
           <Button
             onClick={handleClockToggle}
+            disabled={cargandoFichaje || registrando}
             variant={isClockedIn ? "destructive" : "default"}
             className="gap-2 px-3 sm:px-4"
             aria-label={isClockedIn ? "Fichar salida" : "Fichar entrada"}
