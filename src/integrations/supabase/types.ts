@@ -751,6 +751,61 @@ export type Database = {
           },
         ]
       }
+      ticket_adjuntos: {
+        Row: {
+          autor_id: string | null
+          created_at: string
+          id: string
+          nombre: string
+          path: string
+          seguimiento_id: string | null
+          tamano: number
+          ticket_id: string
+        }
+        Insert: {
+          autor_id?: string | null
+          created_at?: string
+          id?: string
+          nombre: string
+          path: string
+          seguimiento_id?: string | null
+          tamano: number
+          ticket_id: string
+        }
+        Update: {
+          autor_id?: string | null
+          created_at?: string
+          id?: string
+          nombre?: string
+          path?: string
+          seguimiento_id?: string | null
+          tamano?: number
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_adjuntos_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_adjuntos_seguimiento_id_fkey"
+            columns: ["seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_seguimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_adjuntos_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_seguimientos: {
         Row: {
           autor_id: string | null
@@ -970,7 +1025,7 @@ export type Database = {
       }
       responder_ticket: {
         Args: { p_ticket: string; p_contenido: string }
-        Returns: undefined
+        Returns: string
       }
       revisar_ausencia: {
         Args: {
@@ -982,7 +1037,7 @@ export type Database = {
       }
       solucionar_ticket: {
         Args: { p_ticket: string; p_contenido: string }
-        Returns: undefined
+        Returns: string
       }
       tecnicos_tickets: {
         Args: Record<PropertyKey, never>

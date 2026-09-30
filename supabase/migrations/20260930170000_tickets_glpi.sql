@@ -51,6 +51,25 @@ CREATE TABLE IF NOT EXISTS public.ticket_seguimientos (
 CREATE INDEX IF NOT EXISTS idx_ticket_seguimientos_ticket
   ON public.ticket_seguimientos(ticket_id, created_at);
 
+-- Imágenes adjuntas a la descripción (seguimiento_id NULL) o a un mensaje
+CREATE TABLE IF NOT EXISTS public.ticket_adjuntos (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  ticket_id UUID NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+  seguimiento_id UUID REFERENCES public.ticket_seguimientos(id) ON DELETE CASCADE,
+  autor_id UUID REFERENCES public.empleados(id) ON DELETE SET NULL,
+  -- Ruta en el bucket "tickets": {ticket_id}/{archivo}
+  path TEXT NOT NULL UNIQUE,
+  nombre VARCHAR(255) NOT NULL,
+  tamano INTEGER NOT NULL CHECK (tamano > 0),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_adjuntos_ticket ON public.ticket_adjuntos(ticket_id);
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('tickets', 'tickets', false, 5242880, ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+ON CONFLICT (id) DO NOTHING;
+
 -- Plantillas de solución (se gestionan desde el panel de Supabase)
 CREATE TABLE IF NOT EXISTS public.plantillas_solucion (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -102,6 +121,58 @@ DROP POLICY IF EXISTS "Historial visible si el ticket es visible" ON public.tick
 CREATE POLICY "Historial visible si el ticket es visible"
 ON public.ticket_seguimientos FOR SELECT TO authenticated
 USING (EXISTS (SELECT 1 FROM public.tickets t WHERE t.id = ticket_seguimientos.ticket_id));
+
+-- Adjuntos: los ve quien ve el ticket; los sube quien participa (salvo si está cerrado)
+ALTER TABLE public.ticket_adjuntos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Adjuntos visibles si el ticket es visible" ON public.ticket_adjuntos;
+CREATE POLICY "Adjuntos visibles si el ticket es visible"
+ON public.ticket_adjuntos FOR SELECT TO authenticated
+USING (EXISTS (SELECT 1 FROM public.tickets t WHERE t.id = ticket_adjuntos.ticket_id));
+
+DROP POLICY IF EXISTS "Participantes adjuntan imágenes" ON public.ticket_adjuntos;
+CREATE POLICY "Participantes adjuntan imágenes"
+ON public.ticket_adjuntos FOR INSERT TO authenticated
+WITH CHECK (
+  autor_id = public.mi_empleado_id()
+  AND EXISTS (SELECT 1 FROM public.tickets t WHERE t.id = ticket_adjuntos.ticket_id AND t.estado <> 'cerrado')
+  AND (
+    seguimiento_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM public.ticket_seguimientos s
+      WHERE s.id = ticket_adjuntos.seguimiento_id
+        AND s.ticket_id = ticket_adjuntos.ticket_id
+        AND s.autor_id = public.mi_empleado_id()
+    )
+  )
+  AND path LIKE ticket_id::text || '/%'
+);
+
+DROP POLICY IF EXISTS "Exige doble factor si está activado" ON public.ticket_adjuntos;
+CREATE POLICY "Exige doble factor si está activado"
+ON public.ticket_adjuntos AS RESTRICTIVE FOR ALL TO authenticated
+USING ((SELECT public.cumple_doble_factor()))
+WITH CHECK ((SELECT public.cumple_doble_factor()));
+
+-- Archivos del bucket: carpeta = id del ticket
+DROP POLICY IF EXISTS "Imágenes de tickets visibles si el ticket es visible" ON storage.objects;
+CREATE POLICY "Imágenes de tickets visibles si el ticket es visible"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'tickets'
+  AND EXISTS (SELECT 1 FROM public.tickets t WHERE t.id::text = (storage.foldername(name))[1])
+);
+
+DROP POLICY IF EXISTS "Participantes suben imágenes a sus tickets" ON storage.objects;
+CREATE POLICY "Participantes suben imágenes a sus tickets"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'tickets'
+  AND EXISTS (
+    SELECT 1 FROM public.tickets t
+    WHERE t.id::text = (storage.foldername(name))[1] AND t.estado <> 'cerrado'
+  )
+);
 
 DROP POLICY IF EXISTS "Plantillas visibles para usuarios autenticados" ON public.plantillas_solucion;
 CREATE POLICY "Plantillas visibles para usuarios autenticados"
@@ -170,14 +241,16 @@ $$;
 
 -- Responder: cualquiera que participe. Si responde el solicitante con el
 -- ticket en espera o resuelto, vuelve a "en curso" (como en GLPI)
-CREATE OR REPLACE FUNCTION public.responder_ticket(p_ticket UUID, p_contenido TEXT)
-RETURNS VOID
+DROP FUNCTION IF EXISTS public.responder_ticket(UUID, TEXT);
+CREATE FUNCTION public.responder_ticket(p_ticket UUID, p_contenido TEXT)
+RETURNS UUID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   t public.tickets%ROWTYPE := public.ticket_para_accion(p_ticket);
   yo UUID := public.mi_empleado_id();
   nuevo_estado TEXT := t.estado;
+  respuesta UUID;
 BEGIN
   IF coalesce(trim(p_contenido), '') = '' THEN
     RAISE EXCEPTION 'Escribe una respuesta' USING ERRCODE = '22023';
@@ -187,7 +260,8 @@ BEGIN
   END IF;
 
   INSERT INTO public.ticket_seguimientos (ticket_id, autor_id, tipo, contenido)
-  VALUES (p_ticket, yo, 'respuesta', trim(p_contenido));
+  VALUES (p_ticket, yo, 'respuesta', trim(p_contenido))
+  RETURNING id INTO respuesta;
 
   IF t.autor_id = yo AND t.estado IN ('en_espera', 'resuelto') THEN
     nuevo_estado := CASE WHEN t.asignado_a_id IS NULL THEN 'nuevo' ELSE 'en_curso' END;
@@ -196,17 +270,21 @@ BEGIN
     VALUES (p_ticket, yo, 'evento',
       'Estado: ' || public.etiqueta_ticket(t.estado) || ' → ' || public.etiqueta_ticket(nuevo_estado));
   END IF;
+
+  RETURN respuesta;
 END;
 $$;
 
 -- Añadir una solución: soporte o técnico asignado. El ticket pasa a resuelto
-CREATE OR REPLACE FUNCTION public.solucionar_ticket(p_ticket UUID, p_contenido TEXT)
-RETURNS VOID
+DROP FUNCTION IF EXISTS public.solucionar_ticket(UUID, TEXT);
+CREATE FUNCTION public.solucionar_ticket(p_ticket UUID, p_contenido TEXT)
+RETURNS UUID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   t public.tickets%ROWTYPE := public.ticket_para_accion(p_ticket);
   yo UUID := public.mi_empleado_id();
+  solucion UUID;
 BEGIN
   IF NOT (public.tengo_permiso('tickets.gestionar') OR t.asignado_a_id = yo) THEN
     RAISE EXCEPTION 'Solo el técnico puede añadir una solución' USING ERRCODE = '42501';
@@ -219,7 +297,8 @@ BEGIN
   END IF;
 
   INSERT INTO public.ticket_seguimientos (ticket_id, autor_id, tipo, contenido)
-  VALUES (p_ticket, yo, 'solucion', trim(p_contenido));
+  VALUES (p_ticket, yo, 'solucion', trim(p_contenido))
+  RETURNING id INTO solucion;
 
   UPDATE public.tickets
   SET estado = 'resuelto',
@@ -230,6 +309,8 @@ BEGIN
 
   INSERT INTO public.ticket_seguimientos (ticket_id, autor_id, tipo, contenido)
   VALUES (p_ticket, yo, 'evento', 'Estado: ' || public.etiqueta_ticket(t.estado) || ' → Resuelto');
+
+  RETURN solucion;
 END;
 $$;
 
@@ -394,5 +475,11 @@ BEGIN
     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'ticket_seguimientos'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.ticket_seguimientos;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'ticket_adjuntos'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.ticket_adjuntos;
   END IF;
 END $$;

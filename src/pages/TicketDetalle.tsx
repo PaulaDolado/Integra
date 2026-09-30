@@ -41,6 +41,15 @@ import {
   type Seguimiento,
   type Ticket,
 } from "@/components/tickets/ticket-config";
+import { SelectorImagenes } from "@/components/tickets/SelectorImagenes";
+import { GaleriaAdjuntos } from "@/components/tickets/GaleriaAdjuntos";
+import {
+  imagenesDelPortapapeles,
+  subirAdjuntos,
+  urlsAdjuntos,
+  validarImagenes,
+  type Adjunto,
+} from "@/components/tickets/adjuntos";
 
 type Plantilla = { id: string; nombre: string; contenido: string };
 type Modo = "respuesta" | "solucion";
@@ -62,6 +71,9 @@ export default function TicketDetalle() {
   const { tiene } = usePermisos();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
+  const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
+  const [urls, setUrls] = useState<Map<string, string>>(new Map());
+  const [archivos, setArchivos] = useState<File[]>([]);
   const [nombres, setNombres] = useState<Map<string, string>>(new Map());
   const [tecnicos, setTecnicos] = useState<{ id: string; nombre: string }[]>([]);
   const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
@@ -79,15 +91,18 @@ export default function TicketDetalle() {
 
   const cargar = useCallback(async () => {
     if (!id) return;
-    const [{ data: yo }, { data: t }, { data: segs }, { data: personas }] = await Promise.all([
+    const [{ data: yo }, { data: t }, { data: segs }, { data: personas }, { data: adj }] = await Promise.all([
       supabase.rpc("mi_empleado_id"),
       supabase.from("tickets").select("*").eq("id", id).maybeSingle(),
       supabase.from("ticket_seguimientos").select("*").eq("ticket_id", id).order("created_at"),
       supabase.rpc("personas_tickets"),
+      supabase.from("ticket_adjuntos").select("*").eq("ticket_id", id).order("created_at"),
     ]);
     setMiId(yo ?? null);
     setTicket(t ?? null);
     setSeguimientos(segs ?? []);
+    setAdjuntos(adj ?? []);
+    setUrls(await urlsAdjuntos(adj ?? []));
     setNombres(new Map((personas ?? []).map((p) => [p.id, p.nombre])));
     if (t) {
       setPropiedades({ tipo: t.tipo, prioridad: t.prioridad, estado: t.estado, asignado: t.asignado_a_id ?? SIN_ASIGNAR });
@@ -102,6 +117,7 @@ export default function TicketDetalle() {
       .channel(`ticket-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "ticket_seguimientos", filter: `ticket_id=eq.${id}` }, () => cargar())
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `id=eq.${id}` }, () => cargar())
+      .on("postgres_changes", { event: "*", schema: "public", table: "ticket_adjuntos", filter: `ticket_id=eq.${id}` }, () => cargar())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -164,21 +180,26 @@ export default function TicketDetalle() {
   const enviar = async () => {
     if (!texto.trim()) return;
     setEnviando(true);
-    const { error } =
+    const { data: seguimientoId, error } =
       modoActivo === "solucion"
         ? await supabase.rpc("solucionar_ticket", { p_ticket: ticket.id, p_contenido: texto })
         : await supabase.rpc("responder_ticket", { p_ticket: ticket.id, p_contenido: texto });
-    setEnviando(false);
-
     if (error) {
+      setEnviando(false);
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
+    }
+    const { fallidas } = await subirAdjuntos(ticket.id, seguimientoId, archivos);
+    setEnviando(false);
+    if (fallidas > 0) {
+      toast({ title: "Algunas imágenes no se han adjuntado", description: `${fallidas} imagen(es) no se pudieron subir`, variant: "destructive" });
     }
     toast({
       title: modoActivo === "solucion" ? "Solución añadida" : "Respuesta enviada",
       description: modoActivo === "solucion" ? "El ticket queda resuelto a la espera de que el solicitante lo apruebe" : undefined,
     });
     setTexto("");
+    setArchivos([]);
     setModo("respuesta");
     cargar();
   };
@@ -218,6 +239,17 @@ export default function TicketDetalle() {
     toast({ title: "Ticket actualizado" });
     cargar();
   };
+
+  const pegar = (event: React.ClipboardEvent) => {
+    const imagenes = imagenesDelPortapapeles(event);
+    if (imagenes.length === 0) return;
+    event.preventDefault();
+    const { validas, errores } = validarImagenes(imagenes, archivos);
+    if (errores.length > 0) toast({ title: "Algunas imágenes no se han añadido", description: errores.join(". "), variant: "destructive" });
+    setArchivos([...archivos, ...validas]);
+  };
+
+  const adjuntosDe = (seguimientoId: string | null) => adjuntos.filter((a) => a.seguimiento_id === seguimientoId);
 
   const aplicarPlantilla = (plantillaId: string) => {
     const plantilla = plantillas.find((p) => p.id === plantillaId);
@@ -300,7 +332,9 @@ export default function TicketDetalle() {
                 fecha={ticket.fecha_creacion}
                 etiqueta="Descripción"
                 contenido={ticket.descripcion}
-              />
+              >
+                <GaleriaAdjuntos adjuntos={adjuntosDe(null)} urls={urls} />
+              </Mensaje>
             </li>
             {seguimientos.map((s) =>
               s.tipo === "evento" ? (
@@ -321,7 +355,9 @@ export default function TicketDetalle() {
                     etiqueta={s.tipo === "solucion" ? "Solución" : undefined}
                     contenido={s.contenido}
                     solucion={s.tipo === "solucion"}
-                  />
+                  >
+                    <GaleriaAdjuntos adjuntos={adjuntosDe(s.id)} urls={urls} />
+                  </Mensaje>
                 </li>
               )
             )}
@@ -368,7 +404,9 @@ export default function TicketDetalle() {
                   placeholder={modoActivo === "solucion" ? "Describe la solución aplicada..." : "Escribe tu respuesta..."}
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
+                  onPaste={pegar}
                 />
+                <SelectorImagenes archivos={archivos} onChange={setArchivos} disabled={enviando} />
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">
                     {modoActivo === "solucion"
@@ -499,12 +537,14 @@ function Mensaje({
   contenido,
   etiqueta,
   solucion = false,
+  children,
 }: {
   autor: string;
   fecha: string;
   contenido: string;
   etiqueta?: string;
   solucion?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex gap-3">
@@ -534,6 +574,7 @@ function Mensaje({
           </span>
         </div>
         <p className="whitespace-pre-line text-sm leading-relaxed">{contenido}</p>
+        {children}
       </div>
     </div>
   );

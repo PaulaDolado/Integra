@@ -29,6 +29,8 @@ import {
   type PrioridadTicket,
   type TipoTicket,
 } from "./ticket-config";
+import { SelectorImagenes } from "./SelectorImagenes";
+import { imagenesDelPortapapeles, subirAdjuntos, validarImagenes } from "./adjuntos";
 
 interface NuevoTicketDialogProps {
   open: boolean;
@@ -42,6 +44,7 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
   const [descripcion, setDescripcion] = useState("");
   const [tipo, setTipo] = useState<TipoTicket>("incidencia");
   const [prioridad, setPrioridad] = useState<PrioridadTicket>("media");
+  const [archivos, setArchivos] = useState<File[]>([]);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -50,7 +53,17 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
     setDescripcion("");
     setTipo("incidencia");
     setPrioridad("media");
+    setArchivos([]);
   }, [open]);
+
+  const pegar = (event: React.ClipboardEvent) => {
+    const imagenes = imagenesDelPortapapeles(event);
+    if (imagenes.length === 0) return;
+    event.preventDefault();
+    const { validas, errores } = validarImagenes(imagenes, archivos);
+    if (errores.length > 0) toast({ title: "Algunas imágenes no se han añadido", description: errores.join(". "), variant: "destructive" });
+    setArchivos([...archivos, ...validas]);
+  };
 
   const crear = async () => {
     if (!titulo.trim() || !descripcion.trim()) {
@@ -65,15 +78,23 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
       .insert({ titulo: titulo.trim(), descripcion: descripcion.trim(), tipo, prioridad, autor_id: autorId, estado: "nuevo" })
       .select("id")
       .single();
-    setEnviando(false);
-
     if (error || !data) {
+      setEnviando(false);
       console.error("Error creating ticket:", error);
       toast({ title: "Error", description: "No se pudo crear el ticket", variant: "destructive" });
       return;
     }
 
-    toast({ title: "Ticket creado", description: "El equipo de soporte lo revisará en breve" });
+    const { fallidas } = await subirAdjuntos(data.id, null, archivos);
+    setEnviando(false);
+
+    toast({
+      title: "Ticket creado",
+      description: fallidas > 0
+        ? `No se pudieron adjuntar ${fallidas} imagen(es); puedes añadirlas desde el ticket`
+        : "El equipo de soporte lo revisará en breve",
+      variant: fallidas > 0 ? "destructive" : undefined,
+    });
     onOpenChange(false);
     onCreated?.(data.id);
   };
@@ -136,7 +157,9 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
               placeholder="Qué ocurre, desde cuándo y cualquier detalle que ayude a resolverlo"
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
+              onPaste={pegar}
             />
+            <SelectorImagenes archivos={archivos} onChange={setArchivos} disabled={enviando} />
           </div>
         </div>
         <DialogFooter>
