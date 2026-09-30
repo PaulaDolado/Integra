@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { type Comunicado, ComunicadoDialog } from "@/components/noticias/ComunicadoDialog";
+import { usePermisos } from "@/hooks/usePermisos";
 import { addMonths, format, isSameMonth, startOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import { type AreaComunicado, AREAS, getArea } from "@/components/noticias/areas";
@@ -36,23 +37,22 @@ export default function Noticias() {
   const [mes, setMes] = useState(() => startOfMonth(new Date()));
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [abierta, setAbierta] = useState<Anuncio | null>(null);
-  // Área en la que publica el departamento del usuario (null = solo lectura)
-  const [miArea, setMiArea] = useState<AreaComunicado | null>(null);
   const [empleadoId, setEmpleadoId] = useState<string | null>(null);
   // undefined = cerrado, null = nuevo comunicado
   const [editando, setEditando] = useState<Anuncio | null | undefined>(undefined);
   const [confirmarBorrado, setConfirmarBorrado] = useState(false);
   const [recarga, setRecarga] = useState(0);
   const { toast } = useToast();
+  const { tiene } = usePermisos();
+
+  // Áreas en las que el departamento del usuario puede publicar (vacío = solo lectura)
+  const misAreas = (Object.keys(AREAS) as AreaComunicado[]).filter((area) => tiene(`comunicados.${area}`));
 
   useEffect(() => {
-    Promise.all([supabase.rpc("mi_area_comunicados"), supabase.rpc("mi_empleado_id")]).then(([area, empleado]) => {
-      setMiArea(area.data && area.data in AREAS ? (area.data as AreaComunicado) : null);
-      setEmpleadoId(empleado.data ?? null);
-    });
+    supabase.rpc("mi_empleado_id").then(({ data }) => setEmpleadoId(data ?? null));
   }, []);
 
-  const puedeGestionar = (noticia: Anuncio) => miArea !== null && noticia.area === miArea;
+  const puedeGestionar = (noticia: Anuncio) => misAreas.includes(noticia.area as AreaComunicado);
 
   const handleSaved = () => {
     setEditando(undefined);
@@ -138,7 +138,7 @@ export default function Noticias() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {miArea && (
+          {misAreas.length > 0 && (
             <Button className="gap-2" onClick={() => setEditando(null)}>
               <Plus className="w-4 h-4" />
               Nuevo comunicado
@@ -277,11 +277,11 @@ export default function Noticias() {
         </DialogContent>
       </Dialog>
 
-      {miArea && (
+      {misAreas.length > 0 && (
         <ComunicadoDialog
           open={editando !== undefined}
           comunicado={editando ?? null}
-          area={miArea}
+          areas={misAreas}
           empleadoId={empleadoId}
           onClose={() => setEditando(undefined)}
           onSaved={handleSaved}

@@ -216,7 +216,6 @@ export type Database = {
       }
       departamentos: {
         Row: {
-          area_comunicados: string | null
           created_at: string
           descripcion: string | null
           id: string
@@ -225,7 +224,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          area_comunicados?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
@@ -234,7 +232,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          area_comunicados?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
@@ -249,6 +246,36 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "empleados"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      departamento_permisos: {
+        Row: {
+          departamento_id: string
+          permiso: string
+        }
+        Insert: {
+          departamento_id: string
+          permiso: string
+        }
+        Update: {
+          departamento_id?: string
+          permiso?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departamento_permisos_departamento_id_fkey"
+            columns: ["departamento_id"]
+            isOneToOne: false
+            referencedRelation: "departamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departamento_permisos_permiso_fkey"
+            columns: ["permiso"]
+            isOneToOne: false
+            referencedRelation: "permisos"
+            referencedColumns: ["codigo"]
           },
         ]
       }
@@ -484,6 +511,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      permisos: {
+        Row: {
+          codigo: string
+          descripcion: string
+        }
+        Insert: {
+          codigo: string
+          descripcion: string
+        }
+        Update: {
+          codigo?: string
+          descripcion?: string
+        }
+        Relationships: []
       }
       proyecto_miembros: {
         Row: {
@@ -767,13 +809,17 @@ export type Database = {
         Args: { conv_id: string }
         Returns: undefined
       }
-      mi_area_comunicados: {
-        Args: Record<PropertyKey, never>
-        Returns: string | null
-      }
       mi_empleado_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      mis_permisos: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
+      tengo_permiso: {
+        Args: { codigo: string }
+        Returns: boolean
       }
       mis_conversaciones: {
         Args: Record<PropertyKey, never>

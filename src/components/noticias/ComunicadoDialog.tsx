@@ -14,6 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { type AreaComunicado, AREAS } from "./areas";
 
 export interface Comunicado {
@@ -29,7 +36,8 @@ interface ComunicadoDialogProps {
   open: boolean;
   // null = nuevo comunicado
   comunicado: Comunicado | null;
-  area: AreaComunicado;
+  // Áreas en las que el usuario puede publicar
+  areas: AreaComunicado[];
   empleadoId: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -41,11 +49,12 @@ const toFechaPublicacion = (fecha: string) => {
   return (isToday(dia) ? new Date() : dia).toISOString();
 };
 
-export function ComunicadoDialog({ open, comunicado, area, empleadoId, onClose, onSaved }: ComunicadoDialogProps) {
+export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose, onSaved }: ComunicadoDialogProps) {
   const { toast } = useToast();
   const [titulo, setTitulo] = useState("");
   const [contenido, setContenido] = useState("");
   const [fecha, setFecha] = useState("");
+  const [area, setArea] = useState<AreaComunicado>(areas[0]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -53,6 +62,7 @@ export function ComunicadoDialog({ open, comunicado, area, empleadoId, onClose, 
     setTitulo(comunicado?.titulo ?? "");
     setContenido(comunicado?.contenido ?? "");
     setFecha(format(comunicado ? new Date(comunicado.fecha_publicacion) : new Date(), "yyyy-MM-dd"));
+    setArea(comunicado ? (comunicado.area as AreaComunicado) : areas[0]);
   }, [open, comunicado]);
 
   const save = async () => {
@@ -109,6 +119,23 @@ export function ComunicadoDialog({ open, comunicado, area, empleadoId, onClose, 
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {!comunicado && areas.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="comunicado-area">Área</Label>
+              <Select value={area} onValueChange={(value) => setArea(value as AreaComunicado)}>
+                <SelectTrigger id="comunicado-area" className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {areas.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {AREAS[a].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="comunicado-titulo">Título *</Label>
             <Input id="comunicado-titulo" maxLength={255} value={titulo} onChange={(e) => setTitulo(e.target.value)} />
