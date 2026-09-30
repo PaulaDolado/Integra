@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import {

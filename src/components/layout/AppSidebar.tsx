@@ -19,7 +19,7 @@ import {
   Landmark,
   type LucideIcon,
 } from "lucide-react";
-import { NavLink, matchPath, useLocation } from "react-router-dom";
+import { NavLink, matchPath, useLocation } from "react-router";
 import { usePermisos, type Permiso } from "@/hooks/usePermisos";
 import {
   Sidebar,

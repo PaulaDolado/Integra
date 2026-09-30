@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useFichajeActual } from "@/hooks/useFichajeActual";
 

@@ -2,7 +2,7 @@ import { Newspaper } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { getArea } from "@/components/noticias/areas";
 
 interface Anuncio {

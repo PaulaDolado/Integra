@@ -28,6 +28,10 @@ jobs:
 
       - run: npm ci
 
+      # Si algún test falla no se publica
+      - name: Tests
+        run: npm test
+
       - name: Build
         run: npm run build
         env:

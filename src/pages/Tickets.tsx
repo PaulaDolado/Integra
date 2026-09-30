@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, Lock, Plus, Search, Ticket as TicketIcon } from "lucide-react";

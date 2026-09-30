@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function ResetPassword() {

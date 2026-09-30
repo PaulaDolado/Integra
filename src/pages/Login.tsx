@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { User, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { appUrl } from "@/lib/app-url";
 
