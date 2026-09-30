@@ -21,6 +21,7 @@ export function useFichajeActual() {
       .from("fichajes")
       .select("tipo, fecha_hora")
       .eq("empleado_id", id)
+      .eq("anulado", false)
       .gte("fecha_hora", startOfDay(hoy).toISOString())
       .lte("fecha_hora", endOfDay(hoy).toISOString())
       .order("fecha_hora", { ascending: false })
@@ -44,7 +45,7 @@ export function useFichajeActual() {
       // Mantiene sincronizados la barra superior y la página de fichajes
       channel = supabase
         .channel(`mi-fichaje-${id}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "fichajes", filter: `empleado_id=eq.${id}` }, () => cargar(id))
+        .on("postgres_changes", { event: "*", schema: "public", table: "fichajes", filter: `empleado_id=eq.${id}` }, () => cargar(id))
         .subscribe();
     });
 

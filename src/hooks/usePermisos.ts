@@ -9,6 +9,7 @@ export type Permiso =
   | "ausencias.aprobar"
   | "empleados.gestionar"
   | "fichajes.ver_todos"
+  | "fichajes.editar"
   | "contactos_emergencia.ver"
   | "datos_pago.ver"
   | "tickets.gestionar";

@@ -452,26 +452,91 @@ export type Database = {
           },
         ]
       }
-      fichajes: {
+      fichaje_correcciones: {
         Row: {
+          accion: string
+          autor_id: string | null
           created_at: string
           empleado_id: string
-          fecha_hora: string
+          fecha_hora_anterior: string | null
+          fecha_hora_nueva: string | null
+          fichaje_id: string
           id: string
+          justificacion: string
           tipo: string
         }
         Insert: {
+          accion: string
+          autor_id?: string | null
           created_at?: string
           empleado_id: string
-          fecha_hora?: string
+          fecha_hora_anterior?: string | null
+          fecha_hora_nueva?: string | null
+          fichaje_id: string
           id?: string
+          justificacion: string
           tipo: string
         }
         Update: {
+          accion?: string
+          autor_id?: string | null
           created_at?: string
           empleado_id?: string
-          fecha_hora?: string
+          fecha_hora_anterior?: string | null
+          fecha_hora_nueva?: string | null
+          fichaje_id?: string
           id?: string
+          justificacion?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fichaje_correcciones_fichaje_id_fkey"
+            columns: ["fichaje_id"]
+            isOneToOne: false
+            referencedRelation: "fichajes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fichajes: {
+        Row: {
+          anulado: boolean
+          corregido_en: string | null
+          corregido_por: string | null
+          created_at: string
+          empleado_id: string
+          es_manual: boolean
+          fecha_hora: string
+          fecha_hora_original: string | null
+          id: string
+          justificacion: string | null
+          tipo: string
+        }
+        Insert: {
+          anulado?: boolean
+          corregido_en?: string | null
+          corregido_por?: string | null
+          created_at?: string
+          empleado_id: string
+          es_manual?: boolean
+          fecha_hora?: string
+          fecha_hora_original?: string | null
+          id?: string
+          justificacion?: string | null
+          tipo: string
+        }
+        Update: {
+          anulado?: boolean
+          corregido_en?: string | null
+          corregido_por?: string | null
+          created_at?: string
+          empleado_id?: string
+          es_manual?: boolean
+          fecha_hora?: string
+          fecha_hora_original?: string | null
+          id?: string
+          justificacion?: string | null
           tipo?: string
         }
         Relationships: []
@@ -934,6 +999,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      anadir_fichaje_manual: {
+        Args: { p_empleado: string; p_tipo: string; p_fecha_hora: string; p_justificacion: string }
+        Returns: string
+      }
+      anular_fichaje: {
+        Args: { p_fichaje: string; p_justificacion: string }
+        Returns: undefined
+      }
+      autores_correcciones_fichajes: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nombre: string }[]
+      }
       bandeja_ausencias: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1027,6 +1104,10 @@ export type Database = {
           departamento_id: string | null
           departamento: string | null
         }[]
+      }
+      modificar_fichaje: {
+        Args: { p_fichaje: string; p_fecha_hora: string; p_justificacion: string }
+        Returns: undefined
       }
       personas_tickets: {
         Args: Record<PropertyKey, never>

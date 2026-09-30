@@ -9,7 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertTriangle, ChevronDown, Clock, Download, Loader2, Lock, Search, UserCheck, UserX, Users } from "lucide-react";
+import { AlertTriangle, ChevronDown, Clock, Download, Loader2, Lock, PencilLine, Plus, Search, UserCheck, UserX, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { usePermisos } from "@/hooks/usePermisos";
@@ -27,9 +27,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { descargarCsv, formatHoras, resumirFichajes, type Fichaje } from "@/components/fichajes/calculo";
+import { descargarCsv, esCorregido, formatHoras, resumirFichajes, type Fichaje } from "@/components/fichajes/calculo";
+import { CorreccionFichajesDialog } from "@/components/fichajes/CorreccionFichajesDialog";
 
 type Empleado = Database["public"]["Functions"]["plantilla_fichajes"]["Returns"][number];
+type Correccion = Database["public"]["Tables"]["fichaje_correcciones"]["Row"];
+
+const CAMPOS_FICHAJE = "id, empleado_id, tipo, fecha_hora, es_manual, anulado, fecha_hora_original, justificacion";
+
+const describirCorreccion = (c: Correccion) => {
+  const tipo = c.tipo === "entrada" ? "entrada" : "salida";
+  const h = (v: string | null) => (v ? format(new Date(v), "d MMM HH:mm", { locale: es }) : "");
+  switch (c.accion) {
+    case "alta":
+      return `Añadida ${tipo} de ${h(c.fecha_hora_nueva)}`;
+    case "modificacion":
+      return `Cambiada ${tipo}: ${h(c.fecha_hora_anterior)} → ${format(new Date(c.fecha_hora_nueva ?? ""), "HH:mm")}`;
+    default:
+      return `Anulada ${tipo} de ${h(c.fecha_hora_anterior)}`;
+  }
+};
 type Periodo = "hoy" | "semana" | "mes" | "personalizado";
 
 const TODOS = "todos";
@@ -64,29 +81,42 @@ export default function GestionFichajes() {
   const [departamento, setDepartamento] = useState(TODOS);
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [correcciones, setCorrecciones] = useState<Correccion[]>([]);
+  const [autores, setAutores] = useState<Map<string, string>>(new Map());
+  const [miId, setMiId] = useState<string | null>(null);
+  const [corrigiendo, setCorrigiendo] = useState<{ empleado: Empleado; fecha: string } | null>(null);
 
   const puedeVer = tiene("fichajes.ver_todos");
+  // Nadie corrige sus propios fichajes
+  const puedeCorregir = (empleadoId: string) => tiene("fichajes.editar") && empleadoId !== miId;
   const { inicio, fin } = rangoDe(periodo, desde, hasta);
   const rangoValido = inicio <= fin;
 
   const cargar = useCallback(async () => {
     if (!rangoValido) return;
     const hoy = new Date();
-    const [p, f, h] = await Promise.all([
+    const desdeIso = inicio.toISOString();
+    const hastaIso = fin.toISOString();
+    const [p, f, h, c, a, yo] = await Promise.all([
       supabase.rpc("plantilla_fichajes"),
-      supabase
-        .from("fichajes")
-        .select("id, empleado_id, tipo, fecha_hora")
-        .gte("fecha_hora", inicio.toISOString())
-        .lte("fecha_hora", fin.toISOString())
-        .order("fecha_hora"),
+      supabase.from("fichajes").select(CAMPOS_FICHAJE).gte("fecha_hora", desdeIso).lte("fecha_hora", hastaIso).order("fecha_hora"),
       // "Trabajando ahora" siempre se calcula con los fichajes de hoy
       supabase
         .from("fichajes")
-        .select("id, empleado_id, tipo, fecha_hora")
+        .select(CAMPOS_FICHAJE)
         .gte("fecha_hora", startOfDay(hoy).toISOString())
         .lte("fecha_hora", endOfDay(hoy).toISOString())
         .order("fecha_hora"),
+      // Correcciones que afectan a fichajes del periodo
+      supabase
+        .from("fichaje_correcciones")
+        .select("*")
+        .or(
+          `and(fecha_hora_nueva.gte.${desdeIso},fecha_hora_nueva.lte.${hastaIso}),and(fecha_hora_anterior.gte.${desdeIso},fecha_hora_anterior.lte.${hastaIso})`
+        )
+        .order("created_at", { ascending: false }),
+      supabase.rpc("autores_correcciones_fichajes"),
+      supabase.rpc("mi_empleado_id"),
     ]);
     if (p.error || f.error || h.error) {
       console.error("Error fetching fichajes:", p.error ?? f.error ?? h.error);
@@ -95,6 +125,9 @@ export default function GestionFichajes() {
       setPlantilla(p.data ?? []);
       setFichajes(f.data ?? []);
       setFichajesHoy(h.data ?? []);
+      setCorrecciones(c.data ?? []);
+      setAutores(new Map((a.data ?? []).map((x) => [x.id, x.nombre])));
+      setMiId(yo.data ?? null);
     }
     setLoading(false);
     // inicio y fin se derivan de periodo/desde/hasta
@@ -106,7 +139,8 @@ export default function GestionFichajes() {
     cargar();
     const channel = supabase
       .channel("gestion-fichajes-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "fichajes" }, () => cargar())
+      // Altas, modificaciones y anulaciones
+      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes" }, () => cargar())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -162,13 +196,26 @@ export default function GestionFichajes() {
   const exportar = () => {
     const nombres = new Map(plantilla.map((e) => [e.id, e]));
     const visibles = new Set(filas.map((f) => f.empleado.id));
-    const lineas: (string | number)[][] = [["Empleado", "Departamento", "Fecha", "Hora", "Tipo"]];
+    // Incluye los fichajes corregidos y anulados, con su estado y motivo, para la auditoría
+    const lineas: (string | number)[][] = [
+      ["Empleado", "Departamento", "Fecha", "Hora", "Tipo", "Estado", "Hora original", "Justificación"],
+    ];
+    const estado = (f: Fichaje) => (f.anulado ? "Anulado" : f.es_manual ? "Añadido manualmente" : f.fecha_hora_original ? "Hora modificada" : "Original");
     fichajes
       .filter((f) => visibles.has(f.empleado_id))
       .forEach((f) => {
         const e = nombres.get(f.empleado_id);
         const momento = new Date(f.fecha_hora);
-        lineas.push([e?.nombre ?? "", e?.departamento ?? "", format(momento, "dd/MM/yyyy"), format(momento, "HH:mm:ss"), f.tipo === "entrada" ? "Entrada" : "Salida"]);
+        lineas.push([
+          e?.nombre ?? "",
+          e?.departamento ?? "",
+          format(momento, "dd/MM/yyyy"),
+          format(momento, "HH:mm:ss"),
+          f.tipo === "entrada" ? "Entrada" : "Salida",
+          estado(f),
+          f.fecha_hora_original ? format(new Date(f.fecha_hora_original), "HH:mm:ss") : "",
+          esCorregido(f) || f.anulado ? f.justificacion ?? "" : "",
+        ]);
       });
     descargarCsv(`fichajes_${format(inicio, "yyyy-MM-dd")}_${format(fin, "yyyy-MM-dd")}.csv`, lineas);
   };
@@ -339,15 +386,21 @@ export default function GestionFichajes() {
                                       {dia.tramos.map((t, i) => (
                                         <span
                                           key={i}
-                                          className={`rounded-md border px-2 py-0.5 text-xs tabular-nums ${
+                                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs tabular-nums ${
                                             t.enCurso
                                               ? "border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
                                               : t.minutos === null
                                                 ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
                                                 : "bg-card"
                                           }`}
-                                          title={t.minutos === null && !t.enCurso ? (t.entrada ? "Falta la salida" : "Falta la entrada") : undefined}
+                                          title={[
+                                            t.minutos === null && !t.enCurso ? (t.entrada ? "Falta la salida" : "Falta la entrada") : "",
+                                            ...t.correcciones.map((c) => `Corregido: ${c}`),
+                                          ]
+                                            .filter(Boolean)
+                                            .join("\n") || undefined}
                                         >
+                                          {t.correcciones.length > 0 && <PencilLine className="h-3 w-3 text-primary" aria-label="Corregido" />}
                                           {t.entrada ? hora(t.entrada) : "¿?"} – {t.salida ? hora(t.salida) : t.enCurso ? "ahora" : "¿?"}
                                         </span>
                                       ))}
@@ -355,9 +408,57 @@ export default function GestionFichajes() {
                                     <span className="text-sm tabular-nums text-muted-foreground sm:w-28 sm:text-right">
                                       {formatHoras(dia.minutos)}
                                     </span>
+                                    {puedeCorregir(empleado.id) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 gap-1 self-start px-2 text-xs sm:self-auto"
+                                        onClick={() => setCorrigiendo({ empleado, fecha: dia.fecha })}
+                                      >
+                                        <PencilLine className="h-3.5 w-3.5" />
+                                        Corregir
+                                      </Button>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
+                            )}
+                            {puedeCorregir(empleado.id) && (
+                              <div className="border-t px-6 py-3">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1.5"
+                                  onClick={() =>
+                                    setCorrigiendo({
+                                      empleado,
+                                      // Por defecto, el último día del periodo que no sea futuro
+                                      fecha: format(fin > new Date() ? new Date() : fin, "yyyy-MM-dd"),
+                                    })
+                                  }
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  Añadir fichajes olvidados
+                                </Button>
+                              </div>
+                            )}
+                            {correcciones.filter((c) => c.empleado_id === empleado.id).length > 0 && (
+                              <div className="border-t px-6 py-3">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Correcciones del periodo
+                                </p>
+                                <ul className="space-y-1.5">
+                                  {correcciones
+                                    .filter((c) => c.empleado_id === empleado.id)
+                                    .map((c) => (
+                                      <li key={c.id} className="text-xs text-muted-foreground">
+                                        <span className="font-medium text-foreground">{describirCorreccion(c)}</span>
+                                        {" · "}«{c.justificacion}» · {autores.get(c.autor_id ?? "") ?? "RRHH"},{" "}
+                                        {format(new Date(c.created_at), "d MMM yyyy HH:mm", { locale: es })}
+                                      </li>
+                                    ))}
+                                </ul>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
@@ -373,9 +474,17 @@ export default function GestionFichajes() {
       {rangoValido && (
         <p className="text-xs text-muted-foreground">
           Total del periodo para los empleados mostrados: <span className="font-medium tabular-nums">{formatHoras(minutosTotales)}</span>.
-          Los tramos en ámbar son fichajes incompletos (falta la entrada o la salida).
+          Los tramos en ámbar son fichajes incompletos (falta la entrada o la salida); el lápiz indica un fichaje corregido.
         </p>
       )}
+
+      <CorreccionFichajesDialog
+        open={!!corrigiendo}
+        onOpenChange={(open) => !open && setCorrigiendo(null)}
+        empleado={corrigiendo?.empleado ?? null}
+        fecha={corrigiendo?.fecha ?? ""}
+        onSaved={cargar}
+      />
     </div>
   );
 }

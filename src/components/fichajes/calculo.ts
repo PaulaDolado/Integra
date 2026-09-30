@@ -5,11 +5,20 @@ export interface Fichaje {
   empleado_id: string;
   tipo: string;
   fecha_hora: string;
+  es_manual?: boolean;
+  anulado?: boolean;
+  fecha_hora_original?: string | null;
+  justificacion?: string | null;
 }
+
+// Añadido a mano o con la hora modificada por RRHH/Dirección
+export const esCorregido = (f: Fichaje) => !!f.es_manual || !!f.fecha_hora_original;
 
 export interface Tramo {
   entrada: Date | null;
   salida: Date | null;
+  // Motivos de las correcciones de la entrada o la salida del tramo
+  correcciones: string[];
   // Minutos del tramo; null si le falta la entrada o la salida
   minutos: number | null;
   enCurso: boolean;
@@ -38,27 +47,32 @@ const minutosEntre = (a: Date, b: Date) => Math.max(0, Math.round((b.getTime() -
 // salida o una salida sin entrada cuentan como incidencia, salvo la entrada de
 // hoy que sigue abierta (el empleado está trabajando).
 export function resumirFichajes(fichajes: Fichaje[]): ResumenEmpleado {
-  const ordenados = [...fichajes].sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
+  // Los fichajes anulados se conservan pero no cuentan
+  const ordenados = fichajes.filter((f) => !f.anulado).sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
   const porDia = new Map<string, Tramo[]>();
+  const motivos = (...fs: (Fichaje | null)[]) =>
+    fs.filter((f): f is Fichaje => !!f && esCorregido(f)).map((f) => f.justificacion ?? "Corregido");
   const añadir = (fecha: Date, tramo: Tramo) => {
     const clave = format(fecha, "yyyy-MM-dd");
     porDia.set(clave, [...(porDia.get(clave) ?? []), tramo]);
   };
 
   let abierta: Date | null = null;
+  let fichajeAbierto: Fichaje | null = null;
   for (const f of ordenados) {
     const momento = new Date(f.fecha_hora);
     const mismoDia = abierta && format(abierta, "yyyy-MM-dd") === format(momento, "yyyy-MM-dd");
 
     if (f.tipo === "entrada") {
-      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false });
+      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
       abierta = momento;
+      fichajeAbierto = f;
     } else if (abierta && mismoDia) {
-      añadir(abierta, { entrada: abierta, salida: momento, minutos: minutosEntre(abierta, momento), enCurso: false });
+      añadir(abierta, { entrada: abierta, salida: momento, minutos: minutosEntre(abierta, momento), enCurso: false, correcciones: motivos(fichajeAbierto, f) });
       abierta = null;
     } else {
-      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false });
-      añadir(momento, { entrada: null, salida: momento, minutos: null, enCurso: false });
+      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
+      añadir(momento, { entrada: null, salida: momento, minutos: null, enCurso: false, correcciones: motivos(f) });
       abierta = null;
     }
   }
@@ -67,7 +81,7 @@ export function resumirFichajes(fichajes: Fichaje[]): ResumenEmpleado {
   if (abierta) {
     const enCurso = isToday(abierta);
     if (enCurso) trabajandoDesde = abierta;
-    añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso });
+    añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso, correcciones: motivos(fichajeAbierto) });
   }
 
   const dias: Dia[] = [...porDia.entries()]

@@ -14,6 +14,10 @@ interface Fichaje {
   empleado_id: string;
   tipo: "entrada" | "salida";
   fecha_hora: string;
+  es_manual: boolean;
+  anulado: boolean;
+  fecha_hora_original: string | null;
+  justificacion: string | null;
 }
 
 export default function Fichajes() {
@@ -30,7 +34,7 @@ export default function Fichajes() {
     // Refleja también los fichajes hechos desde el botón de la barra superior
     const channel = supabase
       .channel(`fichajes-pagina-${profile.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
+      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
         fetchFichajes()
       )
       .subscribe();
@@ -110,7 +114,8 @@ export default function Fichajes() {
     );
   }
 
-  const ultimoFichaje = fichajes[0];
+  // Los fichajes anulados por RRHH se muestran en el historial pero no cuentan
+  const ultimoFichaje = fichajes.find((f) => !f.anulado);
   const puedeEntrar = !ultimoFichaje || ultimoFichaje.tipo === "salida";
 
   return (
@@ -206,7 +211,9 @@ export default function Fichajes() {
               {fichajes.map((fichaje) => (
                 <div
                   key={fichaje.id}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors"
+                  className={`flex flex-col gap-3 p-4 rounded-lg border transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                    fichaje.anulado ? "opacity-60" : "hover:bg-accent/50"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     {fichaje.tipo === "entrada" ? (
@@ -225,10 +232,22 @@ export default function Fichajes() {
                       <p className="text-sm text-muted-foreground">
                         {format(new Date(fichaje.fecha_hora), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es })}
                       </p>
+                      {(fichaje.anulado || fichaje.es_manual || fichaje.fecha_hora_original) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {fichaje.anulado
+                              ? "Anulado por RRHH"
+                              : fichaje.es_manual
+                                ? "Añadido por RRHH"
+                                : `Hora corregida por RRHH (registraste las ${format(new Date(fichaje.fecha_hora_original!), "HH:mm")})`}
+                          </span>
+                          {fichaje.justificacion && <> · «{fichaje.justificacion}»</>}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono text-lg font-semibold">
+                  <div className="sm:text-right">
+                    <p className={`font-mono text-lg font-semibold ${fichaje.anulado ? "line-through" : ""}`}>
                       {format(new Date(fichaje.fecha_hora), "HH:mm:ss")}
                     </p>
                     <Badge 
