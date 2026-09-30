@@ -207,7 +207,7 @@ export default function GestionFichajes() {
         const e = nombres.get(f.empleado_id);
         const momento = new Date(f.fecha_hora);
         lineas.push([
-          e?.nombre ?? "",
+          (e?.nombre ?? "").trim(),
           e?.departamento ?? "",
           format(momento, "dd/MM/yyyy"),
           format(momento, "HH:mm:ss"),

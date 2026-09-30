@@ -14,6 +14,7 @@ import {
   UserCog,
   LifeBuoy,
   Timer,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router-dom";
@@ -57,6 +58,7 @@ const requestItems: NavEntry[] = [
 // Pantallas de gestión: solo se muestran a los departamentos con el permiso
 const managementItems: (NavEntry & { permiso: Permiso })[] = [
   { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permiso: "ausencias.aprobar" },
+  { title: "Cambios de Turno", url: "/bandeja-turnos", icon: CalendarClock, permiso: "turnos.aprobar" },
   { title: "Gestión de Empleados", url: "/gestion-empleados", icon: UserCog, permiso: "empleados.gestionar" },
   { title: "Todos los Tickets", url: "/gestion-tickets", icon: LifeBuoy, permiso: "tickets.gestionar" },
   { title: "Fichajes de la Plantilla", url: "/gestion-fichajes", icon: Timer, permiso: "fichajes.ver_todos" },

@@ -20,6 +20,8 @@ import Organigrama from "./pages/Organigrama";
 import Fichajes from "./pages/Fichajes";
 import Vacaciones from "./pages/Vacaciones";
 import BandejaAusencias from "./pages/BandejaAusencias";
+import CambioTurno from "./pages/CambioTurno";
+import BandejaTurnos from "./pages/BandejaTurnos";
 import GestionEmpleados from "./pages/GestionEmpleados";
 import GestionFichajes from "./pages/GestionFichajes";
 import Login from "./pages/Login";
@@ -167,10 +169,17 @@ const App = () => (
                 </AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/bandeja-turnos" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <BandejaTurnos />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/cambio-turno" element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-6"><h1 className="text-2xl font-bold">Cambio de Turno</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                  <CambioTurno />
                 </AppLayout>
               </ProtectedRoute>
             } />

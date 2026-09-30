@@ -12,7 +12,8 @@ export type Permiso =
   | "fichajes.editar"
   | "contactos_emergencia.ver"
   | "datos_pago.ver"
-  | "tickets.gestionar";
+  | "tickets.gestionar"
+  | "turnos.aprobar";
 
 // Una sola consulta por usuario aunque varios componentes usen el hook
 let cache: { userId: string; promise: Promise<Set<string>> } | null = null;

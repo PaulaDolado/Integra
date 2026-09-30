@@ -744,6 +744,60 @@ export type Database = {
           },
         ]
       }
+      solicitudes_turno: {
+        Row: {
+          comentario_revision: string | null
+          companero_id: string | null
+          created_at: string
+          estado: string
+          fecha: string
+          fecha_respuesta_companero: string | null
+          fecha_revision: string | null
+          id: string
+          motivo: string
+          respuesta_companero: string | null
+          revisado_por: string | null
+          solicitante_id: string
+          turno_actual_id: string
+          turno_solicitado_id: string
+          updated_at: string
+        }
+        Insert: {
+          comentario_revision?: string | null
+          companero_id?: string | null
+          created_at?: string
+          estado?: string
+          fecha: string
+          fecha_respuesta_companero?: string | null
+          fecha_revision?: string | null
+          id?: string
+          motivo: string
+          respuesta_companero?: string | null
+          revisado_por?: string | null
+          solicitante_id: string
+          turno_actual_id: string
+          turno_solicitado_id: string
+          updated_at?: string
+        }
+        Update: {
+          comentario_revision?: string | null
+          companero_id?: string | null
+          created_at?: string
+          estado?: string
+          fecha?: string
+          fecha_respuesta_companero?: string | null
+          fecha_revision?: string | null
+          id?: string
+          motivo?: string
+          respuesta_companero?: string | null
+          revisado_por?: string | null
+          solicitante_id?: string
+          turno_actual_id?: string
+          turno_solicitado_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tareas: {
         Row: {
           asignado_a_id: string | null
@@ -976,6 +1030,30 @@ export type Database = {
           },
         ]
       }
+      turnos: {
+        Row: {
+          hora_fin: string
+          hora_inicio: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          hora_fin: string
+          hora_inicio: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          hora_fin?: string
+          hora_inicio?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -987,6 +1065,14 @@ export type Database = {
       }
       crear_grupo: {
         Args: { nombre_grupo: string; participantes: string[] }
+        Returns: string
+      }
+      cancelar_solicitud_turno: {
+        Args: { p_solicitud: string }
+        Returns: undefined
+      }
+      crear_solicitud_turno: {
+        Args: { p_fecha: string; p_turno_actual: string; p_turno_solicitado: string; p_companero: string | null; p_motivo: string }
         Returns: string
       }
       actualizar_ticket: {
@@ -1113,9 +1199,39 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: { id: string; nombre: string }[]
       }
+      responder_intercambio_turno: {
+        Args: { p_solicitud: string; p_aceptar: boolean; p_comentario?: string }
+        Returns: undefined
+      }
       responder_ticket: {
         Args: { p_ticket: string; p_contenido: string }
         Returns: string
+      }
+      revisar_solicitud_turno: {
+        Args: { p_solicitud: string; p_aprobar: boolean; p_comentario?: string }
+        Returns: undefined
+      }
+      solicitudes_turno_detalle: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          fecha: string
+          estado: string
+          motivo: string
+          solicitante_id: string
+          solicitante: string
+          departamento: string | null
+          companero_id: string | null
+          companero: string | null
+          turno_actual: string
+          turno_solicitado: string
+          respuesta_companero: string | null
+          fecha_respuesta_companero: string | null
+          revisor: string | null
+          fecha_revision: string | null
+          comentario_revision: string | null
+          created_at: string
+        }[]
       }
       revisar_ausencia: {
         Args: {
