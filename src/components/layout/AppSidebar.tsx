@@ -15,6 +15,8 @@ import {
   LifeBuoy,
   Timer,
   CalendarClock,
+  HeartPulse,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router-dom";
@@ -62,6 +64,8 @@ const managementItems: (NavEntry & { permiso: Permiso })[] = [
   { title: "Gestión de Empleados", url: "/gestion-empleados", icon: UserCog, permiso: "empleados.gestionar" },
   { title: "Todos los Tickets", url: "/gestion-tickets", icon: LifeBuoy, permiso: "tickets.gestionar" },
   { title: "Fichajes de la Plantilla", url: "/gestion-fichajes", icon: Timer, permiso: "fichajes.ver_todos" },
+  { title: "Contactos de Emergencia", url: "/gestion-contactos", icon: HeartPulse, permiso: "contactos_emergencia.ver" },
+  { title: "Datos de Pago", url: "/gestion-pagos", icon: Landmark, permiso: "datos_pago.ver" },
 ];
 
 // El estado activo se pasa a SidebarMenuButton: con asChild, un className en

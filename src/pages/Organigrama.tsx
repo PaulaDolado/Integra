@@ -1,277 +1,124 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, Crown, Loader2, Network, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { Database } from "@/integrations/supabase/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronRight, User, Mail, Phone, Briefcase, Building2 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
-interface Empleado {
-  id: string;
-  nombre: string;
-  primer_apellido: string;
-  segundo_apellido: string;
-  correo_electronico: string;
-  numero_telefono?: string;
-  cargo_id?: string;
-  departamento_id?: string;
-}
+// Solo nombre, puesto y departamento: el organigrama no muestra datos personales
+type Persona = Database["public"]["Functions"]["organigrama"]["Returns"][number];
 
-interface Departamento {
-  id: string;
-  nombre: string;
-  jefe_departamento_id?: string;
-  empleados: Empleado[];
-  cargo_jefe?: string;
-}
-
-interface PerfilEmpleado extends Empleado {
-  cargo_nombre?: string;
-  departamento_nombre?: string;
-}
+const iniciales = (nombre: string) =>
+  nombre
+    .split(" ")
+    .slice(0, 2)
+    .map((p) => p.charAt(0))
+    .join("")
+    .toUpperCase();
 
 export default function Organigrama() {
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
-  const [cargos, setCargos] = useState<Record<string, string>>({});
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEmpleado, setSelectedEmpleado] = useState<PerfilEmpleado | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
-    async function fetchOrganigrama() {
-      try {
-        // Fetch all data
-        const [deptosResult, empleadosResult, cargosResult] = await Promise.all([
-          supabase.from("departamentos").select("*"),
-          supabase.from("empleados").select("*"),
-          supabase.from("cargos").select("*")
-        ]);
-
-        if (deptosResult.error || empleadosResult.error || cargosResult.error) {
-          console.error("Error fetching data");
-          return;
-        }
-
-        const cargosMap = (cargosResult.data || []).reduce((acc, cargo) => {
-          acc[cargo.id] = cargo.nombre;
-          return acc;
-        }, {} as Record<string, string>);
-
-        setCargos(cargosMap);
-        setEmpleados(empleadosResult.data || []);
-
-        // Group employees by department
-        const deptosConEmpleados = (deptosResult.data || []).map(depto => {
-          const empleadosDepto = (empleadosResult.data || []).filter(
-            emp => emp.departamento_id === depto.id
-          );
-          
-          const jefe = empleadosDepto.find(emp => emp.id === depto.jefe_departamento_id);
-          
-          return {
-            ...depto,
-            empleados: empleadosDepto,
-            cargo_jefe: jefe?.cargo_id ? cargosMap[jefe.cargo_id] : undefined
-          };
-        });
-
-        setDepartamentos(deptosConEmpleados);
-      } catch (error) {
-        console.error("Error fetching organigrama:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchOrganigrama();
+    supabase.rpc("organigrama").then(({ data, error }) => {
+      if (error) console.error("Error fetching organigrama:", error);
+      setPersonas(data ?? []);
+      setLoading(false);
+    });
   }, []);
 
-  const handleEmpleadoClick = async (empleado: Empleado) => {
-    // Get department and cargo names
-    const departamento = departamentos.find(d => d.id === empleado.departamento_id);
-    const cargoNombre = empleado.cargo_id ? cargos[empleado.cargo_id] : undefined;
-
-    setSelectedEmpleado({
-      ...empleado,
-      cargo_nombre: cargoNombre,
-      departamento_nombre: departamento?.nombre
-    });
-    setDialogOpen(true);
-  };
-
-  const getInitials = (nombre: string, apellido: string) => {
-    return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-      </div>
+  const texto = busqueda.trim().toLowerCase();
+  const grupos = useMemo(() => {
+    const visibles = personas.filter(
+      (p) =>
+        !texto ||
+        p.nombre.toLowerCase().includes(texto) ||
+        (p.cargo ?? "").toLowerCase().includes(texto) ||
+        (p.departamento ?? "").toLowerCase().includes(texto)
     );
-  }
+    const mapa = new Map<string, { nombre: string; personas: Persona[] }>();
+    for (const p of visibles) {
+      const clave = p.departamento_id ?? "sin-departamento";
+      if (!mapa.has(clave)) mapa.set(clave, { nombre: p.departamento ?? "Sin departamento", personas: [] });
+      mapa.get(clave)!.personas.push(p);
+    }
+    return [...mapa.values()];
+  }, [personas, texto]);
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Organigrama</h1>
-        <p className="text-muted-foreground">
-          Estructura organizacional de la empresa
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            <Network className="w-6 h-6 text-primary" />
+            Organigrama
+          </h1>
+          <p className="text-muted-foreground mt-1">Quién es quién en la empresa, por departamento.</p>
+        </div>
+        <div className="relative sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar persona, puesto o departamento..."
+            className="pl-9"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div className="space-y-6">
-        {departamentos.map((depto) => {
-          const jefe = depto.empleados.find(emp => emp.id === depto.jefe_departamento_id);
-          const subordinados = depto.empleados.filter(emp => emp.id !== depto.jefe_departamento_id);
-
-          return (
-            <Card key={depto.id}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-primary" />
-                  <CardTitle>{depto.nombre}</CardTitle>
-                </div>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : grupos.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">No hay personas que coincidan</CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {grupos.map((g) => (
+            <Card key={g.nombre}>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                  <span className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {g.nombre}
+                  </span>
+                  <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                    {g.personas.length} persona{g.personas.length === 1 ? "" : "s"}
+                  </span>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {jefe && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Jefe de Departamento</p>
-                    <div
-                      onClick={() => handleEmpleadoClick(jefe)}
-                      className="flex items-center gap-3 p-4 bg-primary/5 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors border border-primary/20"
-                    >
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {getInitials(jefe.nombre, jefe.primer_apellido)}
+              <CardContent>
+                <ul className="space-y-1">
+                  {g.personas.map((p) => (
+                    <li key={p.id} className="flex items-center gap-3 rounded-lg px-2 py-2">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback
+                          className={`text-xs font-medium ${p.es_responsable ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}
+                        >
+                          {iniciales(p.nombre)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <p className="font-semibold text-foreground">
-                          {jefe.nombre} {jefe.primer_apellido} {jefe.segundo_apellido}
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                          {p.nombre}
+                          {p.es_responsable && <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-label="Responsable del departamento" />}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {jefe.cargo_id ? cargos[jefe.cargo_id] : "Sin cargo"}
+                        <p className="truncate text-xs text-muted-foreground">
+                          {p.es_responsable ? "Responsable · " : ""}
+                          {p.cargo ?? "Sin puesto asignado"}
                         </p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  </div>
-                )}
-
-                {subordinados.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-px h-6 bg-border ml-6"></div>
-                    </div>
-                    <div className="pl-6 space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Equipo</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {subordinados.map((empleado) => (
-                          <div
-                            key={empleado.id}
-                            onClick={() => handleEmpleadoClick(empleado)}
-                            className="flex items-center gap-3 p-3 bg-card rounded-lg cursor-pointer hover:bg-accent/50 transition-colors border"
-                          >
-                            <Avatar className="w-10 h-10">
-                              <AvatarFallback>
-                                {getInitials(empleado.nombre, empleado.primer_apellido)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">
-                                {empleado.nombre} {empleado.primer_apellido}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {empleado.cargo_id ? cargos[empleado.cargo_id] : "Sin cargo"}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Información del Empleado</DialogTitle>
-          </DialogHeader>
-          {selectedEmpleado && (
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <Avatar className="w-20 h-20">
-                  <AvatarFallback className="text-lg bg-primary text-primary-foreground">
-                    {getInitials(selectedEmpleado.nombre, selectedEmpleado.primer_apellido)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-foreground">
-                    {selectedEmpleado.nombre} {selectedEmpleado.primer_apellido} {selectedEmpleado.segundo_apellido}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge>{selectedEmpleado.cargo_nombre || "Sin cargo"}</Badge>
-                    {selectedEmpleado.departamento_nombre && (
-                      <Badge variant="outline">{selectedEmpleado.departamento_nombre}</Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedEmpleado.correo_electronico}</p>
-                  </div>
-                </div>
-
-                {selectedEmpleado.numero_telefono && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Teléfono</p>
-                      <p className="font-medium">{selectedEmpleado.numero_telefono}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
-                  <Briefcase className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cargo</p>
-                    <p className="font-medium">{selectedEmpleado.cargo_nombre || "No asignado"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Departamento</p>
-                    <p className="font-medium">{selectedEmpleado.departamento_nombre || "No asignado"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {departamentos.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="w-16 h-16 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-muted-foreground">No hay departamentos disponibles</p>
+          ))}
         </div>
       )}
     </div>

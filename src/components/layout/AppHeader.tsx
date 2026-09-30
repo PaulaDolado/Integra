@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Bell, Settings, LogOut, Clock, Moon, Sun, User } from "lucide-react";
+import { guardarTema } from "@/lib/tema";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,7 +20,7 @@ import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useFichajeActual } from "@/hooks/useFichajeActual";
 
 export function AppHeader() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const { toast } = useToast();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ export function AppHeader() {
 
   const handleThemeToggle = () => {
     setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle("dark");
+    guardarTema(isDarkMode ? "claro" : "oscuro");
     toast({
       title: "Tema actualizado",
       description: `Cambiado al modo ${isDarkMode ? "claro" : "oscuro"}`,

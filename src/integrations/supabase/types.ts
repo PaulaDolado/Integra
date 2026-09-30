@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      accesos_datos_pago: {
+        Row: {
+          accion: string
+          autor_id: string | null
+          created_at: string
+          empleado_id: string | null
+          id: string
+        }
+        Insert: {
+          accion: string
+          autor_id?: string | null
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+        }
+        Update: {
+          accion?: string
+          autor_id?: string | null
+          created_at?: string
+          empleado_id?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       anuncios: {
         Row: {
           area: string
@@ -1071,9 +1095,26 @@ export type Database = {
         Args: { p_solicitud: string }
         Returns: undefined
       }
+      contactos_emergencia_plantilla: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          empleado_id: string
+          empleado: string
+          departamento: string | null
+          telefono_empleado: string | null
+          contacto_id: string | null
+          contacto: string | null
+          relacion: string | null
+          telefono: string | null
+        }[]
+      }
       crear_solicitud_turno: {
         Args: { p_fecha: string; p_turno_actual: string; p_turno_solicitado: string; p_companero: string | null; p_motivo: string }
         Returns: string
+      }
+      accesos_datos_pago_recientes: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; autor: string; empleado: string; accion: string; created_at: string }[]
       }
       actualizar_ticket: {
         Args: {
@@ -1118,6 +1159,17 @@ export type Database = {
           es_mia: boolean
         }[]
       }
+      datos_pago_plantilla: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          empleado_id: string
+          empleado: string
+          departamento: string | null
+          forma_pago: string | null
+          iban_enmascarado: string | null
+          actualizado: string | null
+        }[]
+      }
       directorio_empleados: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1134,6 +1186,10 @@ export type Database = {
       es_participante: {
         Args: { conv_id: string }
         Returns: boolean
+      }
+      exportar_datos_pago: {
+        Args: Record<PropertyKey, never>
+        Returns: { empleado: string; departamento: string | null; forma_pago: string; iban: string | null }[]
       }
       gestion_empleados: {
         Args: Record<PropertyKey, never>
@@ -1195,6 +1251,17 @@ export type Database = {
         Args: { p_fichaje: string; p_fecha_hora: string; p_justificacion: string }
         Returns: undefined
       }
+      organigrama: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          nombre: string
+          cargo: string | null
+          departamento_id: string | null
+          departamento: string | null
+          es_responsable: boolean | null
+        }[]
+      }
       personas_tickets: {
         Args: Record<PropertyKey, never>
         Returns: { id: string; nombre: string }[]
@@ -1244,6 +1311,10 @@ export type Database = {
       solucionar_ticket: {
         Args: { p_ticket: string; p_contenido: string }
         Returns: string
+      }
+      ver_iban: {
+        Args: { p_empleado: string }
+        Returns: string | null
       }
       tecnicos_tickets: {
         Args: Record<PropertyKey, never>

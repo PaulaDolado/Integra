@@ -24,6 +24,8 @@ import CambioTurno from "./pages/CambioTurno";
 import BandejaTurnos from "./pages/BandejaTurnos";
 import GestionEmpleados from "./pages/GestionEmpleados";
 import GestionFichajes from "./pages/GestionFichajes";
+import GestionContactosEmergencia from "./pages/GestionContactosEmergencia";
+import GestionDatosPago from "./pages/GestionDatosPago";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -138,6 +140,20 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <div className="p-6"><h1 className="text-2xl font-bold">Inscripción a Cursos</h1><p className="text-muted-foreground">En desarrollo</p></div>
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/gestion-contactos" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <GestionContactosEmergencia />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/gestion-pagos" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <GestionDatosPago />
                 </AppLayout>
               </ProtectedRoute>
             } />
