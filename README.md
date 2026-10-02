@@ -37,7 +37,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 
 Requisitos:
 
-- Node.js 20 o superior, y npm.
+- Node.js 22.22 o superior (o 24.15 o superior), y npm. Con versiones anteriores los tests no arrancan.
 - Acceso al proyecto de Supabase.
 - Opcional: [Supabase CLI](https://supabase.com/docs/guides/cli) para aplicar las migraciones desde la terminal.
 
