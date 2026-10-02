@@ -1,6 +1,6 @@
 # Integra
 
-Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: fichajes, ausencias, cambios de turno, tareas, calendario, tickets, tablón de anuncios y chat interno. RRHH, Dirección, Finanzas y Tecnología tienen además sus propias pantallas de gestión.
+Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: fichajes, ausencias, cambios de turno, tareas, calendario, tickets, tablón de anuncios, chat interno y gestor de contraseñas. RRHH, Dirección, Finanzas y Tecnología tienen además sus propias pantallas de gestión.
 
 ## Índice
 
@@ -104,6 +104,7 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 | `/fichajes` | Fichaje de entrada y salida, y el historial propio |
 | `/vacaciones` | Solicitar ausencia: tipo, motivo y justificante |
 | `/cambio-turno` | Solicitar un cambio de turno, con o sin intercambio con un compañero |
+| `/contrasenas` | Gestor de contraseñas personal: bóveda cifrada con una contraseña maestra, generador, favoritas y aviso de contraseñas débiles o repetidas |
 | `/perfil`, `/configuracion` | Perfil, inicio de sesión (doble factor y Google), confidencialidad e información de pago |
 | `/documentos`, `/cursos` | En desarrollo |
 
@@ -144,6 +145,7 @@ Un empleado con `es_admin = true` tiene todos los permisos.
 - **Datos sensibles a través de funciones del servidor.** El organigrama, los contactos de emergencia y los datos de pago se leen con funciones `SECURITY DEFINER`, que devuelven solo los campos necesarios:
   - El organigrama nunca envía el teléfono, el correo ni la dirección.
   - El IBAN llega enmascarado. Para verlo entero hay que pedirlo con `ver_iban()`, que registra quién lo consultó en `accesos_datos_pago`.
+- **Gestor de contraseñas cifrado de extremo a extremo.** La bóveda se cifra en el navegador: la contraseña maestra se convierte en una clave AES-GCM de 256 bits con PBKDF2-SHA256 (600.000 iteraciones) y nunca sale del navegador. La base de datos solo guarda texto cifrado, así que ni un administrador ni Supabase pueden leer las contraseñas. Por eso la contraseña maestra no se puede recuperar: si se olvida, solo queda vaciar la bóveda. La bóveda se bloquea al salir de la página y tras 5 minutos sin actividad, y las contraseñas copiadas se borran del portapapeles a los 30 segundos.
 - **Doble factor.** Si un usuario lo activa, una política restrictiva en cada tabla (`public.cumple_doble_factor()`) le bloquea los datos hasta que lo verifique.
 - **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
@@ -178,6 +180,7 @@ Tablas principales:
 | `tickets`, `ticket_seguimientos`, `ticket_adjuntos` | Tickets (imágenes en el bucket `tickets`) |
 | `anuncios` | Tablón de anuncios |
 | `contactos_emergencia`, `datos_pago`, `accesos_datos_pago` | Datos personales y registro de consultas del IBAN |
+| `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
 
@@ -195,6 +198,8 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 
 | Test | Qué comprueba |
 | --- | --- |
+| `components/contrasenas/cripto.test.ts` | La bóveda solo se abre con la contraseña maestra correcta, y lo cifrado no se puede leer ni manipular |
+| `components/contrasenas/contrasenas.test.ts` | Generador, fuerza de las contraseñas, débiles y repetidas, y que nunca se abren enlaces `javascript:` |
 | `components/fichajes/calculo.test.ts` | Horas trabajadas, tramos, incidencias, fichajes anulados y corregidos, y el formato del CSV para Excel |
 | `components/tickets/adjuntos.test.ts` | Tipos, tamaño y número máximo de imágenes adjuntas |
 | `components/ProtectedRoute.test.tsx` | Redirige al login sin sesión o sin el doble factor verificado |
@@ -203,6 +208,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `lib/tema.test.ts` | El modo oscuro se recuerda y, si no hay preferencia guardada, sigue la del sistema |
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
+| `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 
 Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock` (hay un ayudante en `src/test/supabase-mock.ts`). Las políticas RLS no se prueban aquí, porque necesitan una base de datos real.
 
@@ -219,7 +225,7 @@ src/
 │   ├── ProtectedRoute.tsx   # Exige sesión (y doble factor si está activado)
 │   ├── layout/              # Layout, menú lateral y cabecera
 │   ├── dashboard/           # Widgets del panel principal
-│   ├── ausencias/ chat/ configuracion/ fichajes/ noticias/ tareas/ tickets/ turnos/
+│   ├── ausencias/ chat/ configuracion/ contrasenas/ fichajes/ noticias/ tareas/ tickets/ turnos/
 │   └── ui/                  # Componentes de shadcn/ui
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…

@@ -18,6 +18,7 @@ import Configuracion from "./pages/Configuracion";
 import Noticias from "./pages/Noticias";
 import Organigrama from "./pages/Organigrama";
 import Fichajes from "./pages/Fichajes";
+import Contrasenas from "./pages/Contrasenas";
 import Vacaciones from "./pages/Vacaciones";
 import BandejaAusencias from "./pages/BandejaAusencias";
 import CambioTurno from "./pages/CambioTurno";
@@ -133,6 +134,13 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Fichajes />
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/contrasenas" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Contrasenas />
                 </AppLayout>
               </ProtectedRoute>
             } />

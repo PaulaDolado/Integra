@@ -79,6 +79,65 @@ export type Database = {
           },
         ]
       }
+      boveda_claves: {
+        Row: {
+          created_at: string
+          iteraciones: number
+          sal: string
+          updated_at: string
+          user_id: string
+          verificador: string
+        }
+        Insert: {
+          created_at?: string
+          iteraciones: number
+          sal: string
+          updated_at?: string
+          user_id?: string
+          verificador: string
+        }
+        Update: {
+          created_at?: string
+          iteraciones?: number
+          sal?: string
+          updated_at?: string
+          user_id?: string
+          verificador?: string
+        }
+        Relationships: []
+      }
+      boveda_entradas: {
+        Row: {
+          created_at: string
+          datos: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          datos: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          datos?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boveda_entradas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "boveda_claves"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       cargos: {
         Row: {
           created_at: string
@@ -1090,6 +1149,15 @@ export type Database = {
       crear_grupo: {
         Args: { nombre_grupo: string; participantes: string[] }
         Returns: string
+      }
+      cambiar_clave_maestra: {
+        Args: {
+          p_entradas: Json
+          p_iteraciones: number
+          p_sal: string
+          p_verificador: string
+        }
+        Returns: undefined
       }
       cancelar_solicitud_turno: {
         Args: { p_solicitud: string }

@@ -17,6 +17,7 @@ import {
   CalendarClock,
   HeartPulse,
   Landmark,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router";
@@ -49,6 +50,7 @@ const menuItems: NavEntry[] = [
   { title: "Noticias", url: "/noticias", icon: Newspaper },
   { title: "Organigrama", url: "/organigrama", icon: Users },
   { title: "Registro de Fichajes", url: "/fichajes", icon: Clock },
+  { title: "Contraseñas", url: "/contrasenas", icon: KeyRound },
 ];
 
 const requestItems: NavEntry[] = [
