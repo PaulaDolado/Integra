@@ -60,7 +60,8 @@ const desbloquear = async (maestra = MAESTRA) => {
   await userEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
 };
 
-describe("Contraseñas", () => {
+// Escribir las contraseñas tecla a tecla es lento cuando corren todos los tests a la vez
+describe("Contraseñas", { timeout: 20_000 }, () => {
   beforeEach(() => {
     boveda = null;
     entradas = [];

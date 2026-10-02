@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "supabase/functions/**/*.test.ts"],
     // Los tests nunca hablan con Supabase: cada uno simula el cliente
     env: {
       VITE_SUPABASE_URL: "http://supabase.test",

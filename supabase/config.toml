@@ -1,1 +1,6 @@
 project_id = "pqxghndxexdsonnkoacu"
+
+# La llama la base de datos (pg_net), no la app: se autentica con la cabecera
+# x-integra-secreto en lugar de con el JWT de un usuario
+[functions.notificar]
+verify_jwt = false

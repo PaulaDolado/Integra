@@ -11,6 +11,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Permisos por departamento](#permisos-por-departamento)
 - [Seguridad](#seguridad)
 - [Base de datos](#base-de-datos)
+- [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Tests](#tests)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Añadir una página](#añadir-una-página)
@@ -180,6 +181,7 @@ Tablas principales:
 | `tickets`, `ticket_seguimientos`, `ticket_adjuntos` | Tickets (imágenes en el bucket `tickets`) |
 | `anuncios` | Tablón de anuncios |
 | `contactos_emergencia`, `datos_pago`, `accesos_datos_pago` | Datos personales y registro de consultas del IBAN |
+| `notificaciones` | Cola de avisos para Teams y Google Chat, con su estado de envío |
 | `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
@@ -187,6 +189,71 @@ Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambi
 ```sh
 supabase gen types typescript --project-id <project-id> > src/integrations/supabase/types.ts
 ```
+
+## Avisos en Teams y Google Chat
+
+Integra avisa en Teams o Google Chat de lo que pasa en la app. Es en un solo sentido: lo que se escriba en Teams o Google Chat no llega a Integra.
+
+| Evento | A quién | Variable del webhook |
+| --- | --- | --- |
+| Nueva solicitud de ausencia | Canal de RRHH | `WEBHOOK_RRHH` |
+| Ausencia aprobada o rechazada | Quien la pidió | `WEBHOOK_PERSONAL` |
+| Propuesta de intercambio de turno | El compañero | `WEBHOOK_PERSONAL` |
+| Cambio de turno pendiente de aprobar | Canal de RRHH | `WEBHOOK_RRHH` |
+| Cambio de turno aprobado o rechazado | Quien lo pidió | `WEBHOOK_PERSONAL` |
+| Ticket nuevo | Canal de Tecnología | `WEBHOOK_TECNOLOGIA` |
+| Ticket asignado | El técnico | `WEBHOOK_PERSONAL` |
+| Ticket resuelto | Quien lo abrió | `WEBHOOK_PERSONAL` |
+| Comunicado nuevo en el tablón | Canal general | `WEBHOOK_GENERAL` |
+
+Cómo funciona:
+
+- Unos triggers de la base de datos dejan cada aviso en la tabla `notificaciones`.
+- La Edge Function `notificar` (`supabase/functions/notificar/`) los envía a los webhooks. Por la URL sabe si cada uno es de Teams o de Google Chat.
+- Si un envío falla, `pg_cron` lo reintenta cada 5 minutos, hasta 5 veces. Los avisos enviados se borran a los 90 días.
+- Si un destino no tiene webhook, el aviso queda como `omitida`. Se pueden activar solo los canales que interesen.
+- Nadie recibe aviso de lo que ha hecho él mismo.
+- Un fallo de los avisos nunca impide crear el ticket, aprobar la ausencia, etc.
+- No se envían datos sensibles: ni el tipo ni el motivo de una ausencia, que pueden ser datos de salud.
+
+### Configuración
+
+1. **Webhooks de cada canal.**
+   - **Teams:** en el canal, **⋯ → Workflows → «Publicar en un canal cuando se reciba una solicitud de webhook»**, y copia la URL. Los «conectores de Office 365» se están retirando: usa Workflows.
+   - **Google Chat:** en el espacio, **Aplicaciones e integraciones → Webhooks → Añadir**, y copia la URL.
+2. **Mensajes directos (solo Teams).** Un webhook de Google Chat publica en un espacio, pero no puede escribir a una persona. Con Google Chat, los avisos personales quedan como `omitida`. En Teams, crea un flujo en Power Automate:
+   - Desencadenador: **Cuando se recibe una solicitud de webhook de Teams**.
+   - Acción: **Publicar tarjeta en un chat o canal**, con «Publicar como: Flow bot», «Publicar en: Chat con el bot de Flow».
+   - Destinatario: `@{triggerBody()?['destinatario']}` (el correo del empleado en Integra).
+   - Tarjeta adaptable: `@{triggerBody()?['attachments'][0]['content']}`.
+
+   Su URL es `WEBHOOK_PERSONAL`.
+3. **Secretos de la función y despliegue.** Inventa un secreto largo, por ejemplo con `openssl rand -hex 32`, y ejecuta:
+
+   ```sh
+   supabase secrets set NOTIFICACIONES_SECRETO=<secreto> APP_URL=https://<usuario>.github.io/<repositorio>/ \
+     WEBHOOK_RRHH=<url> WEBHOOK_TECNOLOGIA=<url> WEBHOOK_GENERAL=<url> WEBHOOK_PERSONAL=<url>
+   supabase functions deploy notificar
+   ```
+
+4. **Aplica la migración** `20261002120000_notificaciones_chat.sql`. Activa `pg_net` y `pg_cron`.
+5. **Conecta la base de datos con la función.** En el **SQL Editor**, con el mismo secreto:
+
+   ```sql
+   SELECT vault.create_secret('https://<project-ref>.supabase.co/functions/v1/notificar', 'notificaciones_url');
+   SELECT vault.create_secret('<secreto>', 'notificaciones_secreto');
+   ```
+
+   Hasta este paso, los avisos se acumulan en la cola sin enviarse.
+
+Para probar un canal sin esperar a que pase nada:
+
+```sh
+curl -X POST https://<project-ref>.supabase.co/functions/v1/notificar \
+  -H "x-integra-secreto: <secreto>" -d '{"prueba": "rrhh"}'
+```
+
+Para ver qué se ha enviado y qué ha fallado, consulta la tabla `notificaciones` en el panel de Supabase (columnas `estado` y `error`).
 
 ## Tests
 
@@ -208,6 +275,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `lib/tema.test.ts` | El modo oscuro se recuerda y, si no hay preferencia guardada, sigue la del sistema |
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
+| `supabase/functions/notificar/mensajes.test.ts` | Cada aviso va al webhook que le toca, con el formato de Teams o de Google Chat, y el texto de los usuarios no puede mencionar a todo un espacio |
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 
 Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock` (hay un ayudante en `src/test/supabase-mock.ts`). Las políticas RLS no se prueban aquí, porque necesitan una base de datos real.
@@ -234,6 +302,7 @@ src/
 ├── pages/                   # Una página por ruta
 └── test/                    # Configuración y ayudantes de los tests
 supabase/
+├── functions/notificar/     # Edge Function de los avisos a Teams y Google Chat
 ├── migrations/              # Esquema, políticas RLS y funciones
 └── seed-demo.sql            # Perfil del usuario demo
 ```
