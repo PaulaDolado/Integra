@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, HeartPulse, Loader2, Lock, Phone, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,21 +31,16 @@ const Telefono = ({ numero }: { numero: string }) => (
 
 export default function GestionContactosEmergencia() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
-  const [filas, setFilas] = useState<Fila[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   const puedeVer = tiene("contactos_emergencia.ver");
 
-  useEffect(() => {
-    if (!puedeVer) return;
-    supabase.rpc("contactos_emergencia_plantilla").then(({ data, error }) => {
-      if (error) console.error("Error fetching contactos de emergencia:", error);
-      setFilas(data ?? []);
-      setLoading(false);
-    });
-  }, [puedeVer]);
+  const { data: filas = [], isLoading: loading } = useQuery({
+    queryKey: ["contactos-emergencia-plantilla"],
+    queryFn: async (): Promise<Fila[]> => comprobar(await supabase.rpc("contactos_emergencia_plantilla")) ?? [],
+    enabled: puedeVer,
+  });
 
   // Una fila por contacto → un empleado con todos sus contactos
   const empleados = useMemo(() => {

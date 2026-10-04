@@ -1,14 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Ticket as TicketIcon, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { comprobar } from "@/lib/query-client";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { NuevoTicketDialog } from "@/components/tickets/NuevoTicketDialog";
 import { TicketBadge } from "@/components/tickets/TicketBadge";
-import { ESTADOS, numeroTicket, type EstadoTicket, type Ticket } from "@/components/tickets/ticket-config";
+import { CLAVE_TICKETS, ESTADOS, numeroTicket, type EstadoTicket } from "@/components/tickets/ticket-config";
 
 // Estados que se resumen en el widget (los cerrados no requieren atención)
 const RESUMEN: { estado: EstadoTicket; label: string; clases: string }[] = [
@@ -19,53 +22,29 @@ const RESUMEN: { estado: EstadoTicket; label: string; clases: string }[] = [
 ];
 
 export function TicketsWidget() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const navigate = useNavigate();
 
-  const fetchTickets = useCallback(async () => {
-    if (!user) return;
+  // Tickets abiertos por este empleado o asignados a él
+  const { data: tickets = [], isLoading, error } = useQuery({
+    queryKey: [...CLAVE_TICKETS, "widget", empleadoId],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from("tickets")
+          .select("*")
+          .or(`autor_id.eq.${empleadoId},asignado_a_id.eq.${empleadoId}`)
+          .order("updated_at", { ascending: false })
+          .limit(20)
+      ) ?? [],
+    enabled: !!empleadoId,
+  });
+  useAvisarError(error, "No se pudieron cargar los tickets");
 
-    const { data: empleadoId } = await supabase.rpc("mi_empleado_id");
-    if (!empleadoId) {
-      setTickets([]);
-      setLoading(false);
-      return;
-    }
+  useInvalidarEnCambios(empleadoId ? "tickets-changes" : null, [{ table: "tickets" }], [CLAVE_TICKETS]);
 
-    // Tickets abiertos por este empleado o asignados a él
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("*")
-      .or(`autor_id.eq.${empleadoId},asignado_a_id.eq.${empleadoId}`)
-      .order("updated_at", { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error("Error fetching tickets:", error);
-      toast({ title: "Error", description: "No se pudieron cargar los tickets", variant: "destructive" });
-    } else {
-      setTickets(data || []);
-    }
-    setLoading(false);
-  }, [user, toast]);
-
-  useEffect(() => {
-    fetchTickets();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel("tickets-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => fetchTickets())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchTickets]);
+  const loading = cargandoEmpleado || isLoading;
 
   const recientes = tickets.filter((t) => t.estado !== "cerrado").slice(0, 3);
 

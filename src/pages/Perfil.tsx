@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { User, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { SettingsSection, InfoGrid, InfoRow } from "@/components/configuracion/SettingsSection";
 import type { Empleado } from "@/components/configuracion/types";
@@ -22,22 +23,13 @@ export default function Perfil() {
   const { user } = useAuth();
   // Cargo y departamento vienen resueltos por el hook compartido con la cabecera
   const { profile, loading: profileLoading, getFullName } = useEmployeeProfile();
-  const [empleado, setEmpleado] = useState<Empleado | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("empleados")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) console.error("Error fetching empleado:", error);
-        setEmpleado(data);
-        setLoading(false);
-      });
-  }, [user]);
+  // Misma clave que en Configuración, que la invalida al guardar
+  const { data: empleado = null, isLoading: loading } = useQuery({
+    queryKey: ["empleado", user?.id],
+    queryFn: async (): Promise<Empleado | null> =>
+      comprobar(await supabase.from("empleados").select("*").eq("user_id", user!.id).maybeSingle()),
+    enabled: !!user,
+  });
 
   const editar = () => navigate("/configuracion?tab=perfil");
 

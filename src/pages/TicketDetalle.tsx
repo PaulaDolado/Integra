@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -14,7 +15,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,12 +35,15 @@ import {
 } from "@/components/ui/select";
 import { TicketBadge } from "@/components/tickets/TicketBadge";
 import {
+  CLAVE_PERSONAS_TICKETS,
+  CLAVE_TICKETS,
   ESTADOS,
   ORDEN_ESTADOS,
   ORDEN_PRIORIDADES,
   ORDEN_TIPOS,
   PRIORIDADES,
   TIPOS,
+  claveTicket,
   numeroTicket,
   type Seguimiento,
   type Ticket,
@@ -55,6 +62,13 @@ type Plantilla = { id: string; nombre: string; contenido: string };
 type Modo = "respuesta" | "solucion";
 const SIN_ASIGNAR = "none";
 
+// Valores por defecto estables mientras no hay datos
+const SIN_SEGUIMIENTOS: Seguimiento[] = [];
+const SIN_ADJUNTOS: Adjunto[] = [];
+const SIN_URLS = new Map<string, string>();
+const SIN_PLANTILLAS: Plantilla[] = [];
+const SIN_TECNICOS: { id: string; nombre: string }[] = [];
+
 const iniciales = (nombre: string) =>
   nombre
     .split(" ")
@@ -69,16 +83,9 @@ export default function TicketDetalle() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { tiene } = usePermisos();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
-  const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
-  const [urls, setUrls] = useState<Map<string, string>>(new Map());
+  const queryClient = useQueryClient();
+  const { empleadoId: miId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const [archivos, setArchivos] = useState<File[]>([]);
-  const [nombres, setNombres] = useState<Map<string, string>>(new Map());
-  const [tecnicos, setTecnicos] = useState<{ id: string; nombre: string }[]>([]);
-  const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
-  const [miId, setMiId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [modo, setModo] = useState<Modo>("respuesta");
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -89,53 +96,69 @@ export default function TicketDetalle() {
 
   const esSoporte = tiene("tickets.gestionar");
 
-  const cargar = useCallback(async () => {
-    if (!id) return;
-    const [{ data: yo }, { data: t }, { data: segs }, { data: personas }, { data: adj }] = await Promise.all([
-      supabase.rpc("mi_empleado_id"),
-      supabase.from("tickets").select("*").eq("id", id).maybeSingle(),
-      supabase.from("ticket_seguimientos").select("*").eq("ticket_id", id).order("created_at"),
-      supabase.rpc("personas_tickets"),
-      supabase.from("ticket_adjuntos").select("*").eq("ticket_id", id).order("created_at"),
-    ]);
-    setMiId(yo ?? null);
-    setTicket(t ?? null);
-    setSeguimientos(segs ?? []);
-    setAdjuntos(adj ?? []);
-    setUrls(await urlsAdjuntos(adj ?? []));
-    setNombres(new Map((personas ?? []).map((p) => [p.id, p.nombre])));
-    if (t) {
-      setPropiedades({ tipo: t.tipo, prioridad: t.prioridad, estado: t.estado, asignado: t.asignado_a_id ?? SIN_ASIGNAR });
+  // Ticket, historial y adjuntos, con sus URLs firmadas (duran 1 hora y se renuevan en cada recarga)
+  const { data: detalle, isLoading: cargandoTicket } = useQuery({
+    queryKey: claveTicket(id),
+    queryFn: async () => {
+      const [t, segs, adj] = await Promise.all([
+        supabase.from("tickets").select("*").eq("id", id!).maybeSingle().then(comprobar),
+        supabase.from("ticket_seguimientos").select("*").eq("ticket_id", id!).order("created_at").then(comprobar),
+        supabase.from("ticket_adjuntos").select("*").eq("ticket_id", id!).order("created_at").then(comprobar),
+      ]);
+      const adjuntos = adj ?? [];
+      return { ticket: t, seguimientos: segs ?? [], adjuntos, urls: await urlsAdjuntos(adjuntos) };
+    },
+    enabled: !!id,
+  });
+
+  const { data: personas, isLoading: cargandoPersonas } = useQuery({
+    queryKey: CLAVE_PERSONAS_TICKETS,
+    queryFn: async () => comprobar(await supabase.rpc("personas_tickets")),
+  });
+
+  const { data: plantillas = SIN_PLANTILLAS } = useQuery({
+    queryKey: ["plantillas-solucion"],
+    queryFn: async (): Promise<Plantilla[]> =>
+      comprobar(await supabase.from("plantillas_solucion").select("id, nombre, contenido").order("orden")) ?? [],
+  });
+
+  const { data: tecnicos = SIN_TECNICOS } = useQuery({
+    queryKey: ["tecnicos-tickets"],
+    queryFn: async () => comprobar(await supabase.rpc("tecnicos_tickets")) ?? [],
+    enabled: esSoporte,
+  });
+
+  useInvalidarEnCambios(
+    id ? `ticket-${id}` : null,
+    [
+      { table: "ticket_seguimientos", filter: `ticket_id=eq.${id}` },
+      { table: "tickets", filter: `id=eq.${id}` },
+      { table: "ticket_adjuntos", filter: `ticket_id=eq.${id}` },
+    ],
+    [claveTicket(id)]
+  );
+
+  const ticket = detalle?.ticket ?? null;
+  const seguimientos = detalle?.seguimientos ?? SIN_SEGUIMIENTOS;
+  const adjuntos = detalle?.adjuntos ?? SIN_ADJUNTOS;
+  const urls = detalle?.urls ?? SIN_URLS;
+  const nombres = useMemo(() => new Map((personas ?? []).map((p) => [p.id, p.nombre])), [personas]);
+  const loading = cargandoTicket || cargandoPersonas || cargandoEmpleado;
+
+  // El formulario de propiedades vuelve a los valores del ticket cada vez que este cambia
+  const [ticketPrevio, setTicketPrevio] = useState<Ticket | null>(null);
+  if (ticket !== ticketPrevio) {
+    setTicketPrevio(ticket);
+    if (ticket) {
+      setPropiedades({ tipo: ticket.tipo, prioridad: ticket.prioridad, estado: ticket.estado, asignado: ticket.asignado_a_id ?? SIN_ASIGNAR });
     }
-    setLoading(false);
-  }, [id]);
+  }
 
-  useEffect(() => {
-    cargar();
-    if (!id) return;
-    const channel = supabase
-      .channel(`ticket-${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "ticket_seguimientos", filter: `ticket_id=eq.${id}` }, () => cargar())
-      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `id=eq.${id}` }, () => cargar())
-      .on("postgres_changes", { event: "*", schema: "public", table: "ticket_adjuntos", filter: `ticket_id=eq.${id}` }, () => cargar())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id, cargar]);
-
-  useEffect(() => {
-    supabase
-      .from("plantillas_solucion")
-      .select("id, nombre, contenido")
-      .order("orden")
-      .then(({ data }) => setPlantillas(data ?? []));
-  }, []);
-
-  useEffect(() => {
-    if (!esSoporte) return;
-    supabase.rpc("tecnicos_tickets").then(({ data }) => setTecnicos(data ?? []));
-  }, [esSoporte]);
+  // Tras una acción: recarga el ticket y deja anticuadas las listas de tickets
+  const recargar = () => {
+    queryClient.invalidateQueries({ queryKey: claveTicket(id) });
+    queryClient.invalidateQueries({ queryKey: CLAVE_TICKETS });
+  };
 
   if (loading) {
     return (
@@ -201,7 +224,7 @@ export default function TicketDetalle() {
     setTexto("");
     setArchivos([]);
     setModo("respuesta");
-    cargar();
+    recargar();
   };
 
   const valorar = async (aprobar: boolean) => {
@@ -219,7 +242,7 @@ export default function TicketDetalle() {
     toast({ title: aprobar ? "Solución aprobada" : "Solución rechazada", description: aprobar ? "El ticket se ha cerrado" : "El ticket vuelve a estar en curso" });
     setRechazando(false);
     setMotivoRechazo("");
-    cargar();
+    recargar();
   };
 
   const guardarPropiedades = async () => {
@@ -237,7 +260,7 @@ export default function TicketDetalle() {
       return;
     }
     toast({ title: "Ticket actualizado" });
-    cargar();
+    recargar();
   };
 
   const pegar = (event: React.ClipboardEvent) => {

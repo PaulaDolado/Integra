@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  CLAVE_TICKETS,
   ORDEN_PRIORIDADES,
   ORDEN_TIPOS,
   PRIORIDADES,
@@ -40,6 +42,7 @@ interface NuevoTicketDialogProps {
 
 export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicketDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [tipo, setTipo] = useState<TipoTicket>("incidencia");
@@ -92,6 +95,7 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
 
     const { fallidas } = await subirAdjuntos(data.id, null, archivos);
     setEnviando(false);
+    queryClient.invalidateQueries({ queryKey: CLAVE_TICKETS });
 
     toast({
       title: "Ticket creado",

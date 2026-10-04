@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Check, Loader2, Lock, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,43 +25,34 @@ const FILTROS: { value: Filtro; label: string }[] = [
   { value: "todas", label: "Todas" },
 ];
 
+// La misma consulta que usa CambioTurno: comparten caché
+const CLAVE = ["solicitudes-turno"];
+
 export default function BandejaTurnos() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
   const { toast } = useToast();
-  const [solicitudes, setSolicitudes] = useState<SolicitudTurno[]>([]);
-  const [miId, setMiId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { empleadoId: miId, loading: cargandoMiId } = useMiEmpleadoId();
   const [filtro, setFiltro] = useState<Filtro>("pendiente");
   const [busqueda, setBusqueda] = useState("");
   const [revisando, setRevisando] = useState<{ solicitud: SolicitudTurno; aprobar: boolean } | null>(null);
 
   const puedeAprobar = tiene("turnos.aprobar");
 
-  const cargar = useCallback(async () => {
-    const [{ data: yo }, { data, error }] = await Promise.all([
-      supabase.rpc("mi_empleado_id"),
-      supabase.rpc("solicitudes_turno_detalle"),
-    ]);
-    if (error) {
-      console.error("Error fetching bandeja de turnos:", error);
-      toast({ title: "Error", description: "No se pudieron cargar las solicitudes", variant: "destructive" });
-    }
-    setMiId(yo ?? null);
-    setSolicitudes(data ?? []);
-    setLoading(false);
-  }, [toast]);
+  const { data: solicitudes = [], isPending, error } = useQuery({
+    queryKey: CLAVE,
+    queryFn: async () => comprobar(await supabase.rpc("solicitudes_turno_detalle")) ?? [],
+    enabled: puedeAprobar,
+  });
+  useAvisarError(error, "No se pudieron cargar las solicitudes");
+  // Hasta saber quién soy no se sabe en qué solicitudes participo
+  const loading = isPending || cargandoMiId;
 
-  useEffect(() => {
-    if (!puedeAprobar) return;
-    cargar();
-    const channel = supabase
-      .channel("bandeja-turnos-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_turno" }, () => cargar())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [puedeAprobar, cargar]);
+  useInvalidarEnCambios(
+    puedeAprobar ? "bandeja-turnos-changes" : null,
+    [{ table: "solicitudes_turno" }],
+    [CLAVE]
+  );
 
   const revisar = async (comentario: string) => {
     if (!revisando) return;
@@ -71,7 +67,7 @@ export default function BandejaTurnos() {
     }
     toast({ title: revisando.aprobar ? "Cambio de turno aprobado" : "Cambio de turno rechazado" });
     setRevisando(null);
-    cargar();
+    queryClient.invalidateQueries({ queryKey: CLAVE });
   };
 
   if (cargandoPermisos) {

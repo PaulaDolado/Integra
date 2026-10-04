@@ -1,60 +1,28 @@
 import { Newspaper } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { useNavigate } from "react-router";
 import { getArea } from "@/components/noticias/areas";
 
-interface Anuncio {
-  id: string;
-  titulo: string;
-  contenido: string;
-  fecha_publicacion: string;
-  autor_id: string | null;
-  area: string;
-}
-
 export function NewsWidget() {
-  const [news, setNews] = useState<Anuncio[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchNews();
-    
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('news-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'anuncios'
-        },
-        () => {
-          fetchNews();
-        }
-      )
-      .subscribe();
+  const { data: news = [], isPending: loading } = useQuery({
+    queryKey: ["anuncios", "recientes"],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from("anuncios")
+          .select("id, titulo, contenido, fecha_publicacion, autor_id, area")
+          .order("fecha_publicacion", { ascending: false })
+          .limit(3)
+      ) ?? [],
+  });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchNews = async () => {
-    const { data, error } = await supabase
-      .from("anuncios")
-      .select("id, titulo, contenido, fecha_publicacion, autor_id, area")
-      .order("fecha_publicacion", { ascending: false })
-      .limit(3);
-
-    if (!error && data) {
-      setNews(data);
-    }
-    setLoading(false);
-  };
+  useInvalidarEnCambios("news-changes", [{ table: "anuncios" }], [["anuncios"]]);
 
   return (
     <Card>

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Clock, AlertCircle, Plus, List, Kanban } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
 import { type Task, type TaskStatus } from "@/components/tareas/task-utils";
 
@@ -55,83 +59,33 @@ const getStoredView = (): TasksView => {
 };
 
 export function TasksWidget() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<TasksView>(getStoredView);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
-  const [loading, setLoading] = useState(true);
   // undefined = cerrado, null = nueva tarea
   const [openTask, setOpenTask] = useState<Task | null | undefined>(undefined);
-  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchTasks = useCallback(async () => {
-    if (!user) return;
+  // Mismo prefijo que la página de Tareas: invalidar ["tareas", empleadoId] actualiza los dos
+  const clave = ["tareas", empleadoId];
+  const { data: tasks = [], isLoading, error } = useQuery({
+    queryKey: [...clave, "proximas"],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from('tareas')
+          .select('*')
+          .eq('asignado_a_id', empleadoId!)
+          .order('fecha_limite', { ascending: true, nullsFirst: false })
+          .limit(10)
+      ) ?? [],
+    enabled: !!empleadoId,
+  });
+  useAvisarError(error, "No se pudieron cargar las tareas");
+  const loading = cargandoEmpleado || isLoading;
 
-    try {
-      // First get the employee profile
-      const { data: employeeData, error: empError } = await supabase
-        .from('empleados')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (empError || !employeeData) {
-        console.error('Error fetching employee:', empError);
-        setTasks([]);
-        setLoading(false);
-        return;
-      }
-      setEmpleadoId(employeeData.id);
-
-      // Then get tasks assigned to this employee
-      const { data, error } = await supabase
-        .from('tareas')
-        .select('*')
-        .eq('asignado_a_id', employeeData.id)
-        .order('fecha_limite', { ascending: true, nullsFirst: false })
-        .limit(10);
-
-      if (error) {
-        console.error('Error fetching tasks:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar las tareas",
-          variant: "destructive",
-        });
-      } else {
-        setTasks(data || []);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, toast]);
-
-  useEffect(() => {
-    fetchTasks();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('tasks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tareas'
-        },
-        () => {
-          fetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchTasks]);
+  useInvalidarEnCambios(empleadoId ? 'tasks-changes' : null, [{ table: 'tareas' }], [clave]);
 
   const handleViewChange = (value: string) => {
     if (value !== 'filas' && value !== 'kanban') return;
@@ -153,9 +107,15 @@ export function TasksWidget() {
     handleUpdateTaskStatus(task, status);
   };
 
+  // Cambia el estado en todas las listas de tareas en caché (este widget y la página)
+  const cambiarEstadoEnCache = (taskId: string, estado: TaskStatus) =>
+    queryClient.setQueriesData<Task[]>({ queryKey: clave }, prev =>
+      prev?.map(t => (t.id === taskId ? { ...t, estado } : t))
+    );
+
   const handleUpdateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
     // Se mueve la tarjeta al instante y se revierte si Supabase falla
-    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: newStatus } : t)));
+    cambiarEstadoEnCache(task.id, newStatus);
 
     const { error } = await supabase
       .from('tareas')
@@ -164,7 +124,7 @@ export function TasksWidget() {
 
     if (error) {
       console.error('Error updating task:', error);
-      setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: task.estado } : t)));
+      cambiarEstadoEnCache(task.id, task.estado);
       toast({
         title: "Error",
         description: "No se pudo actualizar la tarea",
@@ -173,16 +133,10 @@ export function TasksWidget() {
     }
   };
 
-  const handleSaved = (saved: Task) => {
-    setTasks(prev =>
-      prev.some(t => t.id === saved.id) ? prev.map(t => (t.id === saved.id ? saved : t)) : [...prev, saved]
-    );
+  // Tras crear, guardar o eliminar se vuelve a pedir la lista
+  const handleChanged = () => {
     setOpenTask(undefined);
-  };
-
-  const handleDeleted = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    setOpenTask(undefined);
+    queryClient.invalidateQueries({ queryKey: clave });
   };
 
   const completedTasks = tasks.filter(task => task.estado === "completado").length;
@@ -380,8 +334,8 @@ export function TasksWidget() {
         task={openTask ?? null}
         empleadoId={empleadoId}
         onClose={() => setOpenTask(undefined)}
-        onSaved={handleSaved}
-        onDeleted={handleDeleted}
+        onSaved={handleChanged}
+        onDeleted={handleChanged}
       />
     </Card>
   );

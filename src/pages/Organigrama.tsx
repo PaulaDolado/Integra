@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Building2, Crown, Loader2, Network, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,17 +20,11 @@ const iniciales = (nombre: string) =>
     .toUpperCase();
 
 export default function Organigrama() {
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
-
-  useEffect(() => {
-    supabase.rpc("organigrama").then(({ data, error }) => {
-      if (error) console.error("Error fetching organigrama:", error);
-      setPersonas(data ?? []);
-      setLoading(false);
-    });
-  }, []);
+  const { data: personas = [], isPending: loading } = useQuery({
+    queryKey: ["organigrama"],
+    queryFn: async () => comprobar(await supabase.rpc("organigrama")) ?? [],
+  });
 
   const texto = busqueda.trim().toLowerCase();
   const grupos = useMemo(() => {

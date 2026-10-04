@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { claveMisFichajes } from "@/hooks/useFichajeActual";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,50 +25,26 @@ interface Fichaje {
 
 export default function Fichajes() {
   const { profile, loading: profileLoading } = useEmployeeProfile();
-  const [fichajes, setFichajes] = useState<Fichaje[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [registering, setRegistering] = useState(false);
   const { toast } = useToast();
 
-  const fetchFichajes = useCallback(async () => {
-    if (!profile) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("fichajes")
-        .select("*")
-        .eq("empleado_id", profile.id)
-        .order("fecha_hora", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error("Error fetching fichajes:", error);
-      } else {
-        setFichajes((data || []) as Fichaje[]);
-      }
-    } catch (error) {
-      console.error("Error fetching fichajes:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    if (!profile) return;
-    fetchFichajes();
-
-    // Refleja también los fichajes hechos desde el botón de la barra superior
-    const channel = supabase
-      .channel(`fichajes-pagina-${profile.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
-        fetchFichajes()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile, fetchFichajes]);
+  // Cuelga de la clave de los fichajes del empleado: el Realtime de la barra
+  // superior la invalida, así que también refleja lo que se fiche desde allí
+  const empleadoId = profile?.id ?? null;
+  const { data: fichajes = [], isLoading } = useQuery({
+    queryKey: [...claveMisFichajes(empleadoId), "historial"],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from("fichajes")
+          .select("*")
+          .eq("empleado_id", empleadoId!)
+          .order("fecha_hora", { ascending: false })
+          .limit(50)
+      ) as Fichaje[],
+    enabled: !!empleadoId,
+  });
 
   async function handleFichaje(tipo: "entrada" | "salida") {
     if (!profile) return;
@@ -92,7 +71,7 @@ export default function Fichajes() {
           title: "Fichaje registrado",
           description: `${tipo === "entrada" ? "Entrada" : "Salida"} registrada correctamente`,
         });
-        fetchFichajes();
+        queryClient.invalidateQueries({ queryKey: claveMisFichajes(profile.id) });
       }
     } catch (error) {
       console.error("Error registering fichaje:", error);
@@ -106,7 +85,7 @@ export default function Fichajes() {
     }
   }
 
-  if (profileLoading || loading) {
+  if (profileLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>

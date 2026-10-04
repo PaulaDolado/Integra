@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
 
 // Códigos de permiso definidos en la tabla public.permisos
 export type Permiso =
@@ -15,51 +16,25 @@ export type Permiso =
   | "tickets.gestionar"
   | "turnos.aprobar";
 
-// Una sola consulta por usuario aunque varios componentes usen el hook
-let cache: { userId: string; promise: Promise<Set<string>> } | null = null;
-
-const cargarPermisos = (userId: string) => {
-  if (cache?.userId !== userId) {
-    const promise = Promise.resolve(supabase.rpc("mis_permisos")).then(({ data, error }) => {
-      if (error) {
-        console.error("Error fetching permisos:", error);
-        cache = null;
-      }
-      return new Set<string>(data ?? []);
-    });
-    cache = { userId, promise };
-  }
-  return cache.promise;
-};
+const SIN_PERMISOS = new Set<string>();
 
 // Permisos que el departamento del usuario le concede. Solo sirven para
 // mostrar u ocultar acciones: la base de datos vuelve a comprobarlos.
+// Se piden una sola vez por usuario aunque los usen varios componentes.
 export function usePermisos() {
   const { user } = useAuth();
-  const [permisos, setPermisos] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useQuery({
+    queryKey: ["permisos", user?.id],
+    queryFn: async () => new Set<string>(comprobar(await supabase.rpc("mis_permisos")) ?? []),
+    enabled: !!user,
+    staleTime: Infinity,
+  });
 
-  useEffect(() => {
-    if (!user) {
-      setPermisos(new Set());
-      setLoading(false);
-      return;
-    }
-    let activo = true;
-    cargarPermisos(user.id).then((resultado) => {
-      if (activo) {
-        setPermisos(resultado);
-        setLoading(false);
-      }
-    });
-    return () => {
-      activo = false;
-    };
-  }, [user]);
-
+  // Si la consulta falla no se concede nada
+  const permisos = data ?? SIN_PERMISOS;
   return {
     permisos,
-    loading,
+    loading: !!user && isPending,
     tiene: (permiso: Permiso) => permisos.has(permiso),
   };
 }

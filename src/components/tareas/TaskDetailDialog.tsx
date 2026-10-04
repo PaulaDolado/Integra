@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -181,7 +183,6 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
   const { user } = useAuth();
   const { toast } = useToast();
   const [draft, setDraft] = useState<Draft>(() => toDraft(task));
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -201,16 +202,15 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
     pendingUploads.current = [];
   }, [open, task]);
 
-  useEffect(() => {
-    if (!draft.imagen_path) {
-      setImageUrl(null);
-      return;
-    }
-    supabase.storage
-      .from(IMAGE_BUCKET)
-      .createSignedUrl(draft.imagen_path, 3600)
-      .then(({ data }) => setImageUrl(data?.signedUrl ?? null));
-  }, [draft.imagen_path]);
+  // El enlace firmado dura una hora; se pide de nuevo a los 50 minutos
+  const { data: signedUrl } = useQuery({
+    queryKey: ["tarea-imagen", draft.imagen_path],
+    queryFn: async () =>
+      comprobar(await supabase.storage.from(IMAGE_BUCKET).createSignedUrl(draft.imagen_path!, 3600))?.signedUrl ?? null,
+    enabled: !!draft.imagen_path,
+    staleTime: 50 * 60_000,
+  });
+  const imageUrl = draft.imagen_path ? (signedUrl ?? null) : null;
 
   const update = (changes: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...changes }));
 

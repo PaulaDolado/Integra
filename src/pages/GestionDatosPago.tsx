@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Copy, Download, Eye, EyeOff, History, Landmark, Loader2, Lock, Search, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -13,36 +15,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { descargarCsv } from "@/components/fichajes/calculo";
 
 type Fila = Database["public"]["Functions"]["datos_pago_plantilla"]["Returns"][number];
-type Acceso = Database["public"]["Functions"]["accesos_datos_pago_recientes"]["Returns"][number];
 
+const CLAVE_ACCESOS = ["accesos-datos-pago"];
 const FORMAS: Record<string, string> = { transferencia: "Transferencia" };
 const agrupar = (iban: string) => iban.replace(/(.{4})/g, "$1 ").trim();
 
 export default function GestionDatosPago() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
   const { toast } = useToast();
-  const [filas, setFilas] = useState<Fila[]>([]);
-  const [accesos, setAccesos] = useState<Acceso[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [busqueda, setBusqueda] = useState("");
-  // IBAN completos que se han pedido en esta sesión (se ocultan al salir de la página)
+  // IBAN completos que se han pedido en esta sesión (se ocultan al salir de la página).
+  // Van en estado local a propósito, no en la caché de consultas: cada uno se pide
+  // solo al pulsar «Mostrar», porque ver_iban() deja constancia en la auditoría.
   const [visibles, setVisibles] = useState<Map<string, string>>(new Map());
   const [consultando, setConsultando] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
 
   const puedeVer = tiene("datos_pago.ver");
 
-  const cargar = useCallback(async () => {
-    const [f, a] = await Promise.all([supabase.rpc("datos_pago_plantilla"), supabase.rpc("accesos_datos_pago_recientes")]);
-    if (f.error) console.error("Error fetching datos de pago:", f.error);
-    setFilas(f.data ?? []);
-    setAccesos(a.data ?? []);
-    setLoading(false);
-  }, []);
+  // La plantilla solo trae el IBAN enmascarado
+  const { data: filas = [], isLoading: loading } = useQuery({
+    queryKey: ["datos-pago-plantilla"],
+    queryFn: async () => comprobar(await supabase.rpc("datos_pago_plantilla")) ?? [],
+    enabled: puedeVer,
+  });
+  const { data: accesos = [] } = useQuery({
+    queryKey: CLAVE_ACCESOS,
+    queryFn: async () => comprobar(await supabase.rpc("accesos_datos_pago_recientes")) ?? [],
+    enabled: puedeVer,
+  });
 
-  useEffect(() => {
-    if (puedeVer) cargar();
-  }, [puedeVer, cargar]);
+  // Consultar un IBAN o exportar queda en el historial: se vuelve a pedir
+  const recargarAccesos = () => queryClient.invalidateQueries({ queryKey: CLAVE_ACCESOS });
 
   const alternar = async (fila: Fila) => {
     if (visibles.has(fila.empleado_id)) {
@@ -59,7 +64,7 @@ export default function GestionDatosPago() {
       return;
     }
     setVisibles(new Map(visibles).set(fila.empleado_id, data));
-    cargar();
+    recargarAccesos();
   };
 
   const copiar = async (iban: string) => {
@@ -84,7 +89,7 @@ export default function GestionDatosPago() {
       ...(data ?? []).map((d) => [d.empleado, d.departamento ?? "", FORMAS[d.forma_pago] ?? d.forma_pago, d.iban ?? ""]),
     ]);
     toast({ title: "Exportación generada", description: "Queda registrada en el historial de accesos" });
-    cargar();
+    recargarAccesos();
   };
 
   if (cargandoPermisos) {

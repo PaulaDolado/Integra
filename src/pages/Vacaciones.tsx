@@ -1,6 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,94 +66,49 @@ const emptyForm = {
 export default function Vacaciones() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [requests, setRequests] = useState<AbsenceRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState(emptyForm);
   const [justificante, setJustificante] = useState<File | null>(null);
 
   const razonesDisponibles = RAZONES_ESPECIFICAS[formData.tipo_ausencia] ?? [];
 
-  const fetchEmpleadoId = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from("empleados")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
+  // Un usuario sin ficha de empleado no puede tener solicitudes
+  useAvisarError(
+    user && !cargandoEmpleado && !empleadoId ? "Usuario sin ficha de empleado" : null,
+    "No se pudo obtener la información del empleado"
+  );
 
-      if (error) throw error;
-      setEmpleadoId(data.id);
-    } catch (error) {
-      console.error("Error fetching empleado:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo obtener la información del empleado",
-        variant: "destructive",
-      });
-    }
-  }, [user, toast]);
-
-  const fetchRequests = useCallback(async () => {
-    if (!empleadoId) return;
-
-    try {
-      setLoading(true);
+  const { data: requests = [], isLoading, error } = useQuery({
+    queryKey: ["ausencias", empleadoId, filterStatus],
+    queryFn: async (): Promise<AbsenceRequest[]> => {
       let query = supabase
         .from("solicitudes_vacacion")
         .select("*")
-        .eq("empleado_id", empleadoId)
+        .eq("empleado_id", empleadoId!)
         .order("created_at", { ascending: false });
 
       if (filterStatus !== "all") {
         query = query.eq("estado", filterStatus as "pendiente" | "aprobada" | "rechazada");
       }
 
-      const { data, error } = await query;
+      return comprobar(await query) ?? [];
+    },
+    enabled: !!empleadoId,
+  });
+  useAvisarError(error, "No se pudieron cargar las solicitudes");
+  const loading = cargandoEmpleado || isLoading;
 
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (error) {
-      console.error("Error fetching requests:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las solicitudes",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [empleadoId, filterStatus, toast]);
-
-  useEffect(() => {
-    if (user) {
-      fetchEmpleadoId();
-    }
-  }, [user, fetchEmpleadoId]);
-
-  useEffect(() => {
-    if (!empleadoId) return;
-    fetchRequests();
-
-    // Cuando RRHH o Dirección revisan una solicitud, el historial se actualiza solo
-    const channel = supabase
-      .channel("mis-ausencias-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "solicitudes_vacacion", filter: `empleado_id=eq.${empleadoId}` },
-        () => fetchRequests()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [empleadoId, fetchRequests]);
+  // Cuando RRHH o Dirección revisan una solicitud, el historial se actualiza solo
+  useInvalidarEnCambios(
+    empleadoId ? "mis-ausencias-changes" : null,
+    [{ table: "solicitudes_vacacion", filter: `empleado_id=eq.${empleadoId}` }],
+    [["ausencias", empleadoId]]
+  );
 
   const resetForm = () => {
     setFormData(emptyForm);
@@ -248,7 +208,7 @@ export default function Vacaciones() {
 
       resetForm();
       setDialogOpen(false);
-      fetchRequests();
+      queryClient.invalidateQueries({ queryKey: ["ausencias", empleadoId] });
     } catch (error) {
       console.error("Error submitting request:", error);
       toast({
