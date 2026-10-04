@@ -270,6 +270,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `components/contrasenas/contrasenas.test.ts` | Generador, fuerza de las contraseñas, débiles y repetidas, y que nunca se abren enlaces `javascript:` |
 | `components/fichajes/calculo.test.ts` | Horas trabajadas, tramos, incidencias, fichajes anulados y corregidos, y el formato del CSV para Excel |
 | `components/tickets/adjuntos.test.ts` | Tipos, tamaño y número máximo de imágenes adjuntas |
+| `components/ErrorBoundary.test.tsx` | Si una pantalla falla, muestra un aviso en vez de dejarla en blanco; tras publicar una versión nueva, recarga una sola vez |
 | `components/ProtectedRoute.test.tsx` | Redirige al login sin sesión o sin el doble factor verificado |
 | `components/layout/AppSidebar.test.tsx` | El menú solo muestra las pantallas de gestión que concede el departamento, y marca el apartado activo |
 | `hooks/usePermisos.test.tsx` | Carga los permisos una vez por usuario y no concede nada si la consulta falla |
