@@ -79,5 +79,6 @@ export async function urlsAdjuntos(adjuntos: Adjunto[]) {
   const { data } = await supabase.storage
     .from(BUCKET_TICKETS)
     .createSignedUrls(adjuntos.map((a) => a.path), 3600);
-  return new Map((data ?? []).filter((d) => d.signedUrl).map((d) => [d.path ?? "", d.signedUrl]));
+  // Solo los que se han podido firmar y tienen ruta
+  return new Map((data ?? []).flatMap((d) => (d.path && d.signedUrl ? [[d.path, d.signedUrl] as const] : [])));
 }

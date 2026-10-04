@@ -18,7 +18,8 @@ export function ConfidencialidadTab({ empleado, onUpdated }: ConfigTabProps) {
 
   const toggle = async (campo: Consentimiento, value: boolean) => {
     setSaving(campo);
-    const { error } = await supabase.from("empleados").update({ [campo]: value }).eq("id", empleado.id);
+    const cambio: Partial<Record<Consentimiento, boolean>> = { [campo]: value };
+    const { error } = await supabase.from("empleados").update(cambio).eq("id", empleado.id);
     setSaving(null);
 
     if (error) {
