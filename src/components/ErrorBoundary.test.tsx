@@ -1,0 +1,61 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ErrorBoundary } from "./ErrorBoundary";
+
+let fallar: Error | null = null;
+const Pagina = () => {
+  if (fallar) throw fallar;
+  return <p>Contenido</p>;
+};
+
+describe("ErrorBoundary", () => {
+  const recargar = vi.fn();
+
+  beforeEach(() => {
+    fallar = null;
+    sessionStorage.clear();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, reload: recargar } });
+  });
+
+  afterEach(() => recargar.mockReset());
+
+  it("muestra un aviso en vez de dejar la pantalla en blanco", () => {
+    fallar = new Error("fallo al pintar");
+    render(<ErrorBoundary><Pagina /></ErrorBoundary>);
+    expect(screen.getByRole("alert")).toHaveTextContent("Algo ha fallado");
+    expect(screen.queryByText("Contenido")).not.toBeInTheDocument();
+    expect(recargar).not.toHaveBeenCalled();
+  });
+
+  it("vuelve a intentarlo al pulsar Reintentar", async () => {
+    fallar = new Error("fallo puntual");
+    render(<ErrorBoundary><Pagina /></ErrorBoundary>);
+    fallar = null;
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(screen.getByText("Contenido")).toBeInTheDocument();
+  });
+
+  it("olvida el error al cambiar de ruta", () => {
+    fallar = new Error("fallo en una página");
+    const { rerender } = render(<ErrorBoundary resetKey="/tareas"><Pagina /></ErrorBoundary>);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    fallar = null;
+    rerender(<ErrorBoundary resetKey="/calendario"><Pagina /></ErrorBoundary>);
+    expect(screen.getByText("Contenido")).toBeInTheDocument();
+  });
+
+  it("si falta un archivo de una versión anterior, recarga una sola vez", () => {
+    fallar = new TypeError("Failed to fetch dynamically imported module: /assets/Tareas-abc123.js");
+    const primero = render(<ErrorBoundary><Pagina /></ErrorBoundary>);
+    expect(recargar).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("Hay una versión nueva de Integra");
+    primero.unmount();
+
+    // Si tras recargar vuelve a fallar enseguida, no entra en bucle
+    render(<ErrorBoundary><Pagina /></ErrorBoundary>);
+    expect(recargar).toHaveBeenCalledTimes(1);
+  });
+});

@@ -3,10 +3,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PresenceProvider } from "./contexts/PresenceContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ROUTER_BASENAME } from "@/lib/app-url";
 import { queryClient } from "@/lib/query-client";
@@ -49,18 +50,25 @@ const EnDesarrollo = ({ titulo }: { titulo: string }) => (
   </div>
 );
 
-// Sesión obligatoria, menú lateral y cabecera; la página cambia dentro de <main>
-const ZonaPrivada = () => (
-  <ProtectedRoute>
-    <AppLayout>
-      <Suspense fallback={<Cargando />}>
-        <Outlet />
-      </Suspense>
-    </AppLayout>
-  </ProtectedRoute>
-);
+// Sesión obligatoria, menú lateral y cabecera; la página cambia dentro de <main>.
+// Si una página falla, el menú sigue funcionando y al navegar se olvida el error.
+const ZonaPrivada = () => {
+  const { pathname } = useLocation();
+  return (
+    <ProtectedRoute>
+      <AppLayout>
+        <ErrorBoundary resetKey={pathname}>
+          <Suspense fallback={<Cargando />}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
+      </AppLayout>
+    </ProtectedRoute>
+  );
+};
 
 const App = () => (
+  <ErrorBoundary pantallaCompleta>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -111,6 +119,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
