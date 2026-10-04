@@ -26,7 +26,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | Interfaz | React 18 |
 | Build y servidor de desarrollo | Vite 8 (empaquetador Rolldown, plugin React) |
 | Rutas | React Router 7 (modo declarativo, paquete `react-router`) |
-| Estilos | Tailwind CSS 3, fuente Inter Variable, tema claro y oscuro |
+| Estilos | Tailwind CSS 4 (plugin de Vite, tema en `src/index.css`), fuente Inter Variable, tema claro y oscuro |
 | Componentes | shadcn/ui sobre Radix UI, iconos Lucide |
 | Datos del servidor | Supabase JS y TanStack Query 5 |
 | Formularios y validación | React Hook Form y Zod |

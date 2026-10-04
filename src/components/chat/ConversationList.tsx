@@ -89,7 +89,7 @@ export function ConversationList({ conversations, loading, selectedId, myId, onl
                         <span className={cn("truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground")}>
                           {conv.nombre ?? "Conversación"}
                         </span>
-                        <span className={cn("text-[11px] flex-shrink-0", unread ? "text-primary font-medium" : "text-muted-foreground")}>
+                        <span className={cn("text-[11px] shrink-0", unread ? "text-primary font-medium" : "text-muted-foreground")}>
                           {formatListTime(conv.ultimo_mensaje_at)}
                         </span>
                       </div>
@@ -102,7 +102,7 @@ export function ConversationList({ conversations, loading, selectedId, myId, onl
                               : "Sin mensajes todavía"}
                         </span>
                         {unread && (
-                          <span className="flex-shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">
+                          <span className="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center">
                             {conv.no_leidos > 99 ? "99+" : conv.no_leidos}
                           </span>
                         )}

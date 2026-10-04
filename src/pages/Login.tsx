@@ -147,8 +147,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
-      <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
+      <Card className="w-full max-w-md bg-card/80 backdrop-blur-xs shadow-lg">
         <CardHeader className="space-y-6 pb-8">
           {/* Company Logo */}
           <div className="flex justify-center">

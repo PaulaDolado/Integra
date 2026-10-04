@@ -524,7 +524,7 @@ export default function Calendario() {
       <div className={cn(days.length > 1 && "min-w-[640px]")}>
         {/* Cabecera de días */}
         <div className="flex border-b bg-card sticky top-0 z-20">
-          <div className="w-14 flex-shrink-0 border-r" />
+          <div className="w-14 shrink-0 border-r" />
           {days.map((day) => {
             const isDayToday = isToday(day);
             return (
@@ -556,7 +556,7 @@ export default function Calendario() {
 
         {/* Rejilla */}
         <div className="flex">
-          <div className="w-14 flex-shrink-0 border-r">
+          <div className="w-14 shrink-0 border-r">
             {hours.map((hour) => (
               <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
                 {hour > 0 && (
@@ -575,7 +575,7 @@ export default function Calendario() {
             return (
               <div
                 key={day.toISOString()}
-                className={cn("flex-1 min-w-0 relative border-r last:border-r-0", isDayToday && "bg-primary/[0.03]")}
+                className={cn("flex-1 min-w-0 relative border-r last:border-r-0", isDayToday && "bg-primary/3")}
               >
                 {hours.map((hour) => (
                   <div
@@ -606,10 +606,10 @@ export default function Calendario() {
                         className="w-full h-full text-left rounded-md border-l-[3px] border-primary bg-accent text-accent-foreground px-2 py-1 overflow-hidden shadow-sm hover:brightness-95 transition"
                       >
                         <div className={cn("flex items-center gap-1 font-medium truncate", compact ? "text-[11px]" : "text-xs")}>
-                          {event.es_privado && <Lock className="w-3 h-3 flex-shrink-0" />}
+                          {event.es_privado && <Lock className="w-3 h-3 shrink-0" />}
                           <span className="truncate">{event.titulo}</span>
                           {compact && (
-                            <span className="font-normal opacity-80 flex-shrink-0">
+                            <span className="font-normal opacity-80 shrink-0">
                               {format(new Date(event.fecha_inicio), 'HH:mm')}
                             </span>
                           )}
@@ -621,7 +621,7 @@ export default function Calendario() {
                         )}
                         {event.ubicacion && height > 64 && (
                           <div className="flex items-center gap-1 text-[11px] opacity-80 mt-0.5">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <MapPin className="w-3 h-3 shrink-0" />
                             <span className="truncate">{event.ubicacion}</span>
                           </div>
                         )}
@@ -633,7 +633,7 @@ export default function Calendario() {
                 {isDayToday && (
                   <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top: nowTop }}>
                     <div className="relative h-0.5 bg-destructive">
-                      <span className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-destructive" />
+                      <span className="absolute -left-1 top-[-3px] w-2 h-2 rounded-full bg-destructive" />
                     </div>
                   </div>
                 )}
@@ -665,7 +665,7 @@ export default function Calendario() {
             <div
               key={day.toISOString()}
               className={cn(
-                "min-h-[96px] sm:min-h-[112px] p-1.5 border-b border-r [&:nth-child(7n)]:border-r-0 cursor-pointer transition-colors hover:bg-muted/40",
+                "min-h-[96px] sm:min-h-[112px] p-1.5 border-b border-r nth-[7n]:border-r-0 cursor-pointer transition-colors hover:bg-muted/40",
                 !isCurrentMonth && "bg-muted/20"
               )}
               onClick={() => openCreateEvent(addHours(startOfDay(day), 9))}
@@ -697,7 +697,7 @@ export default function Calendario() {
                       handleEditEvent(event);
                     }}
                   >
-                    <span className="hidden sm:inline font-medium flex-shrink-0">
+                    <span className="hidden sm:inline font-medium shrink-0">
                       {format(new Date(event.fecha_inicio), 'HH:mm')}
                     </span>
                     <span className="truncate">{event.titulo}</span>
@@ -913,7 +913,7 @@ export default function Calendario() {
                         onClick={() => handleEditEvent(event)}
                         className="w-full flex items-start gap-3 p-2 -mx-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex flex-col items-center justify-center w-11 h-11 flex-shrink-0 rounded-lg bg-accent text-accent-foreground">
+                        <div className="flex flex-col items-center justify-center w-11 h-11 shrink-0 rounded-lg bg-accent text-accent-foreground">
                           <span className="text-[10px] uppercase leading-none">
                             {format(start, 'MMM', { locale: es }).replace('.', '')}
                           </span>
@@ -922,14 +922,14 @@ export default function Calendario() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <h4 className="font-medium text-sm truncate">{event.titulo}</h4>
-                            {event.es_privado && <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                            {event.es_privado && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {isToday(start) ? 'Hoy' : capitalize(format(start, 'EEEE', { locale: es }))} · {format(start, 'HH:mm')} – {format(new Date(event.fecha_fin), 'HH:mm')}
                           </p>
                           {event.ubicacion && (
                             <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
-                              <MapPin className="w-3 h-3 flex-shrink-0" />
+                              <MapPin className="w-3 h-3 shrink-0" />
                               <span className="truncate">{event.ubicacion}</span>
                             </div>
                           )}

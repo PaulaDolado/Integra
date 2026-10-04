@@ -199,7 +199,7 @@ export default function Comunicacion() {
       <Card className="flex-1 min-h-0 flex overflow-hidden">
         <aside
           className={cn(
-            "w-full md:w-80 lg:w-96 md:border-r flex-shrink-0",
+            "w-full md:w-80 lg:w-96 md:border-r shrink-0",
             selectedId ? "hidden md:block" : "block"
           )}
         >

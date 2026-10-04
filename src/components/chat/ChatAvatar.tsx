@@ -11,7 +11,7 @@ interface ChatAvatarProps {
 
 export function ChatAvatar({ name, isGroup = false, online = false, size = "md" }: ChatAvatarProps) {
   return (
-    <div className="relative flex-shrink-0">
+    <div className="relative shrink-0">
       <div
         className={cn(
           "flex items-center justify-center rounded-full font-semibold",

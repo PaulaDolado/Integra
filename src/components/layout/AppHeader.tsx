@@ -71,7 +71,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/70">
       <div className="flex h-16 items-center px-3 sm:px-4 gap-2 sm:gap-4">
         <SidebarTrigger />
         
@@ -86,7 +86,7 @@ export function AppHeader() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Botón de Fichaje */}
           <Button
             onClick={handleClockToggle}

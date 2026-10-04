@@ -222,7 +222,7 @@ export default function BandejaAusencias() {
 
                   {s.estado === "pendiente" &&
                     (s.es_mia ? (
-                      <p className="text-xs text-muted-foreground md:max-w-[12rem] md:text-right">
+                      <p className="text-xs text-muted-foreground md:max-w-48 md:text-right">
                         Es tu solicitud: la revisará otra persona con permiso.
                       </p>
                     ) : (

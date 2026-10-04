@@ -143,7 +143,7 @@ export default function Noticias() {
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="min-w-[9rem] text-center text-sm font-medium first-letter:uppercase">
+            <span className="min-w-36 text-center text-sm font-medium first-letter:uppercase">
               {nombreMes}
             </span>
             <Button
@@ -165,7 +165,7 @@ export default function Noticias() {
       </div>
 
       {/* Tablón: fondo punteado de corcho claro, en la paleta de Integra */}
-      <div className="rounded-xl border bg-muted/40 p-4 sm:p-6 [background-image:radial-gradient(hsl(var(--border))_1px,transparent_1px)] [background-size:18px_18px]">
+      <div className="rounded-xl border bg-muted/40 p-4 sm:p-6 bg-[radial-gradient(hsl(var(--border))_1px,transparent_1px)] bg-size-[18px_18px]">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -187,7 +187,7 @@ export default function Noticias() {
                   key={noticia.id}
                   onClick={() => setAbierta(noticia)}
                   style={{ "--giro": `${getRotation(noticia.id)}deg` } as React.CSSProperties}
-                  className={`relative mb-6 block w-full break-inside-avoid rounded-sm p-5 pt-7 text-left shadow-md transition-[transform,box-shadow] duration-200 ease-out [transform:rotate(var(--giro))] hover:z-10 hover:shadow-xl hover:[transform:rotate(0deg)_scale(1.02)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${area.nota}`}
+                  className={`relative mb-6 block w-full break-inside-avoid rounded-sm p-5 pt-7 text-left shadow-md transition-[transform,box-shadow] duration-200 ease-out transform-[rotate(var(--giro))] hover:z-10 hover:shadow-xl hover:transform-[rotate(0deg)_scale(1.02)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${area.nota}`}
                 >
                   <Pin
                     className={`absolute left-1/2 top-1.5 h-5 w-5 -translate-x-1/2 rotate-12 fill-current ${area.chincheta}`}

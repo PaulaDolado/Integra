@@ -157,7 +157,7 @@ export default function BandejaTurnos() {
               acciones={
                 s.estado === "pendiente" ? (
                   participo(s) ? (
-                    <p className="max-w-[12rem] text-xs text-muted-foreground md:text-right">
+                    <p className="max-w-48 text-xs text-muted-foreground md:text-right">
                       Participas en este cambio: lo revisará otra persona con permiso.
                     </p>
                   ) : (
