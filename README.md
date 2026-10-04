@@ -86,6 +86,7 @@ El usuario demo es administrador (`empleados.es_admin`), así que ve todas las p
 | `npm test` | Ejecuta los tests una vez |
 | `npm run test:watch` | Ejecuta los tests cada vez que se guarda un archivo |
 | `npm run test:e2e` | Tests end-to-end con Playwright, contra el proyecto de Supabase de pruebas |
+| `npm run test:humo` | Prueba de humo de solo lectura contra la web publicada (necesita `HUMO_URL`) |
 | `npm run lint` | Ejecuta ESLint |
 | `npm run typecheck` | Comprueba los tipos de TypeScript (modo estricto) |
 
@@ -289,7 +290,7 @@ Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock`
 ### Integración continua
 
 - **Pull requests:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta el lint, los tipos, los tests, el build y `npm audit --omit=dev`.
-- **Despliegue:** el workflow de despliegue ejecuta el lint, los tipos y los tests antes del build. Si algo falla, no se publica.
+- **Despliegue:** el workflow de despliegue ejecuta el lint, los tipos y los tests antes del build. Si algo falla, no se publica. Después de publicar, ejecuta la prueba de humo.
 
 ## Tests end-to-end
 
@@ -297,7 +298,7 @@ Los tests de `e2e/` usan Playwright y prueban la app entera: el build de producc
 
 | Test | Qué comprueba |
 | --- | --- |
-| `sin-sesion.spec.ts` | Las páginas privadas mandan al login, la 404, la CSP del build y que una contraseña incorrecta no entra |
+| `sin-sesion.spec.ts` | Las páginas privadas mandan al login, la 404, la CSP del build (y que no bloquea nada) y que una contraseña incorrecta no entra |
 | `empleado.spec.ts` | Fichar entrada y salida, crear un ticket, que no vea las pantallas de gestión ni los datos personales del organigrama, y cerrar sesión |
 | `entre-personas.spec.ts` | Un empleado pide una ausencia, RRHH la ve llegar sin recargar y la aprueba, y el empleado ve el cambio al momento |
 
@@ -343,6 +344,16 @@ Las tareas de preparar y limpiar usan la clave `service_role` del proyecto de pr
    ```
 
    Sin `E2E_SUPABASE_SERVICE_ROLE_KEY` solo funcionan los tests sin sesión: `npx playwright test --project=sin-sesion`.
+
+### Prueba de humo en producción
+
+Después de cada despliegue, el workflow de publicación ejecuta `sin-sesion.spec.ts` contra la web recién publicada y el Supabase de producción (`playwright.humo.config.ts`). Es **solo de lectura**: no inicia sesión, no crea cuentas, no escribe datos y no usa la clave `service_role`. Se salta el test de la contraseña incorrecta, porque intentaría iniciar sesión en producción. Detecta una publicación rota o una CSP que bloquee algo.
+
+Para lanzarla a mano:
+
+```sh
+HUMO_URL=https://<usuario>.github.io/<repositorio>/ VITE_SUPABASE_URL=<url-de-producción> npm run test:humo
+```
 
 ## Estructura del proyecto
 

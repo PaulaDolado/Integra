@@ -62,6 +62,32 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Prueba de humo contra la web recién publicada: solo lectura, sin iniciar sesión
+  humo:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Prueba de humo
+        run: npm run test:humo
+        env:
+          HUMO_URL: ${{ needs.deploy.outputs.page_url }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
