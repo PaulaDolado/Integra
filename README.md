@@ -13,6 +13,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Tests](#tests)
+- [Tests end-to-end](#tests-end-to-end)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Añadir una página](#añadir-una-página)
 - [Despliegue](#despliegue)
@@ -84,6 +85,7 @@ El usuario demo es administrador (`empleados.es_admin`), así que ve todas las p
 | `npm run preview` | Sirve el build de `dist/` para probarlo |
 | `npm test` | Ejecuta los tests una vez |
 | `npm run test:watch` | Ejecuta los tests cada vez que se guarda un archivo |
+| `npm run test:e2e` | Tests end-to-end con Playwright, contra el proyecto de Supabase de pruebas |
 | `npm run lint` | Ejecuta ESLint |
 | `npm run typecheck` | Comprueba los tipos de TypeScript (modo estricto) |
 
@@ -288,6 +290,59 @@ Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock`
 
 - **Pull requests:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta el lint, los tipos, los tests, el build y `npm audit --omit=dev`.
 - **Despliegue:** el workflow de despliegue ejecuta el lint, los tipos y los tests antes del build. Si algo falla, no se publica.
+
+## Tests end-to-end
+
+Los tests de `e2e/` usan Playwright y prueban la app entera: el build de producción con su CSP, el inicio de sesión, la seguridad de la base de datos y el tiempo real entre dos personas.
+
+| Test | Qué comprueba |
+| --- | --- |
+| `sin-sesion.spec.ts` | Las páginas privadas mandan al login, la 404, la CSP del build y que una contraseña incorrecta no entra |
+| `empleado.spec.ts` | Fichar entrada y salida, crear un ticket, que no vea las pantallas de gestión ni los datos personales del organigrama, y cerrar sesión |
+| `entre-personas.spec.ts` | Un empleado pide una ausencia, RRHH la ve llegar sin recargar y la aprueba, y el empleado ve el cambio al momento |
+
+**Nunca se ejecutan contra producción.** Crean y borran fichajes, tickets y ausencias, así que usan un **proyecto de Supabase aparte, solo para tests**. Si la URL coincide con la de producción, los tests se niegan a arrancar.
+
+Cada ejecución:
+
+1. Crea o reutiliza dos personas de prueba, `e2e-empleado@integra.test` (Operaciones) y `e2e-rrhh@integra.test` (Recursos Humanos), con una contraseña aleatoria nueva que no se guarda en ningún sitio fijo.
+2. Ejecuta los tests.
+3. Borra lo que han creado.
+
+Las tareas de preparar y limpiar usan la clave `service_role` del proyecto de pruebas. Esa clave nunca llega al navegador.
+
+### Configurar el proyecto de pruebas
+
+1. **Aplica las migraciones al proyecto de pruebas**, desde la terminal. Te pedirá iniciar sesión en Supabase y la contraseña de la base de datos de ese proyecto:
+
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <project-ref-de-pruebas>
+   npx supabase db push
+   ```
+
+   No configures los webhooks de Teams ni de Google Chat en este proyecto. Así los avisos se quedan en la cola y no llegan a ningún canal.
+
+2. **En GitHub** (Settings → Secrets and variables → Actions):
+   - Variables `E2E_SUPABASE_URL` y `E2E_SUPABASE_PUBLISHABLE_KEY`, del proyecto de pruebas.
+   - Secreto `E2E_SUPABASE_SERVICE_ROLE_KEY`, la clave `secret` del proyecto de pruebas (**Project Settings → API Keys**). Nunca la de producción.
+
+   El workflow [`e2e.yml`](.github/workflows/e2e.yml) se ejecuta en cada PR. Si no está la variable `E2E_SUPABASE_URL`, se salta.
+
+3. **En local**, crea `.env.e2e.local` (no se sube a git) con las tres claves y ejecuta los tests:
+
+   ```
+   E2E_SUPABASE_URL=
+   E2E_SUPABASE_PUBLISHABLE_KEY=
+   E2E_SUPABASE_SERVICE_ROLE_KEY=
+   ```
+
+   ```sh
+   npx playwright install chromium   # solo la primera vez
+   npm run test:e2e
+   ```
+
+   Sin `E2E_SUPABASE_SERVICE_ROLE_KEY` solo funcionan los tests sin sesión: `npx playwright test --project=sin-sesion`.
 
 ## Estructura del proyecto
 

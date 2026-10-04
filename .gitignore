@@ -32,3 +32,8 @@ dist-ssr
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Tests end-to-end (Playwright)
+/test-results/
+/playwright-report/
+/e2e/.auth/
