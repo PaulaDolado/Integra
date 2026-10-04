@@ -9,6 +9,9 @@ const Pagina = () => {
   return <p>Contenido</p>;
 };
 
+// React relanza al window los errores que captura; jsdom los escribiría en la consola
+const silenciarErrorDeVentana = (evento: ErrorEvent) => evento.preventDefault();
+
 describe("ErrorBoundary", () => {
   const recargar = vi.fn();
 
@@ -16,10 +19,14 @@ describe("ErrorBoundary", () => {
     fallar = null;
     sessionStorage.clear();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    window.addEventListener("error", silenciarErrorDeVentana);
     Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, reload: recargar } });
   });
 
-  afterEach(() => recargar.mockReset());
+  afterEach(() => {
+    recargar.mockReset();
+    window.removeEventListener("error", silenciarErrorDeVentana);
+  });
 
   it("muestra un aviso en vez de dejar la pantalla en blanco", () => {
     fallar = new Error("fallo al pintar");

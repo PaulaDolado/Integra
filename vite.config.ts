@@ -1,5 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
 // Política de seguridad de contenido para el build de producción: solo se
@@ -49,20 +49,22 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           // Las librerías base cambian poco: en archivos aparte, el navegador
           // las conserva en caché aunque se publique una versión nueva de la app
-          manualChunks(id) {
-            if (/node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/.test(id)) return "react";
-            if (/node_modules[\\/]@supabase[\\/]/.test(id)) return "supabase";
+          codeSplitting: {
+            groups: [
+              { name: "react", test: /node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/ },
+              { name: "supabase", test: /node_modules[\\/]@supabase[\\/]/ },
+            ],
           },
         },
       },
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
       },
     },
   };

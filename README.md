@@ -24,7 +24,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | --- | --- |
 | Lenguaje | TypeScript 5 |
 | Interfaz | React 18 |
-| Build y servidor de desarrollo | Vite 5 (plugin React SWC) |
+| Build y servidor de desarrollo | Vite 8 (empaquetador Rolldown, plugin React) |
 | Rutas | React Router 7 (modo declarativo, paquete `react-router`) |
 | Estilos | Tailwind CSS 3, fuente Inter Variable, tema claro y oscuro |
 | Componentes | shadcn/ui sobre Radix UI, iconos Lucide |
@@ -32,7 +32,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | Formularios y validación | React Hook Form y Zod |
 | Fechas | date-fns y react-day-picker |
 | Backend | Supabase: PostgreSQL, Auth (con doble factor TOTP), Storage, Realtime y Row Level Security |
-| Tests | Vitest, Testing Library y jsdom |
+| Tests | Vitest 5, Testing Library y jsdom; Playwright para los tests end-to-end |
 | Calidad de código | ESLint 9 y typescript-eslint |
 
 ## Puesta en marcha
