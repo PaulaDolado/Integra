@@ -1,0 +1,32 @@
+# Actualizaciones automáticas de dependencias. Cada PR pasa por el CI como
+# cualquier otra; las de seguridad llegan aparte, en cuanto se publica el aviso.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: Dependencias
+    groups:
+      # Las menores y los parches, en una sola PR por semana
+      menores:
+        update-types: [minor, patch]
+    # Las versiones mayores llegan en PR separadas: suelen necesitar cambios
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Madrid
+    commit-message:
+      prefix: Acciones de GitHub
+    groups:
+      acciones:
+        patterns: ["*"]
