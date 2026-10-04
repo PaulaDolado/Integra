@@ -56,14 +56,15 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
   const [fecha, setFecha] = useState("");
   const [area, setArea] = useState<AreaComunicado>(areas[0]);
   const [saving, setSaving] = useState(false);
+  const areaPorDefecto = areas[0];
 
   useEffect(() => {
     if (!open) return;
     setTitulo(comunicado?.titulo ?? "");
     setContenido(comunicado?.contenido ?? "");
     setFecha(format(comunicado ? new Date(comunicado.fecha_publicacion) : new Date(), "yyyy-MM-dd"));
-    setArea(comunicado ? (comunicado.area as AreaComunicado) : areas[0]);
-  }, [open, comunicado]);
+    setArea(comunicado ? (comunicado.area as AreaComunicado) : areaPorDefecto);
+  }, [open, comunicado, areaPorDefecto]);
 
   const save = async () => {
     if (!titulo.trim() || !contenido.trim()) {

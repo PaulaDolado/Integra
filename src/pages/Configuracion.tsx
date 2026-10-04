@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,17 +26,17 @@ export default function Configuracion() {
 
   const tab = TABS.some((t) => t.value === searchParams.get("tab")) ? searchParams.get("tab")! : "perfil";
 
-  const fetchEmpleado = async () => {
+  const fetchEmpleado = useCallback(async () => {
     if (!user) return;
     const { data, error } = await supabase.from("empleados").select("*").eq("user_id", user.id).maybeSingle();
     if (error) console.error("Error fetching empleado:", error);
     setEmpleado(data);
     setLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchEmpleado();
-  }, [user]);
+  }, [fetchEmpleado]);
 
   const handleUpdated = async () => {
     await fetchEmpleado();

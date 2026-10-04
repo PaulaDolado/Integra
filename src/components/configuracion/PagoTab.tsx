@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -45,7 +45,7 @@ export function PagoTab({ empleado }: ConfigTabProps) {
   const [saving, setSaving] = useState(false);
   const [iban, setIban] = useState("");
 
-  const fetchDatos = async () => {
+  const fetchDatos = useCallback(async () => {
     const { data, error } = await supabase
       .from("datos_pago")
       .select("*")
@@ -54,11 +54,11 @@ export function PagoTab({ empleado }: ConfigTabProps) {
     if (error) console.error("Error fetching payment data:", error);
     setDatos(data);
     setLoading(false);
-  };
+  }, [empleado.id]);
 
   useEffect(() => {
     fetchDatos();
-  }, [empleado.id]);
+  }, [fetchDatos]);
 
   const save = async () => {
     if (!isValidIban(iban)) {

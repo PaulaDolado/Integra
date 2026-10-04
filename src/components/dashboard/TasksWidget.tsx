@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, Clock, AlertCircle, Plus, List, Kanban } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,31 +65,7 @@ export function TasksWidget() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchTasks();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('tasks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tareas'
-        },
-        () => {
-          fetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -131,7 +107,31 @@ export function TasksWidget() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    fetchTasks();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tareas'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTasks]);
 
   const handleViewChange = (value: string) => {
     if (value !== 'filas' && value !== 'kanban') return;

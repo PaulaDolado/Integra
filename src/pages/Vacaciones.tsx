@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -73,37 +73,13 @@ export default function Vacaciones() {
 
   const razonesDisponibles = RAZONES_ESPECIFICAS[formData.tipo_ausencia] ?? [];
 
-  useEffect(() => {
-    if (user) {
-      fetchEmpleadoId();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!empleadoId) return;
-    fetchRequests();
-
-    // Cuando RRHH o Dirección revisan una solicitud, el historial se actualiza solo
-    const channel = supabase
-      .channel("mis-ausencias-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "solicitudes_vacacion", filter: `empleado_id=eq.${empleadoId}` },
-        () => fetchRequests()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [empleadoId, filterStatus]);
-
-  const fetchEmpleadoId = async () => {
+  const fetchEmpleadoId = useCallback(async () => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
         .from("empleados")
         .select("id")
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .single();
 
       if (error) throw error;
@@ -116,9 +92,9 @@ export default function Vacaciones() {
         variant: "destructive",
       });
     }
-  };
+  }, [user, toast]);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (!empleadoId) return;
 
     try {
@@ -147,7 +123,32 @@ export default function Vacaciones() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [empleadoId, filterStatus, toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchEmpleadoId();
+    }
+  }, [user, fetchEmpleadoId]);
+
+  useEffect(() => {
+    if (!empleadoId) return;
+    fetchRequests();
+
+    // Cuando RRHH o Dirección revisan una solicitud, el historial se actualiza solo
+    const channel = supabase
+      .channel("mis-ausencias-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "solicitudes_vacacion", filter: `empleado_id=eq.${empleadoId}` },
+        () => fetchRequests()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [empleadoId, fetchRequests]);
 
   const resetForm = () => {
     setFormData(emptyForm);

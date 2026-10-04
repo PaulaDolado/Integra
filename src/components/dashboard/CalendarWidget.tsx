@@ -2,7 +2,7 @@ import { Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -123,6 +123,22 @@ export function CalendarWidget() {
 
   const { start: rangeStart, end: rangeEnd } = getRange(view, anchor);
 
+  const fetchEvents = useCallback(async () => {
+    const { start, end } = getRange(view, anchor);
+
+    const { data, error } = await supabase
+      .from("eventos")
+      .select("id, titulo, fecha_inicio, fecha_fin")
+      .lte("fecha_inicio", end.toISOString())
+      .gte("fecha_fin", start.toISOString())
+      .order("fecha_inicio", { ascending: true });
+
+    if (!error && data) {
+      setEvents(data);
+    }
+    setLoading(false);
+  }, [view, anchor]);
+
   useEffect(() => {
     fetchEvents();
 
@@ -145,23 +161,7 @@ export function CalendarWidget() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [view, anchor]);
-
-  const fetchEvents = async () => {
-    const { start, end } = getRange(view, anchor);
-
-    const { data, error } = await supabase
-      .from("eventos")
-      .select("id, titulo, fecha_inicio, fecha_fin")
-      .lte("fecha_inicio", end.toISOString())
-      .gte("fecha_fin", start.toISOString())
-      .order("fecha_inicio", { ascending: true });
-
-    if (!error && data) {
-      setEvents(data);
-    }
-    setLoading(false);
-  };
+  }, [fetchEvents]);
 
   const handleViewChange = (value: string) => {
     if (!VIEWS.some((v) => v.value === value)) return;
