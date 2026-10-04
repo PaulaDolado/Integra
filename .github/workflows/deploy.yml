@@ -28,7 +28,13 @@ jobs:
 
       - run: npm ci
 
-      # Si algún test falla no se publica
+      # Si falla alguna comprobación no se publica
+      - name: Lint
+        run: npm run lint
+
+      - name: Tipos
+        run: npm run typecheck
+
       - name: Tests
         run: npm test
 

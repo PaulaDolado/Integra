@@ -85,6 +85,7 @@ El usuario demo es administrador (`empleados.es_admin`), así que ve todas las p
 | `npm test` | Ejecuta los tests una vez |
 | `npm run test:watch` | Ejecuta los tests cada vez que se guarda un archivo |
 | `npm run lint` | Ejecuta ESLint |
+| `npm run typecheck` | Comprueba los tipos de TypeScript (modo estricto) |
 
 ## Módulos
 
@@ -151,7 +152,7 @@ Un empleado con `es_admin = true` tiene todos los permisos.
 - **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
 - **Adjuntos.** Solo se admiten imágenes PNG, JPG, WEBP o GIF de hasta 5 MB. Van a buckets privados y se sirven con URLs firmadas de 1 hora.
-- **Dependencias.** `npm audit --omit=dev` debe salir limpio. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg.
+- **Dependencias.** `npm audit --omit=dev` debe salir limpio, y el CI lo comprueba en cada PR. Las herramientas que solo se usan al compilar van en `devDependencies`. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg.
 
 ## Base de datos
 
@@ -280,7 +281,10 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 
 Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock` (hay un ayudante en `src/test/supabase-mock.ts`). Las políticas RLS no se prueban aquí, porque necesitan una base de datos real.
 
-El workflow de despliegue ejecuta los tests antes del build. Si alguno falla, no se publica.
+### Integración continua
+
+- **Pull requests:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta el lint, los tipos, los tests, el build y `npm audit --omit=dev`.
+- **Despliegue:** el workflow de despliegue ejecuta el lint, los tipos y los tests antes del build. Si algo falla, no se publica.
 
 ## Estructura del proyecto
 
@@ -312,7 +316,7 @@ El alias `@` apunta a `src/`, por ejemplo `import { supabase } from "@/integrati
 ## Añadir una página
 
 1. Crea el componente en `src/pages/`.
-2. Añade la ruta en `src/App.tsx`, dentro de `ProtectedRoute` y `AppLayout`, antes de la ruta `*`.
+2. En `src/App.tsx`, impórtala con `lazy(() => import("./pages/MiPagina"))` y añade su `<Route>` dentro de la ruta `ZonaPrivada`, que ya exige sesión y pone el menú y la cabecera. Cada página se descarga solo cuando se visita, así que necesita un `export default`.
 3. Añade el enlace en `src/components/layout/AppSidebar.tsx`. Si es una pantalla de gestión, va en `managementItems` con su `permiso`.
 4. Si necesita un permiso nuevo:
    - añádelo en una migración a `permisos` y a `departamento_permisos`;
@@ -334,7 +338,7 @@ En Supabase, añade el dominio de producción en **Authentication → URL Config
 
 ### GitHub Pages
 
-El workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) se ejecuta en cada push a `main`. Pasa los tests, compila y publica en `https://<usuario>.github.io/<repositorio>/`. También se puede lanzar a mano desde **Actions → Publicar en GitHub Pages → Run workflow**.
+El workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) se ejecuta en cada push a `main`. Pasa el lint, los tipos y los tests, compila y publica en `https://<usuario>.github.io/<repositorio>/`. También se puede lanzar a mano desde **Actions → Publicar en GitHub Pages → Run workflow**.
 
 Configuración, una sola vez:
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,7 +186,7 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nombre: "", relacion: "", telefono: "" });
 
-  const fetchContactos = async () => {
+  const fetchContactos = useCallback(async () => {
     const { data, error } = await supabase
       .from("contactos_emergencia")
       .select("*")
@@ -195,11 +195,11 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
     if (error) console.error("Error fetching emergency contacts:", error);
     setContactos(data ?? []);
     setLoading(false);
-  };
+  }, [empleado.id]);
 
   useEffect(() => {
     fetchContactos();
-  }, [empleado.id]);
+  }, [fetchContactos]);
 
   const cancel = () => {
     setForm({ nombre: "", relacion: "", telefono: "" });

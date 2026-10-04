@@ -8,7 +8,7 @@ interface EmployeeProfile {
   primer_apellido: string;
   segundo_apellido: string;
   correo_electronico: string;
-  numero_telefono?: string;
+  numero_telefono: string | null;
   cargo_nombre?: string;
   departamento_nombre?: string;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Clock, MapPin, Lock, CalendarSearch, CalendarSync } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, addWeeks, subWeeks, addYears, subYears, addHours, isSameMonth, isToday, startOfDay, endOfDay, startOfYear, endOfYear } from "date-fns";
 import { es } from "date-fns/locale";
@@ -20,10 +20,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 interface Event {
   id: string;
   titulo: string;
-  descripcion?: string;
+  descripcion: string | null;
   fecha_inicio: string;
   fecha_fin: string;
-  ubicacion?: string;
+  ubicacion: string | null;
   es_privado: boolean;
   creador_id: string;
 }
@@ -46,6 +46,22 @@ interface PositionedEvent {
 }
 
 type ViewType = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+const getViewRange = (viewType: ViewType, currentDate: Date) => {
+  switch (viewType) {
+    case 'daily':
+      return { start: startOfDay(currentDate), end: endOfDay(currentDate) };
+    case 'weekly':
+      return { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
+    case 'monthly':
+      return {
+        start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }),
+        end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }),
+      };
+    case 'yearly':
+      return { start: startOfYear(currentDate), end: endOfYear(currentDate) };
+  }
+};
 
 const HOUR_HEIGHT = 48; // px por hora en las vistas de día y semana
 const MIN_EVENT_HEIGHT = 22;
@@ -134,63 +150,9 @@ export default function Calendario() {
 
   const [eventForm, setEventForm] = useState<EventFormData>(EMPTY_FORM);
 
-  useEffect(() => {
-    fetchEvents();
-    fetchUpcomingEvents();
-
-    const channel = supabase
-      .channel('calendario-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'eventos'
-        },
-        () => {
-          fetchEvents();
-          fetchUpcomingEvents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentDate, viewType]);
-
-  // Mantiene al día la línea de la hora actual
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Al cambiar a una vista horaria, desplaza la rejilla hasta el inicio de la jornada
-  useEffect(() => {
-    if (timeGridRef.current) {
-      timeGridRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_HEIGHT;
-    }
-  }, [viewType]);
-
-  const getViewRange = () => {
-    switch (viewType) {
-      case 'daily':
-        return { start: startOfDay(currentDate), end: endOfDay(currentDate) };
-      case 'weekly':
-        return { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
-      case 'monthly':
-        return {
-          start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }),
-          end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }),
-        };
-      case 'yearly':
-        return { start: startOfYear(currentDate), end: endOfYear(currentDate) };
-    }
-  };
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
-      const { start, end } = getViewRange();
+      const { start, end } = getViewRange(viewType, currentDate);
 
       const { data, error } = await supabase
         .from('eventos')
@@ -214,9 +176,9 @@ export default function Calendario() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [viewType, currentDate, toast]);
 
-  const fetchUpcomingEvents = async () => {
+  const fetchUpcomingEvents = useCallback(async () => {
     const { data, error } = await supabase
       .from('eventos')
       .select('*')
@@ -229,7 +191,45 @@ export default function Calendario() {
     } else {
       setUpcomingEvents(data || []);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+    fetchUpcomingEvents();
+
+    const channel = supabase
+      .channel('calendario-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'eventos'
+        },
+        () => {
+          fetchEvents();
+          fetchUpcomingEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvents, fetchUpcomingEvents]);
+
+  // Mantiene al día la línea de la hora actual
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Al cambiar a una vista horaria, desplaza la rejilla hasta el inicio de la jornada
+  useEffect(() => {
+    if (timeGridRef.current) {
+      timeGridRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_HEIGHT;
+    }
+  }, [viewType]);
 
   const openCreateEvent = (start?: Date) => {
     const inicio = start ?? addHours(startOfDay(new Date()), new Date().getHours() + 1);
@@ -452,7 +452,7 @@ export default function Calendario() {
         return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
       }
       case 'monthly': {
-        const { start, end } = getViewRange();
+        const { start, end } = getViewRange(viewType, currentDate);
         const monthDays = [];
         let day = start;
         while (day <= end) {

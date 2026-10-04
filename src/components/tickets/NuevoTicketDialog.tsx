@@ -73,6 +73,11 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
 
     setEnviando(true);
     const { data: autorId } = await supabase.rpc("mi_empleado_id");
+    if (!autorId) {
+      setEnviando(false);
+      toast({ title: "Error", description: "No se encontró tu ficha de empleado", variant: "destructive" });
+      return;
+    }
     const { data, error } = await supabase
       .from("tickets")
       .insert({ titulo: titulo.trim(), descripcion: descripcion.trim(), tipo, prioridad, autor_id: autorId, estado: "nuevo" })

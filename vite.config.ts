@@ -48,6 +48,18 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
+    build: {
+      rollupOptions: {
+        output: {
+          // Las librerías base cambian poco: en archivos aparte, el navegador
+          // las conserva en caché aunque se publique una versión nueva de la app
+          manualChunks(id) {
+            if (/node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/.test(id)) return "react";
+            if (/node_modules[\\/]@supabase[\\/]/.test(id)) return "supabase";
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

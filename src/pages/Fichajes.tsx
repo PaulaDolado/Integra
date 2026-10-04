@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,24 +27,7 @@ export default function Fichajes() {
   const [registering, setRegistering] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!profile) return;
-    fetchFichajes();
-
-    // Refleja también los fichajes hechos desde el botón de la barra superior
-    const channel = supabase
-      .channel(`fichajes-pagina-${profile.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
-        fetchFichajes()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile]);
-
-  async function fetchFichajes() {
+  const fetchFichajes = useCallback(async () => {
     if (!profile) return;
 
     try {
@@ -65,7 +48,24 @@ export default function Fichajes() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile) return;
+    fetchFichajes();
+
+    // Refleja también los fichajes hechos desde el botón de la barra superior
+    const channel = supabase
+      .channel(`fichajes-pagina-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes", filter: `empleado_id=eq.${profile.id}` }, () =>
+        fetchFichajes()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile, fetchFichajes]);
 
   async function handleFichaje(tipo: "entrada" | "salida") {
     if (!profile) return;

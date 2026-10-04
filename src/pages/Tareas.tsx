@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle, Pencil, ListChecks, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,31 +28,7 @@ export default function Tareas() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchTasks();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('tareas-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tareas'
-        },
-        () => {
-          fetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -90,7 +66,31 @@ export default function Tareas() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    fetchTasks();
+
+    // Setup realtime subscription
+    const channel = supabase
+      .channel('tareas-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tareas'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTasks]);
 
   const updateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
     // Se mueve la tarjeta al instante y se revierte si Supabase falla
