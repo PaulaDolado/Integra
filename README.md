@@ -273,6 +273,8 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `components/ProtectedRoute.test.tsx` | Redirige al login sin sesión o sin el doble factor verificado |
 | `components/layout/AppSidebar.test.tsx` | El menú solo muestra las pantallas de gestión que concede el departamento, y marca el apartado activo |
 | `hooks/usePermisos.test.tsx` | Carga los permisos una vez por usuario y no concede nada si la consulta falla |
+| `hooks/useInvalidarEnCambios.test.tsx` | Los cambios recibidos por Realtime invalidan las consultas indicadas, sin suscribirse de nuevo en cada render |
+| `contexts/AuthContext.test.tsx` | Al cerrar sesión se vacía la caché de datos |
 | `lib/tema.test.ts` | El modo oscuro se recuerda y, si no hay preferencia guardada, sigue la del sistema |
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
@@ -302,7 +304,7 @@ src/
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…
 ├── integrations/supabase/   # Cliente y tipos
-├── lib/                     # Utilidades, rutas base y tema
+├── lib/                     # Utilidades, rutas base, tema y cliente de TanStack Query
 ├── pages/                   # Una página por ruta
 └── test/                    # Configuración y ayudantes de los tests
 supabase/
@@ -323,6 +325,29 @@ El alias `@` apunta a `src/`, por ejemplo `import { supabase } from "@/integrati
    - añádelo al tipo `Permiso` de `src/hooks/usePermisos.ts`;
    - compruébalo también en las políticas RLS.
 5. Importa las rutas desde `react-router`, no desde `react-router-dom`.
+
+### Cargar datos
+
+Los datos del servidor se cargan con TanStack Query, no con `useState` y `useEffect`:
+
+```tsx
+const { data: tareas = [], isPending, error } = useQuery({
+  queryKey: ["tareas", empleadoId],
+  queryFn: async () => comprobar(await supabase.from("tareas").select("*").eq("asignado_a_id", empleadoId!)),
+  enabled: !!empleadoId,
+});
+useAvisarError(error, "No se pudieron cargar las tareas");
+useInvalidarEnCambios("tareas-changes", [{ table: "tareas" }], [["tareas"]]);
+```
+
+- `comprobar()` (`src/lib/query-client.ts`) convierte el `error` de Supabase en una excepción, para que TanStack Query lo trate como fallo.
+- La clave empieza por el dominio en español. Lo que muestra los mismos datos comparte prefijo, y así una sola invalidación actualiza todas las pantallas.
+- Si la consulta lleva `enabled` y puede quedar desactivada, usa `isLoading` para el indicador de carga: `isPending` seguiría a `true`.
+- Tras guardar algo, llama a `queryClient.invalidateQueries({ queryKey })` en vez de volver a cargar a mano.
+- `useInvalidarEnCambios` escucha los cambios de otros usuarios por Realtime e invalida las claves indicadas.
+- Para el id o el perfil del empleado de la sesión usa `useMiEmpleadoId()` o `useEmployeeProfile()`, que se piden una sola vez para toda la app.
+- La caché se vacía al cerrar sesión. Aun así, nunca guardes en ella datos descifrados de la bóveda ni el IBAN completo.
+- En los tests, renderiza con `renderConQuery` (`src/test/render.tsx`).
 
 Para añadir componentes de shadcn/ui:
 

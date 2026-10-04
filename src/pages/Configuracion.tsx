@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PerfilTab } from "@/components/configuracion/PerfilTab";
 import { InicioSesionTab } from "@/components/configuracion/InicioSesionTab";
@@ -20,26 +21,21 @@ const TABS = [
 
 export default function Configuracion() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [empleado, setEmpleado] = useState<Empleado | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const tab = TABS.some((t) => t.value === searchParams.get("tab")) ? searchParams.get("tab")! : "perfil";
 
-  const fetchEmpleado = useCallback(async () => {
-    if (!user) return;
-    const { data, error } = await supabase.from("empleados").select("*").eq("user_id", user.id).maybeSingle();
-    if (error) console.error("Error fetching empleado:", error);
-    setEmpleado(data);
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => {
-    fetchEmpleado();
-  }, [fetchEmpleado]);
+  // Misma clave que en Mi Perfil: al guardar aquí, esa página también se actualiza
+  const { data: empleado = null, isLoading: loading } = useQuery({
+    queryKey: ["empleado", user?.id],
+    queryFn: async (): Promise<Empleado | null> =>
+      comprobar(await supabase.from("empleados").select("*").eq("user_id", user!.id).maybeSingle()),
+    enabled: !!user,
+  });
 
   const handleUpdated = async () => {
-    await fetchEmpleado();
+    await queryClient.invalidateQueries({ queryKey: ["empleado", user?.id] });
     notifyEmployeeProfileUpdated();
   };
 

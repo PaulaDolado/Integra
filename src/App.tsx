@@ -2,13 +2,14 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PresenceProvider } from "./contexts/PresenceContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ROUTER_BASENAME } from "@/lib/app-url";
+import { queryClient } from "@/lib/query-client";
 
 // Cada página se descarga la primera vez que se visita
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -34,8 +35,6 @@ const GestionDatosPago = lazy(() => import("./pages/GestionDatosPago"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-
-const queryClient = new QueryClient();
 
 const Cargando = ({ pantallaCompleta = false }: { pantallaCompleta?: boolean }) => (
   <div className={`${pantallaCompleta ? "min-h-screen" : "py-24"} flex items-center justify-center`}>

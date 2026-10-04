@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SettingsSection, InfoGrid, InfoRow, EditActions } from "./SettingsSection";
 import type { ConfigTabProps } from "./types";
-
-type DatosPago = Database["public"]["Tables"]["datos_pago"]["Row"];
 
 const FORMAS_PAGO: Record<string, string> = {
   transferencia: "Transferencia",
@@ -39,26 +38,21 @@ const maskIban = (iban: string) => {
 };
 
 export function PagoTab({ empleado }: ConfigTabProps) {
-  const [datos, setDatos] = useState<DatosPago | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [iban, setIban] = useState("");
 
-  const fetchDatos = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("datos_pago")
-      .select("*")
-      .eq("empleado_id", empleado.id)
-      .maybeSingle();
-    if (error) console.error("Error fetching payment data:", error);
-    setDatos(data);
-    setLoading(false);
-  }, [empleado.id]);
-
-  useEffect(() => {
-    fetchDatos();
-  }, [fetchDatos]);
+  // El IBAN se enmascara dentro de la consulta: el completo nunca llega a la caché
+  const { data: datos = null, isPending: loading } = useQuery({
+    queryKey: ["datos-pago", empleado.id],
+    queryFn: async () => {
+      const fila = comprobar(
+        await supabase.from("datos_pago").select("forma_pago, iban").eq("empleado_id", empleado.id).maybeSingle()
+      );
+      return fila && { forma_pago: fila.forma_pago, iban_enmascarado: fila.iban ? maskIban(fila.iban) : null };
+    },
+  });
 
   const save = async () => {
     if (!isValidIban(iban)) {
@@ -80,7 +74,7 @@ export function PagoTab({ empleado }: ConfigTabProps) {
     }
     toast.success("Información de pago actualizada");
     setEditing(false);
-    fetchDatos();
+    queryClient.invalidateQueries({ queryKey: ["datos-pago", empleado.id] });
   };
 
   return (
@@ -114,7 +108,7 @@ export function PagoTab({ empleado }: ConfigTabProps) {
       ) : (
         <InfoGrid>
           <InfoRow label="Forma de pago" value={FORMAS_PAGO[datos?.forma_pago ?? "transferencia"]} />
-          <InfoRow label="IBAN" value={datos?.iban ? maskIban(datos.iban) : null} />
+          <InfoRow label="IBAN" value={datos?.iban_enmascarado ?? null} />
         </InfoGrid>
       )}
     </SettingsSection>

@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, Lock, Plus, Search, Ticket as TicketIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
-import { useToast } from "@/hooks/use-toast";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +25,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NuevoTicketDialog } from "@/components/tickets/NuevoTicketDialog";
 import { TicketBadge } from "@/components/tickets/TicketBadge";
 import {
+  CLAVE_PERSONAS_TICKETS,
+  CLAVE_TICKETS,
   ESTADOS,
   ORDEN_ESTADOS,
   ORDEN_PRIORIDADES,
@@ -43,12 +49,8 @@ interface TicketsProps {
 
 export default function Tickets({ vista = "mios" }: TicketsProps) {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { tiene, loading: cargandoPermisos } = usePermisos();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [nombres, setNombres] = useState<Map<string, string>>(new Map());
-  const [miId, setMiId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { empleadoId: miId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const [estado, setEstado] = useState<FiltroEstado>("abiertos");
   const [tipo, setTipo] = useState(TODOS);
   const [prioridad, setPrioridad] = useState(TODOS);
@@ -57,39 +59,32 @@ export default function Tickets({ vista = "mios" }: TicketsProps) {
 
   const esSoporte = vista === "todos";
   const puedeVer = !esSoporte || tiene("tickets.gestionar");
+  const activa = !cargandoPermisos && puedeVer;
 
-  const fetchTickets = useCallback(async () => {
-    const [{ data: yo }, { data, error }, { data: personas }] = await Promise.all([
-      supabase.rpc("mi_empleado_id"),
-      supabase.from("tickets").select("*").order("updated_at", { ascending: false }),
-      supabase.rpc("personas_tickets"),
-    ]);
+  // Las dos vistas comparten la consulta: la base de datos ya limita lo que cada uno puede ver
+  const { data: todos, isLoading: cargandoTickets, error } = useQuery({
+    queryKey: [...CLAVE_TICKETS, "lista"],
+    queryFn: async () => comprobar(await supabase.from("tickets").select("*").order("updated_at", { ascending: false })),
+    enabled: activa,
+  });
+  useAvisarError(error, "No se pudieron cargar los tickets");
 
-    if (error) {
-      console.error("Error fetching tickets:", error);
-      toast({ title: "Error", description: "No se pudieron cargar los tickets", variant: "destructive" });
-    } else {
-      setMiId(yo ?? null);
-      // La base de datos ya limita lo que cada uno puede ver; aquí se separa "mis tickets" de "todos"
-      setTickets((data ?? []).filter((t) => esSoporte || t.autor_id === yo || t.asignado_a_id === yo));
-      setNombres(new Map((personas ?? []).map((p) => [p.id, p.nombre])));
-    }
-    setLoading(false);
-  }, [toast, esSoporte]);
+  const { data: personas, isLoading: cargandoPersonas } = useQuery({
+    queryKey: CLAVE_PERSONAS_TICKETS,
+    queryFn: async () => comprobar(await supabase.rpc("personas_tickets")),
+    enabled: activa,
+  });
 
-  useEffect(() => {
-    if (cargandoPermisos || !puedeVer) return;
-    fetchTickets();
+  useInvalidarEnCambios(activa ? `tickets-${vista}-changes` : null, [{ table: "tickets" }], [CLAVE_TICKETS]);
 
-    const channel = supabase
-      .channel(`tickets-${vista}-changes`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tickets" }, () => fetchTickets())
-      .subscribe();
+  const loading = cargandoTickets || cargandoPersonas || cargandoEmpleado;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [cargandoPermisos, puedeVer, fetchTickets, vista]);
+  // Aquí se separa "mis tickets" de "todos"
+  const tickets = useMemo(
+    () => (todos ?? []).filter((t) => esSoporte || t.autor_id === miId || t.asignado_a_id === miId),
+    [todos, esSoporte, miId]
+  );
+  const nombres = useMemo(() => new Map((personas ?? []).map((p) => [p.id, p.nombre])), [personas]);
 
   const texto = busqueda.trim().toLowerCase();
   const filtrados = useMemo(

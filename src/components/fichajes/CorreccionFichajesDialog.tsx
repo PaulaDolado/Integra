@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfDay, format, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Ban, Loader2, LogIn, LogOut, Plus, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,11 +47,11 @@ const aIso = (fecha: string, hora: string) => new Date(`${fecha}T${hora}`).toISO
 
 export function CorreccionFichajesDialog({ open, onOpenChange, empleado, fecha: fechaInicial, onSaved }: CorreccionFichajesDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [fecha, setFecha] = useState(fechaInicial);
   const [existentes, setExistentes] = useState<Existente[]>([]);
   const [nuevos, setNuevos] = useState<Nuevo[]>([]);
   const [justificacion, setJustificacion] = useState("");
-  const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
@@ -60,23 +62,33 @@ export function CorreccionFichajesDialog({ open, onOpenChange, empleado, fecha: 
   }, [open, fechaInicial]);
 
   // Fichajes vigentes (no anulados) del empleado ese día
+  const { data: delDia, isLoading: cargando } = useQuery({
+    queryKey: ["fichajes-correccion", empleado?.id, fecha],
+    queryFn: async () => {
+      const dia = new Date(`${fecha}T00:00`);
+      return (
+        comprobar(
+          await supabase
+            .from("fichajes")
+            .select("id, empleado_id, tipo, fecha_hora, es_manual, anulado, fecha_hora_original, justificacion")
+            .eq("empleado_id", empleado!.id)
+            .eq("anulado", false)
+            .gte("fecha_hora", startOfDay(dia).toISOString())
+            .lte("fecha_hora", endOfDay(dia).toISOString())
+            .order("fecha_hora")
+        ) ?? []
+      );
+    },
+    enabled: open && !!empleado && !!fecha,
+    // Al abrir el diálogo se piden siempre los fichajes actuales
+    staleTime: 0,
+  });
+
+  // Precarga las filas editables con los fichajes cargados
   useEffect(() => {
-    if (!open || !empleado || !fecha) return;
-    setCargando(true);
-    const dia = new Date(`${fecha}T00:00`);
-    supabase
-      .from("fichajes")
-      .select("id, empleado_id, tipo, fecha_hora, es_manual, anulado, fecha_hora_original, justificacion")
-      .eq("empleado_id", empleado.id)
-      .eq("anulado", false)
-      .gte("fecha_hora", startOfDay(dia).toISOString())
-      .lte("fecha_hora", endOfDay(dia).toISOString())
-      .order("fecha_hora")
-      .then(({ data }) => {
-        setExistentes((data ?? []).map((f) => ({ fichaje: f, hora: format(new Date(f.fecha_hora), "HH:mm"), anular: false })));
-        setCargando(false);
-      });
-  }, [open, empleado, fecha]);
+    if (!delDia) return;
+    setExistentes(delDia.map((f) => ({ fichaje: f, hora: format(new Date(f.fecha_hora), "HH:mm"), anular: false })));
+  }, [delDia]);
 
   const horaOriginal = (f: Fichaje) => format(new Date(f.fecha_hora), "HH:mm");
   const modificados = existentes.filter((e) => !e.anular && e.hora !== horaOriginal(e.fichaje));
@@ -120,6 +132,7 @@ export function CorreccionFichajesDialog({ open, onOpenChange, empleado, fecha: 
       if (error) errores.push(error.message);
     }
     setGuardando(false);
+    queryClient.invalidateQueries({ queryKey: ["fichajes-correccion", empleado.id] });
 
     if (errores.length > 0) {
       toast({ title: "Algunas correcciones no se han guardado", description: [...new Set(errores)].join(". "), variant: "destructive" });

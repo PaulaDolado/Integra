@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { Check, Loader2, Plus, Repeat, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +38,13 @@ type Turno = { id: string; nombre: string; hora_inicio: string; hora_fin: string
 type Vista = "mias" | "companeros";
 const SIN_COMPANERO = "none";
 
+// La misma consulta que usa BandejaTurnos: comparten caché
+const CLAVE = ["solicitudes-turno"];
+
+type Colega = Database["public"]["Functions"]["directorio_empleados"]["Returns"][number];
+const aCompaneros = (directorio: Colega[]) =>
+  directorio.map((e) => ({ id: e.id, nombre: [e.nombre, e.primer_apellido].join(" ") }));
+
 const etiquetaTurno = (t: Turno) => `${t.nombre} (${t.hora_inicio.slice(0, 5)}–${t.hora_fin.slice(0, 5)})`;
 
 const formVacio = () => ({
@@ -44,51 +57,36 @@ const formVacio = () => ({
 
 export default function CambioTurno() {
   const { toast } = useToast();
-  const [solicitudes, setSolicitudes] = useState<SolicitudTurno[]>([]);
-  const [turnos, setTurnos] = useState<Turno[]>([]);
-  const [companeros, setCompaneros] = useState<{ id: string; nombre: string }[]>([]);
-  const [miId, setMiId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { empleadoId: miId, loading: cargandoMiId } = useMiEmpleadoId();
   const [vista, setVista] = useState<Vista>("mias");
   const [creando, setCreando] = useState(false);
   const [form, setForm] = useState(formVacio);
   const [enviando, setEnviando] = useState(false);
   const [respondiendo, setRespondiendo] = useState<{ solicitud: SolicitudTurno; aceptar: boolean } | null>(null);
 
-  const cargar = useCallback(async () => {
-    const [{ data: yo }, { data, error }] = await Promise.all([
-      supabase.rpc("mi_empleado_id"),
-      supabase.rpc("solicitudes_turno_detalle"),
-    ]);
-    if (error) {
-      console.error("Error fetching solicitudes de turno:", error);
-      toast({ title: "Error", description: "No se pudieron cargar las solicitudes", variant: "destructive" });
-    }
-    setMiId(yo ?? null);
-    // Aquí solo las propias y las dirigidas a mí (los revisores lo gestionan desde su bandeja)
-    setSolicitudes((data ?? []).filter((s) => s.solicitante_id === yo || s.companero_id === yo));
-    setLoading(false);
-  }, [toast]);
+  const { data: todas = [], isPending, error } = useQuery({
+    queryKey: CLAVE,
+    queryFn: async () => comprobar(await supabase.rpc("solicitudes_turno_detalle")) ?? [],
+  });
+  useAvisarError(error, "No se pudieron cargar las solicitudes");
+  const loading = isPending || cargandoMiId;
+  // Aquí solo las propias y las dirigidas a mí (los revisores lo gestionan desde su bandeja)
+  const solicitudes = todas.filter((s) => s.solicitante_id === miId || s.companero_id === miId);
 
-  useEffect(() => {
-    cargar();
-    supabase
-      .from("turnos")
-      .select("id, nombre, hora_inicio, hora_fin")
-      .order("orden")
-      .then(({ data }) => setTurnos(data ?? []));
-    supabase.rpc("directorio_empleados").then(({ data }) =>
-      setCompaneros((data ?? []).map((e) => ({ id: e.id, nombre: [e.nombre, e.primer_apellido].join(" ") })))
-    );
+  const { data: turnos = [] } = useQuery({
+    queryKey: ["turnos"],
+    queryFn: async (): Promise<Turno[]> =>
+      comprobar(await supabase.from("turnos").select("id, nombre, hora_inicio, hora_fin").order("orden")) ?? [],
+  });
 
-    const channel = supabase
-      .channel("cambio-turno-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_turno" }, () => cargar())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [cargar]);
+  const { data: companeros = [] } = useQuery({
+    queryKey: ["directorio-empleados"],
+    queryFn: async () => comprobar(await supabase.rpc("directorio_empleados")) ?? [],
+    select: aCompaneros,
+  });
+
+  useInvalidarEnCambios("cambio-turno-changes", [{ table: "solicitudes_turno" }], [CLAVE]);
 
   const mias = solicitudes.filter((s) => s.solicitante_id === miId);
   const deCompaneros = solicitudes.filter((s) => s.companero_id === miId);
@@ -121,7 +119,7 @@ export default function CambioTurno() {
           : "Tu compañero debe aceptar el intercambio antes de que lo revisen RRHH o Dirección",
     });
     setCreando(false);
-    cargar();
+    queryClient.invalidateQueries({ queryKey: CLAVE });
   };
 
   const cancelar = async (s: SolicitudTurno) => {
@@ -131,7 +129,7 @@ export default function CambioTurno() {
       return;
     }
     toast({ title: "Solicitud cancelada" });
-    cargar();
+    queryClient.invalidateQueries({ queryKey: CLAVE });
   };
 
   const responder = async (comentario: string) => {
@@ -147,7 +145,7 @@ export default function CambioTurno() {
     }
     toast({ title: respondiendo.aceptar ? "Intercambio aceptado" : "Intercambio rechazado" });
     setRespondiendo(null);
-    cargar();
+    queryClient.invalidateQueries({ queryKey: CLAVE });
   };
 
   const turnoSolicitadoOpciones = turnos.filter((t) => t.id !== form.turno_actual);

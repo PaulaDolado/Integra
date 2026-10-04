@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { queryClient } from '@/lib/query-client';
 
 interface AuthContextType {
   user: User | null;
@@ -39,6 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Nada de lo que vio un usuario debe quedar en caché para el siguiente
+        if (event === 'SIGNED_OUT') queryClient.clear();
         // Las llamadas a Supabase dentro del listener se difieren para evitar bloqueos
         setTimeout(() => applySession(session), 0);
       }

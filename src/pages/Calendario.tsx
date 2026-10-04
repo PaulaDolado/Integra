@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Clock, MapPin, Lock, CalendarSearch, CalendarSync } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, addWeeks, subWeeks, addYears, subYears, addHours, isSameMonth, isToday, startOfDay, endOfDay, startOfYear, endOfYear } from "date-fns";
 import { es } from "date-fns/locale";
@@ -11,8 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -136,9 +140,6 @@ const layoutDayEvents = (dayEvents: Event[], day: Date): PositionedEvent[] => {
 export default function Calendario() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>('weekly');
-  const [events, setEvents] = useState<Event[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -147,76 +148,43 @@ export default function Calendario() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile } = useEmployeeProfile();
+  const queryClient = useQueryClient();
 
   const [eventForm, setEventForm] = useState<EventFormData>(EMPTY_FORM);
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      const { start, end } = getViewRange(viewType, currentDate);
+  // La clave depende del rango visible, no del día elegido: moverse dentro
+  // de la misma semana o mes no vuelve a pedir los eventos
+  const { start: rangeStart, end: rangeEnd } = getViewRange(viewType, currentDate);
+  const { data: events = [], isPending: loading, error } = useQuery({
+    queryKey: ['eventos', rangeStart.toISOString(), rangeEnd.toISOString()],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from('eventos')
+          .select('*')
+          .lte('fecha_inicio', rangeEnd.toISOString())
+          .gte('fecha_fin', rangeStart.toISOString())
+          .order('fecha_inicio', { ascending: true })
+      ) ?? [],
+    // Mientras llegan los del nuevo rango se siguen viendo los anteriores
+    placeholderData: keepPreviousData,
+  });
+  useAvisarError(error, "No se pudieron cargar los eventos");
 
-      const { data, error } = await supabase
-        .from('eventos')
-        .select('*')
-        .lte('fecha_inicio', end.toISOString())
-        .gte('fecha_fin', start.toISOString())
-        .order('fecha_inicio', { ascending: true });
+  const { data: upcomingEvents = [] } = useQuery({
+    queryKey: ['eventos', 'proximos'],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from('eventos')
+          .select('*')
+          .gte('fecha_fin', new Date().toISOString())
+          .order('fecha_inicio', { ascending: true })
+          .limit(5)
+      ) ?? [],
+  });
 
-      if (error) {
-        console.error('Error fetching events:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los eventos",
-          variant: "destructive",
-        });
-      } else {
-        setEvents(data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [viewType, currentDate, toast]);
-
-  const fetchUpcomingEvents = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('eventos')
-      .select('*')
-      .gte('fecha_fin', new Date().toISOString())
-      .order('fecha_inicio', { ascending: true })
-      .limit(5);
-
-    if (error) {
-      console.error('Error fetching upcoming events:', error);
-    } else {
-      setUpcomingEvents(data || []);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchEvents();
-    fetchUpcomingEvents();
-
-    const channel = supabase
-      .channel('calendario-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'eventos'
-        },
-        () => {
-          fetchEvents();
-          fetchUpcomingEvents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchEvents, fetchUpcomingEvents]);
+  useInvalidarEnCambios('calendario-page-changes', [{ table: 'eventos' }], [['eventos']]);
 
   // Mantiene al día la línea de la hora actual
   useEffect(() => {
@@ -291,8 +259,7 @@ export default function Calendario() {
         });
         setIsCreateEventOpen(false);
         setEventForm(EMPTY_FORM);
-        fetchEvents();
-        fetchUpcomingEvents();
+        queryClient.invalidateQueries({ queryKey: ['eventos'] });
       }
     } catch (error) {
       console.error('Error creating event:', error);
@@ -350,8 +317,7 @@ export default function Calendario() {
         setIsEditEventOpen(false);
         setSelectedEvent(null);
         setEventForm(EMPTY_FORM);
-        fetchEvents();
-        fetchUpcomingEvents();
+        queryClient.invalidateQueries({ queryKey: ['eventos'] });
       }
     } catch (error) {
       console.error('Error updating event:', error);
@@ -380,8 +346,7 @@ export default function Calendario() {
         });
         setIsEditEventOpen(false);
         setSelectedEvent(null);
-        fetchEvents();
-        fetchUpcomingEvents();
+        queryClient.invalidateQueries({ queryKey: ['eventos'] });
       }
     } catch (error) {
       console.error('Error deleting event:', error);

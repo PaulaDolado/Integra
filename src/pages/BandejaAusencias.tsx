@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarDays, Check, Inbox, Loader2, Lock, Paperclip, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,13 +38,14 @@ const FILTROS: { value: Filtro; label: string }[] = [
   { value: "todas", label: "Todas" },
 ];
 
+const CLAVE = ["bandeja-ausencias"];
+
 const formatFecha = (fecha: string) => format(new Date(fecha), "d MMM yyyy", { locale: es });
 
 export default function BandejaAusencias() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
   const { toast } = useToast();
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filtro, setFiltro] = useState<Filtro>("pendiente");
   const [busqueda, setBusqueda] = useState("");
   const [revisando, setRevisando] = useState<{ solicitud: Solicitud; decision: Decision } | null>(null);
@@ -49,32 +54,14 @@ export default function BandejaAusencias() {
 
   const puedeAprobar = tiene("ausencias.aprobar");
 
-  const fetchSolicitudes = useCallback(async () => {
-    const { data, error } = await supabase.rpc("bandeja_ausencias");
-    if (error) {
-      console.error("Error fetching bandeja:", error);
-      toast({ title: "Error", description: "No se pudieron cargar las solicitudes", variant: "destructive" });
-    } else {
-      setSolicitudes(data ?? []);
-    }
-    setLoading(false);
-  }, [toast]);
+  const { data: solicitudes = [], isPending: loading, error } = useQuery({
+    queryKey: CLAVE,
+    queryFn: async () => comprobar(await supabase.rpc("bandeja_ausencias")) ?? [],
+    enabled: puedeAprobar,
+  });
+  useAvisarError(error, "No se pudieron cargar las solicitudes");
 
-  useEffect(() => {
-    if (!puedeAprobar) return;
-    fetchSolicitudes();
-
-    const channel = supabase
-      .channel("bandeja-ausencias-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "solicitudes_vacacion" }, () => {
-        fetchSolicitudes();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [puedeAprobar, fetchSolicitudes]);
+  useInvalidarEnCambios(puedeAprobar ? "bandeja-ausencias-changes" : null, [{ table: "solicitudes_vacacion" }], [CLAVE]);
 
   const abrirJustificante = async (path: string) => {
     const { data, error } = await supabase.storage.from("justificantes").createSignedUrl(path, 60);
@@ -111,7 +98,7 @@ export default function BandejaAusencias() {
       description: `Se ha notificado el cambio a ${revisando.solicitud.empleado_nombre}`,
     });
     setRevisando(null);
-    fetchSolicitudes();
+    queryClient.invalidateQueries({ queryKey: CLAVE });
   };
 
   if (cargandoPermisos) {

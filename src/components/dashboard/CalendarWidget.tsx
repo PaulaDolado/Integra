@@ -2,8 +2,13 @@ import { Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -106,8 +111,6 @@ const formatTimeRange = (event: Event) =>
   `${format(new Date(event.fecha_inicio), "HH:mm")} – ${format(new Date(event.fecha_fin), "HH:mm")}`;
 
 export function CalendarWidget() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<CalendarView>(getStoredView);
   const [anchor, setAnchor] = useState(() => new Date());
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -120,48 +123,30 @@ export function CalendarWidget() {
     es_privado: false,
   });
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
+  const queryClient = useQueryClient();
 
   const { start: rangeStart, end: rangeEnd } = getRange(view, anchor);
 
-  const fetchEvents = useCallback(async () => {
-    const { start, end } = getRange(view, anchor);
+  // Solo trae algunas columnas: su clave no coincide con las del Calendario,
+  // pero comparte el prefijo "eventos" para invalidarse a la vez
+  const { data: events = [], isPending: loading } = useQuery({
+    queryKey: ["eventos", "resumen", rangeStart.toISOString(), rangeEnd.toISOString()],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from("eventos")
+          .select("id, titulo, fecha_inicio, fecha_fin")
+          .lte("fecha_inicio", rangeEnd.toISOString())
+          .gte("fecha_fin", rangeStart.toISOString())
+          .order("fecha_inicio", { ascending: true })
+      ) ?? [],
+    // Mientras llegan los del nuevo periodo se siguen viendo los anteriores
+    placeholderData: keepPreviousData,
+  });
 
-    const { data, error } = await supabase
-      .from("eventos")
-      .select("id, titulo, fecha_inicio, fecha_fin")
-      .lte("fecha_inicio", end.toISOString())
-      .gte("fecha_fin", start.toISOString())
-      .order("fecha_inicio", { ascending: true });
-
-    if (!error && data) {
-      setEvents(data);
-    }
-    setLoading(false);
-  }, [view, anchor]);
-
-  useEffect(() => {
-    fetchEvents();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('events-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'eventos'
-        },
-        () => {
-          fetchEvents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchEvents]);
+  useInvalidarEnCambios("events-changes", [{ table: "eventos" }], [["eventos"]]);
 
   const handleViewChange = (value: string) => {
     if (!VIEWS.some((v) => v.value === value)) return;
@@ -188,16 +173,10 @@ export function CalendarWidget() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     // creador_id apunta a empleados, no al usuario de autenticación
-    const { data: empleado } = await supabase
-      .from("empleados")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!empleado) {
+    if (!empleadoId) {
       toast({
         title: "Error",
         description: "Tu usuario no tiene un perfil de empleado asociado",
@@ -213,7 +192,7 @@ export function CalendarWidget() {
       fecha_fin: formData.fecha_fin,
       ubicacion: formData.ubicacion,
       es_privado: formData.es_privado,
-      creador_id: empleado.id,
+      creador_id: empleadoId,
     });
 
     if (error) {
@@ -239,7 +218,7 @@ export function CalendarWidget() {
       ubicacion: "",
       es_privado: false,
     });
-    fetchEvents();
+    queryClient.invalidateQueries({ queryKey: ["eventos"] });
   };
 
   const today = new Date();
@@ -535,7 +514,7 @@ export function CalendarWidget() {
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateEvent}>
+            <Button onClick={handleCreateEvent} disabled={cargandoEmpleado}>
               Crear Evento
             </Button>
           </DialogFooter>

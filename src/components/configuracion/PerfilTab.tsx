@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -180,26 +182,19 @@ function DatosContacto({ empleado, onUpdated }: ConfigTabProps) {
 }
 
 function ContactosEmergencia({ empleado }: ConfigTabProps) {
-  const [contactos, setContactos] = useState<ContactoEmergencia[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nombre: "", relacion: "", telefono: "" });
 
-  const fetchContactos = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("contactos_emergencia")
-      .select("*")
-      .eq("empleado_id", empleado.id)
-      .order("created_at");
-    if (error) console.error("Error fetching emergency contacts:", error);
-    setContactos(data ?? []);
-    setLoading(false);
-  }, [empleado.id]);
-
-  useEffect(() => {
-    fetchContactos();
-  }, [fetchContactos]);
+  const clave = ["contactos-emergencia", empleado.id];
+  const { data: contactos = [], isPending: loading } = useQuery({
+    queryKey: clave,
+    queryFn: async (): Promise<ContactoEmergencia[]> =>
+      comprobar(
+        await supabase.from("contactos_emergencia").select("*").eq("empleado_id", empleado.id).order("created_at")
+      ) ?? [],
+  });
 
   const cancel = () => {
     setForm({ nombre: "", relacion: "", telefono: "" });
@@ -227,7 +222,7 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
     }
     toast.success("Contacto de emergencia añadido");
     cancel();
-    fetchContactos();
+    queryClient.invalidateQueries({ queryKey: clave });
   };
 
   const remove = async (id: string) => {
@@ -237,7 +232,8 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
       toast.error("No se pudo eliminar el contacto");
       return;
     }
-    setContactos((prev) => prev.filter((c) => c.id !== id));
+    // Se quita al momento de la lista, sin esperar a volver a pedirla
+    queryClient.setQueryData<ContactoEmergencia[]>(clave, (prev) => prev?.filter((c) => c.id !== id));
   };
 
   return (

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { supabase } from "@/integrations/supabase/client";
 import { simularRpc } from "@/test/supabase-mock";
+import { renderConQuery } from "@/test/render";
 import Organigrama from "./Organigrama";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
@@ -19,14 +20,14 @@ describe("Organigrama", () => {
   });
 
   it("carga los datos solo de la función organigrama, nunca de la tabla empleados", async () => {
-    render(<Organigrama />);
+    renderConQuery(<Organigrama />);
     await screen.findByText("Laura Gómez");
     expect(supabase.rpc).toHaveBeenCalledWith("organigrama");
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
   it("agrupa por departamento con nombre y puesto", async () => {
-    render(<Organigrama />);
+    renderConQuery(<Organigrama />);
     const rrhh = (await screen.findByText("Recursos Humanos")).closest("div:has(ul)") as HTMLElement;
     expect(within(rrhh).getByText("Laura Gómez")).toBeInTheDocument();
     expect(within(rrhh).getByText("Marta Ruiz")).toBeInTheDocument();
@@ -38,14 +39,14 @@ describe("Organigrama", () => {
   });
 
   it("no muestra enlaces de correo ni de teléfono", async () => {
-    const { container } = render(<Organigrama />);
+    const { container } = renderConQuery(<Organigrama />);
     await screen.findByText("Laura Gómez");
     expect(container.querySelector('a[href^="mailto:"], a[href^="tel:"]')).toBeNull();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("filtra por nombre, puesto o departamento", async () => {
-    render(<Organigrama />);
+    renderConQuery(<Organigrama />);
     await screen.findByText("Laura Gómez");
     await userEvent.type(screen.getByPlaceholderText(/buscar/i), "finanzas");
     expect(screen.getByText("Pablo Sanz")).toBeInTheDocument();

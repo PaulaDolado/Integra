@@ -1,5 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -32,32 +36,45 @@ const getRotation = (id: string) => {
 };
 
 export default function Noticias() {
-  const [noticias, setNoticias] = useState<Anuncio[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mes, setMes] = useState(() => startOfMonth(new Date()));
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [abierta, setAbierta] = useState<Anuncio | null>(null);
-  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
   // undefined = cerrado, null = nuevo comunicado
   const [editando, setEditando] = useState<Anuncio | null | undefined>(undefined);
   const [confirmarBorrado, setConfirmarBorrado] = useState(false);
-  const [recarga, setRecarga] = useState(0);
   const { toast } = useToast();
   const { tiene } = usePermisos();
+  const { empleadoId } = useMiEmpleadoId();
+  const queryClient = useQueryClient();
 
   // Áreas en las que el departamento del usuario puede publicar (vacío = solo lectura)
   const misAreas = (Object.keys(AREAS) as AreaComunicado[]).filter((area) => tiene(`comunicados.${area}`));
 
-  useEffect(() => {
-    supabase.rpc("mi_empleado_id").then(({ data }) => setEmpleadoId(data ?? null));
-  }, []);
+  const { data: noticias = [], isPending: loading } = useQuery({
+    queryKey: ["anuncios", mes.toISOString()],
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from("anuncios")
+          .select("*")
+          .gte("fecha_publicacion", mes.toISOString())
+          .lt("fecha_publicacion", addMonths(mes, 1).toISOString())
+          .in("area", ["rrhh", "marketing"])
+          .order("fecha_publicacion", { ascending: false })
+      ) ?? [],
+    // Al cambiar de mes se siguen viendo las notas anteriores hasta que llegan las nuevas
+    placeholderData: keepPreviousData,
+  });
+
+  // El prefijo "anuncios" incluye también el widget de noticias del panel
+  useInvalidarEnCambios("noticias-page-changes", [{ table: "anuncios" }], [["anuncios"]]);
 
   const puedeGestionar = (noticia: Anuncio) => misAreas.includes(noticia.area as AreaComunicado);
 
   const handleSaved = () => {
     setEditando(undefined);
     setAbierta(null);
-    setRecarga((n) => n + 1);
+    queryClient.invalidateQueries({ queryKey: ["anuncios"] });
   };
 
   const borrar = async () => {
@@ -72,52 +89,6 @@ export default function Noticias() {
     setConfirmarBorrado(false);
     handleSaved();
   };
-
-  useEffect(() => {
-    async function fetchNoticias() {
-      try {
-        const { data, error } = await supabase
-          .from("anuncios")
-          .select("*")
-          .gte("fecha_publicacion", mes.toISOString())
-          .lt("fecha_publicacion", addMonths(mes, 1).toISOString())
-          .in("area", ["rrhh", "marketing"])
-          .order("fecha_publicacion", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching noticias:", error);
-        } else {
-          setNoticias(data || []);
-        }
-      } catch (error) {
-        console.error("Error fetching noticias:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchNoticias();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('noticias-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'anuncios'
-        },
-        () => {
-          fetchNoticias();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [mes, recarga]);
 
   const visibles = filtro === "todas" ? noticias : noticias.filter((n) => n.area === filtro);
   const contar = (area: AreaComunicado) => noticias.filter((n) => n.area === area).length;

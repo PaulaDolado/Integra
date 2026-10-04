@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, Lock, Pencil, Plus, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { notifyEmployeeProfileUpdated } from "@/hooks/useEmployeeProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +40,7 @@ type Opcion = { id: string; nombre: string };
 type Estado = "activos" | "bajas" | "todos";
 
 const SIN_ASIGNAR = "none";
+const CLAVE = ["empleados", "gestion"];
 const TODOS = "todos";
 
 const emptyForm = {
@@ -59,10 +63,7 @@ const iniciales = (e: Empleado) => `${e.nombre.charAt(0)}${e.primer_apellido.cha
 export default function GestionEmpleados() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
   const { toast } = useToast();
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
-  const [cargos, setCargos] = useState<Opcion[]>([]);
-  const [departamentos, setDepartamentos] = useState<Opcion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [estado, setEstado] = useState<Estado>("activos");
   const [departamentoFiltro, setDepartamentoFiltro] = useState(TODOS);
   const [busqueda, setBusqueda] = useState("");
@@ -73,28 +74,24 @@ export default function GestionEmpleados() {
 
   const puedeGestionar = tiene("empleados.gestionar");
 
-  const fetchEmpleados = useCallback(async () => {
-    const { data, error } = await supabase.rpc("gestion_empleados");
-    if (error) {
-      console.error("Error fetching empleados:", error);
-      toast({ title: "Error", description: "No se pudo cargar la plantilla", variant: "destructive" });
-    } else {
-      setEmpleados(data ?? []);
-    }
-    setLoading(false);
-  }, [toast]);
+  const { data: empleados = [], isPending: loading, error } = useQuery({
+    queryKey: CLAVE,
+    queryFn: async (): Promise<Empleado[]> => comprobar(await supabase.rpc("gestion_empleados")) ?? [],
+    enabled: puedeGestionar,
+  });
+  useAvisarError(error, "No se pudo cargar la plantilla");
 
-  useEffect(() => {
-    if (!puedeGestionar) return;
-    fetchEmpleados();
-    Promise.all([
-      supabase.from("cargos").select("id, nombre").order("nombre"),
-      supabase.from("departamentos").select("id, nombre").order("nombre"),
-    ]).then(([c, d]) => {
-      setCargos(c.data ?? []);
-      setDepartamentos(d.data ?? []);
-    });
-  }, [puedeGestionar, fetchEmpleados]);
+  const { data: cargos = [] } = useQuery({
+    queryKey: ["cargos"],
+    queryFn: async (): Promise<Opcion[]> => comprobar(await supabase.from("cargos").select("id, nombre").order("nombre")) ?? [],
+    enabled: puedeGestionar,
+  });
+  const { data: departamentos = [] } = useQuery({
+    queryKey: ["departamentos"],
+    queryFn: async (): Promise<Opcion[]> =>
+      comprobar(await supabase.from("departamentos").select("id, nombre").order("nombre")) ?? [],
+    enabled: puedeGestionar,
+  });
 
   const abrir = (empleado: Empleado | null) => {
     setForm(
@@ -150,7 +147,7 @@ export default function GestionEmpleados() {
     });
     if (editando?.es_yo) notifyEmployeeProfileUpdated();
     setEditando(undefined);
-    fetchEmpleados();
+    queryClient.invalidateQueries({ queryKey: ["empleados"] });
   };
 
   if (cargandoPermisos) {

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermisos } from "@/hooks/usePermisos";
 import { simularRpc } from "@/test/supabase-mock";
+import { renderConQuery } from "@/test/render";
 import GestionDatosPago from "./GestionDatosPago";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn() } }));
@@ -37,22 +38,24 @@ describe("Datos de pago", () => {
 
   it("sin el permiso no consulta nada y muestra el aviso", () => {
     conPermisos();
-    render(<GestionDatosPago />);
+    renderConQuery(<GestionDatosPago />);
     expect(screen.getByText("No tienes acceso a los datos de pago")).toBeInTheDocument();
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("muestra el IBAN enmascarado y marca a quien no tiene", async () => {
     conPermisos("datos_pago.ver");
-    render(<GestionDatosPago />);
+    renderConQuery(<GestionDatosPago />);
     expect(await screen.findByText("ES•• •••• •••• •••• •••• 1332")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("2100");
     expect(screen.getByText("Sin IBAN")).toBeInTheDocument();
+    // El IBAN completo nunca se pide solo al cargar: cada consulta queda auditada
+    expect(supabase.rpc).not.toHaveBeenCalledWith("ver_iban", expect.anything());
   });
 
   it("pide el IBAN completo al pulsar Mostrar y lo vuelve a ocultar", async () => {
     conPermisos("datos_pago.ver");
-    render(<GestionDatosPago />);
+    renderConQuery(<GestionDatosPago />);
     await userEvent.click(await screen.findByRole("button", { name: "Mostrar IBAN completo" }));
 
     expect(supabase.rpc).toHaveBeenCalledWith("ver_iban", { p_empleado: "e1" });

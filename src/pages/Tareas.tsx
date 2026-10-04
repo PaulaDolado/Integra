@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle, Pencil, ListChecks, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { comprobar } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
 import { type Task, type TaskStatus, getSubtareas } from "@/components/tareas/task-utils";
 
@@ -18,83 +22,42 @@ const COLUMNS: { status: TaskStatus; title: string; empty: string; icon: typeof 
 const MAX_CARD_TAGS = 3;
 
 export default function Tareas() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   // undefined = cerrado, null = nueva tarea
   const [openTask, setOpenTask] = useState<Task | null | undefined>(undefined);
-  const [empleadoId, setEmpleadoId] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchTasks = useCallback(async () => {
-    if (!user) return;
+  // TasksWidget usa el mismo prefijo: invalidar esta clave actualiza los dos
+  const clave = ["tareas", empleadoId];
+  const { data: tasks = [], isLoading, error } = useQuery({
+    queryKey: clave,
+    queryFn: async () =>
+      comprobar(
+        await supabase
+          .from('tareas')
+          .select('*')
+          .eq('asignado_a_id', empleadoId!)
+          .order('fecha_limite', { ascending: true, nullsFirst: false })
+      ) ?? [],
+    enabled: !!empleadoId,
+  });
+  useAvisarError(error, "No se pudieron cargar las tareas");
+  const loading = cargandoEmpleado || isLoading;
 
-    try {
-      const { data: employeeData, error: empError } = await supabase
-        .from('empleados')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+  useInvalidarEnCambios(empleadoId ? 'tareas-page-changes' : null, [{ table: 'tareas' }], [clave]);
 
-      if (empError || !employeeData) {
-        console.error('Error fetching employee:', empError);
-        setLoading(false);
-        return;
-      }
-      setEmpleadoId(employeeData.id);
-
-      const { data, error } = await supabase
-        .from('tareas')
-        .select('*')
-        .eq('asignado_a_id', employeeData.id)
-        .order('fecha_limite', { ascending: true, nullsFirst: false });
-
-      if (error) {
-        console.error('Error fetching tasks:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar las tareas",
-          variant: "destructive",
-        });
-      } else {
-        setTasks(data || []);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, toast]);
-
-  useEffect(() => {
-    fetchTasks();
-
-    // Setup realtime subscription
-    const channel = supabase
-      .channel('tareas-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tareas'
-        },
-        () => {
-          fetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchTasks]);
+  // Cambia el estado en todas las listas de tareas en caché (esta página y el widget)
+  const cambiarEstadoEnCache = (taskId: string, estado: TaskStatus) =>
+    queryClient.setQueriesData<Task[]>({ queryKey: clave }, prev =>
+      prev?.map(t => (t.id === taskId ? { ...t, estado } : t))
+    );
 
   const updateTaskStatus = async (task: Task, newStatus: TaskStatus) => {
     // Se mueve la tarjeta al instante y se revierte si Supabase falla
-    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: newStatus } : t)));
+    cambiarEstadoEnCache(task.id, newStatus);
 
     const { error } = await supabase
       .from('tareas')
@@ -103,7 +66,7 @@ export default function Tareas() {
 
     if (error) {
       console.error('Error updating task:', error);
-      setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, estado: task.estado } : t)));
+      cambiarEstadoEnCache(task.id, task.estado);
       toast({
         title: "Error",
         description: "No se pudo actualizar la tarea",
@@ -138,16 +101,10 @@ export default function Tareas() {
     }
   };
 
-  const handleSaved = (saved: Task) => {
-    setTasks(prev =>
-      prev.some(t => t.id === saved.id) ? prev.map(t => (t.id === saved.id ? saved : t)) : [...prev, saved]
-    );
+  // Tras crear, guardar o eliminar se vuelve a pedir la lista
+  const handleChanged = () => {
     setOpenTask(undefined);
-  };
-
-  const handleDeleted = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    setOpenTask(undefined);
+    queryClient.invalidateQueries({ queryKey: clave });
   };
 
   return (
@@ -284,8 +241,8 @@ export default function Tareas() {
         task={openTask ?? null}
         empleadoId={empleadoId}
         onClose={() => setOpenTask(undefined)}
-        onSaved={handleSaved}
-        onDeleted={handleDeleted}
+        onSaved={handleChanged}
+        onDeleted={handleChanged}
       />
     </div>
   );

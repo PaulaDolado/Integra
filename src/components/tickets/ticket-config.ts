@@ -104,3 +104,9 @@ export const numeroTicket = (id: string) => `#${id.slice(0, 6).toUpperCase()}`;
 export const getEstado = (v: string) => ESTADOS[v as EstadoTicket] ?? ESTADOS.nuevo;
 export const getPrioridad = (v: string) => PRIORIDADES[v as PrioridadTicket] ?? PRIORIDADES.media;
 export const getTipo = (v: string) => TIPOS[v as TipoTicket] ?? TIPOS.incidencia;
+
+// Claves de consulta. Todas las listas de tickets (página y widget) cuelgan de
+// CLAVE_TICKETS, así que invalidarla actualiza todas a la vez.
+export const CLAVE_TICKETS = ["tickets"] as const;
+export const claveTicket = (id: string | undefined) => ["ticket", id] as const;
+export const CLAVE_PERSONAS_TICKETS = ["personas-tickets"] as const;

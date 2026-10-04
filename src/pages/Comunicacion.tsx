@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useOnlineEmployees } from "@/contexts/PresenceContext";
 import { cn } from "@/lib/utils";
@@ -13,110 +16,129 @@ import type { Colleague, Conversation, Message } from "@/components/chat/chat-ut
 
 const MESSAGES_PAGE = 200;
 
+// Valores por defecto estables: los mensajes van en dependencias de efectos (scroll al último)
+const NO_CONVERSATIONS: Conversation[] = [];
+const NO_COLLEAGUES: Colleague[] = [];
+const NO_MESSAGES: Message[] = [];
+const NO_PARTICIPANTS: string[] = [];
+
+const messagesKey = (conversationId: string | null) => ["mensajes", conversationId];
+
 export default function Comunicacion() {
   const { profile } = useEmployeeProfile();
   const myId = profile?.id;
   const online = useOnlineEmployees();
   const { toast } = useToast();
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loadingConversations, setLoadingConversations] = useState(true);
-  const [directory, setDirectory] = useState<Colleague[]>([]);
+  const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [participants, setParticipants] = useState<string[]>([]);
   const [isNewOpen, setIsNewOpen] = useState(false);
 
   // La suscripción en tiempo real necesita la conversación abierta sin re-suscribirse
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
 
+  const conversationsKey = useMemo(() => ["conversaciones", myId], [myId]);
+
+  const { data: conversations = NO_CONVERSATIONS, isLoading: conversationsPending } = useQuery({
+    queryKey: conversationsKey,
+    queryFn: async () => comprobar(await supabase.rpc("mis_conversaciones")) ?? [],
+    enabled: !!myId,
+  });
+  // Sin ficha de empleado no hay conversaciones que cargar: se sigue mostrando la carga, como antes
+  const loadingConversations = !myId || conversationsPending;
+
+  const { data: directory = NO_COLLEAGUES } = useQuery({
+    queryKey: ["directorio-empleados"],
+    queryFn: async () => comprobar(await supabase.rpc("directorio_empleados")) ?? [],
+    enabled: !!myId,
+  });
+
+  // Mensajes y participantes de la conversación abierta
+  const { data: messages = NO_MESSAGES, isLoading: messagesPending, error: messagesError } = useQuery({
+    queryKey: messagesKey(selectedId),
+    queryFn: async () => {
+      const data = comprobar(
+        await supabase
+          .from("mensajes")
+          .select("*")
+          .eq("conversacion_id", selectedId!)
+          .order("created_at", { ascending: false })
+          .limit(MESSAGES_PAGE)
+      );
+      return [...(data ?? [])].reverse();
+    },
+    enabled: !!selectedId,
+  });
+  useAvisarError(messagesError, "No se pudieron cargar los mensajes");
+
+  const { data: participants = NO_PARTICIPANTS, isLoading: participantsPending } = useQuery({
+    queryKey: ["conversacion-participantes", selectedId],
+    queryFn: async () => {
+      const data = comprobar(
+        await supabase.from("conversacion_participantes").select("empleado_id").eq("conversacion_id", selectedId!)
+      );
+      return (data ?? []).map(p => p.empleado_id);
+    },
+    enabled: !!selectedId,
+  });
+  const loadingMessages = messagesPending || participantsPending;
+
   const directoryById = useMemo(() => new Map(directory.map(c => [c.id, c])), [directory]);
   const colleagues = useMemo(() => directory.filter(c => c.id !== myId), [directory, myId]);
   const selectedConversation = conversations.find(c => c.id === selectedId);
 
-  const fetchConversations = useCallback(async () => {
-    const { data, error } = await supabase.rpc("mis_conversaciones");
-    if (error) {
-      console.error("Error fetching conversations:", error);
-    } else {
-      setConversations(data ?? []);
-    }
-    setLoadingConversations(false);
-  }, []);
+  const refreshConversations = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: conversationsKey }),
+    [queryClient, conversationsKey]
+  );
 
-  const markAsRead = useCallback(async (conversationId: string) => {
-    setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, no_leidos: 0 } : c)));
-    const { error } = await supabase.rpc("marcar_conversacion_leida", { conv_id: conversationId });
-    if (error) console.error("Error marking conversation as read:", error);
-  }, []);
+  // Añade un mensaje a la caché de su conversación (si está cargada) sin duplicarlo
+  const appendMessage = useCallback(
+    (message: Message) => {
+      queryClient.setQueryData<Message[]>(messagesKey(message.conversacion_id), prev =>
+        !prev || prev.some(m => m.id === message.id) ? prev : [...prev, message]
+      );
+    },
+    [queryClient]
+  );
+
+  const markAsRead = useCallback(
+    async (conversationId: string) => {
+      queryClient.setQueryData<Conversation[]>(conversationsKey, prev =>
+        prev?.map(c => (c.id === conversationId ? { ...c, no_leidos: 0 } : c))
+      );
+      const { error } = await supabase.rpc("marcar_conversacion_leida", { conv_id: conversationId });
+      if (error) console.error("Error marking conversation as read:", error);
+    },
+    [queryClient, conversationsKey]
+  );
 
   useEffect(() => {
     if (!myId) return;
-
-    fetchConversations();
-    supabase.rpc("directorio_empleados").then(({ data, error }) => {
-      if (error) console.error("Error fetching directory:", error);
-      else setDirectory(data ?? []);
-    });
 
     const channel = supabase
       .channel("chat-mensajes")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, (payload) => {
         const message = payload.new as Message;
-        if (message.conversacion_id === selectedIdRef.current) {
-          setMessages(prev => (prev.some(m => m.id === message.id) ? prev : [...prev, message]));
-          if (message.autor_id !== myId) markAsRead(message.conversacion_id);
+        // También las conversaciones que no están abiertas, para que su caché no se quede atrás
+        appendMessage(message);
+        if (message.conversacion_id === selectedIdRef.current && message.autor_id !== myId) {
+          markAsRead(message.conversacion_id);
         }
-        fetchConversations();
+        refreshConversations();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [myId, fetchConversations, markAsRead]);
+  }, [myId, appendMessage, markAsRead, refreshConversations]);
 
-  // Carga los mensajes y participantes de la conversación abierta
+  // Al abrir una conversación se marca como leída
   useEffect(() => {
-    if (!selectedId) {
-      setMessages([]);
-      setParticipants([]);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingMessages(true);
-
-    Promise.all([
-      supabase
-        .from("mensajes")
-        .select("*")
-        .eq("conversacion_id", selectedId)
-        .order("created_at", { ascending: false })
-        .limit(MESSAGES_PAGE),
-      supabase
-        .from("conversacion_participantes")
-        .select("empleado_id")
-        .eq("conversacion_id", selectedId),
-    ]).then(([messagesResult, participantsResult]) => {
-      if (cancelled) return;
-      if (messagesResult.error) {
-        toast({ title: "Error", description: "No se pudieron cargar los mensajes", variant: "destructive" });
-      } else {
-        setMessages([...(messagesResult.data ?? [])].reverse());
-      }
-      setParticipants((participantsResult.data ?? []).map(p => p.empleado_id));
-      setLoadingMessages(false);
-    });
-
-    markAsRead(selectedId);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, markAsRead, toast]);
+    if (selectedId) markAsRead(selectedId);
+  }, [selectedId, markAsRead]);
 
   const handleSend = async (content: string) => {
     if (!selectedId || !myId) return false;
@@ -132,13 +154,13 @@ export default function Comunicacion() {
       return false;
     }
 
-    setMessages(prev => (prev.some(m => m.id === data.id) ? prev : [...prev, data]));
-    fetchConversations();
+    appendMessage(data);
+    refreshConversations();
     return true;
   };
 
   const openConversation = async (conversationId: string) => {
-    await fetchConversations();
+    await refreshConversations();
     setSelectedId(conversationId);
     setIsNewOpen(false);
   };

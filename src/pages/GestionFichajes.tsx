@@ -1,4 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   endOfDay,
   endOfMonth,
@@ -12,8 +13,11 @@ import { es } from "date-fns/locale";
 import { AlertTriangle, ChevronDown, Clock, Download, Loader2, Lock, PencilLine, Plus, Search, UserCheck, UserX, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
-import { useToast } from "@/hooks/use-toast";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
+import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
+import { useAvisarError } from "@/hooks/useAvisarError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,6 +38,20 @@ type Empleado = Database["public"]["Functions"]["plantilla_fichajes"]["Returns"]
 type Correccion = Database["public"]["Tables"]["fichaje_correcciones"]["Row"];
 
 const CAMPOS_FICHAJE = "id, empleado_id, tipo, fecha_hora, es_manual, anulado, fecha_hora_original, justificacion";
+
+// Todo lo de esta página cuelga de esta clave: se invalida de una vez
+const CLAVE = ["fichajes-plantilla"];
+
+const aMapaAutores = (autores: { id: string; nombre: string }[]) => new Map(autores.map((x) => [x.id, x.nombre]));
+// Valores estables mientras no hay datos, para no rehacer los cálculos memorizados
+const SIN_AUTORES = new Map<string, string>();
+const SIN_EMPLEADOS: Empleado[] = [];
+const SIN_FICHAJES: Fichaje[] = [];
+
+const cargarFichajes = async (desdeIso: string, hastaIso: string) =>
+  comprobar(
+    await supabase.from("fichajes").select(CAMPOS_FICHAJE).gte("fecha_hora", desdeIso).lte("fecha_hora", hastaIso).order("fecha_hora")
+  ) ?? [];
 
 const describirCorreccion = (c: Correccion) => {
   const tipo = c.tipo === "entrada" ? "entrada" : "salida";
@@ -70,20 +88,14 @@ function rangoDe(periodo: Periodo, desde: string, hasta: string) {
 
 export default function GestionFichajes() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
-  const { toast } = useToast();
-  const [plantilla, setPlantilla] = useState<Empleado[]>([]);
-  const [fichajes, setFichajes] = useState<Fichaje[]>([]);
-  const [fichajesHoy, setFichajesHoy] = useState<Fichaje[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { empleadoId: miId } = useMiEmpleadoId();
   const [periodo, setPeriodo] = useState<Periodo>("semana");
   const [desde, setDesde] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [hasta, setHasta] = useState(format(new Date(), "yyyy-MM-dd"));
   const [departamento, setDepartamento] = useState(TODOS);
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState<string | null>(null);
-  const [correcciones, setCorrecciones] = useState<Correccion[]>([]);
-  const [autores, setAutores] = useState<Map<string, string>>(new Map());
-  const [miId, setMiId] = useState<string | null>(null);
   const [corrigiendo, setCorrigiendo] = useState<{ empleado: Empleado; fecha: string } | null>(null);
 
   const puedeVer = tiene("fichajes.ver_todos");
@@ -92,60 +104,64 @@ export default function GestionFichajes() {
   const { inicio, fin } = rangoDe(periodo, desde, hasta);
   const rangoValido = inicio <= fin;
 
-  const cargar = useCallback(async () => {
-    if (!rangoValido) return;
-    const hoy = new Date();
-    const desdeIso = inicio.toISOString();
-    const hastaIso = fin.toISOString();
-    const [p, f, h, c, a, yo] = await Promise.all([
-      supabase.rpc("plantilla_fichajes"),
-      supabase.from("fichajes").select(CAMPOS_FICHAJE).gte("fecha_hora", desdeIso).lte("fecha_hora", hastaIso).order("fecha_hora"),
-      // "Trabajando ahora" siempre se calcula con los fichajes de hoy
-      supabase
-        .from("fichajes")
-        .select(CAMPOS_FICHAJE)
-        .gte("fecha_hora", startOfDay(hoy).toISOString())
-        .lte("fecha_hora", endOfDay(hoy).toISOString())
-        .order("fecha_hora"),
-      // Correcciones que afectan a fichajes del periodo
-      supabase
-        .from("fichaje_correcciones")
-        .select("*")
-        .or(
-          `and(fecha_hora_nueva.gte.${desdeIso},fecha_hora_nueva.lte.${hastaIso}),and(fecha_hora_anterior.gte.${desdeIso},fecha_hora_anterior.lte.${hastaIso})`
-        )
-        .order("created_at", { ascending: false }),
-      supabase.rpc("autores_correcciones_fichajes"),
-      supabase.rpc("mi_empleado_id"),
-    ]);
-    if (p.error || f.error || h.error) {
-      console.error("Error fetching fichajes:", p.error ?? f.error ?? h.error);
-      toast({ title: "Error", description: "No se pudieron cargar los fichajes", variant: "destructive" });
-    } else {
-      setPlantilla(p.data ?? []);
-      setFichajes(f.data ?? []);
-      setFichajesHoy(h.data ?? []);
-      setCorrecciones(c.data ?? []);
-      setAutores(new Map((a.data ?? []).map((x) => [x.id, x.nombre])));
-      setMiId(yo.data ?? null);
-    }
-    setLoading(false);
-    // inicio y fin se derivan de periodo/desde/hasta
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodo, desde, hasta, rangoValido, toast]);
+  const desdeIso = inicio.toISOString();
+  const hastaIso = fin.toISOString();
+  const hoy = new Date();
+  const hoyDesdeIso = startOfDay(hoy).toISOString();
+  const hoyHastaIso = endOfDay(hoy).toISOString();
 
-  useEffect(() => {
-    if (!puedeVer) return;
-    cargar();
-    const channel = supabase
-      .channel("gestion-fichajes-changes")
-      // Altas, modificaciones y anulaciones
-      .on("postgres_changes", { event: "*", schema: "public", table: "fichajes" }, () => cargar())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [puedeVer, cargar]);
+  const consultaPlantilla = useQuery({
+    queryKey: [...CLAVE, "empleados"],
+    queryFn: async (): Promise<Empleado[]> => comprobar(await supabase.rpc("plantilla_fichajes")) ?? [],
+    enabled: puedeVer,
+  });
+  // Al cambiar de periodo se siguen viendo los datos anteriores hasta que llegan los nuevos
+  const consultaFichajes = useQuery({
+    queryKey: [...CLAVE, desdeIso, hastaIso],
+    queryFn: (): Promise<Fichaje[]> => cargarFichajes(desdeIso, hastaIso),
+    enabled: puedeVer && rangoValido,
+    placeholderData: keepPreviousData,
+  });
+  // "Trabajando ahora" siempre se calcula con los fichajes de hoy
+  const consultaHoy = useQuery({
+    queryKey: [...CLAVE, hoyDesdeIso, hoyHastaIso],
+    queryFn: (): Promise<Fichaje[]> => cargarFichajes(hoyDesdeIso, hoyHastaIso),
+    enabled: puedeVer,
+  });
+  // Correcciones que afectan a fichajes del periodo
+  const { data: correcciones = [] } = useQuery({
+    queryKey: [...CLAVE, "correcciones", desdeIso, hastaIso],
+    queryFn: async (): Promise<Correccion[]> =>
+      comprobar(
+        await supabase
+          .from("fichaje_correcciones")
+          .select("*")
+          .or(
+            `and(fecha_hora_nueva.gte.${desdeIso},fecha_hora_nueva.lte.${hastaIso}),and(fecha_hora_anterior.gte.${desdeIso},fecha_hora_anterior.lte.${hastaIso})`
+          )
+          .order("created_at", { ascending: false })
+      ) ?? [],
+    enabled: puedeVer && rangoValido,
+    placeholderData: keepPreviousData,
+  });
+  const { data: autores = SIN_AUTORES } = useQuery({
+    queryKey: [...CLAVE, "autores"],
+    queryFn: async () => comprobar(await supabase.rpc("autores_correcciones_fichajes")) ?? [],
+    enabled: puedeVer,
+    select: aMapaAutores,
+  });
+
+  const plantilla = consultaPlantilla.data ?? SIN_EMPLEADOS;
+  const fichajes = consultaFichajes.data ?? SIN_FICHAJES;
+  const fichajesHoy = consultaHoy.data ?? SIN_FICHAJES;
+  const loading = consultaPlantilla.isLoading || consultaFichajes.isLoading || consultaHoy.isLoading;
+  useAvisarError(
+    consultaPlantilla.error ?? consultaFichajes.error ?? consultaHoy.error,
+    "No se pudieron cargar los fichajes"
+  );
+
+  // Altas, modificaciones y anulaciones
+  useInvalidarEnCambios(puedeVer ? "gestion-fichajes-changes" : null, [{ table: "fichajes" }], [CLAVE]);
 
   const departamentos = useMemo(() => {
     const mapa = new Map<string, string>();
@@ -483,7 +499,7 @@ export default function GestionFichajes() {
         onOpenChange={(open) => !open && setCorrigiendo(null)}
         empleado={corrigiendo?.empleado ?? null}
         fecha={corrigiendo?.fecha ?? ""}
-        onSaved={cargar}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: CLAVE })}
       />
     </div>
   );
