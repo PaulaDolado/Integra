@@ -37,3 +37,6 @@ skills-lock.json
 /test-results/
 /playwright-report/
 /e2e/.auth/
+
+# Supabase CLI: proyecto enlazado y cachés locales
+/supabase/.temp/
