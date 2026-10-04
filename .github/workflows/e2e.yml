@@ -25,9 +25,9 @@ jobs:
       # Solo para comprobar que los tests no apuntan nunca a producción
       E2E_URL_PRODUCCION: ${{ secrets.VITE_SUPABASE_URL }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -41,7 +41,7 @@ jobs:
         run: npm run test:e2e
 
       # Informe con capturas y trazas de los tests que fallen
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: informe-e2e
