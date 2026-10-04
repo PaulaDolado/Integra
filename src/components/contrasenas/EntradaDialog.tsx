@@ -129,7 +129,7 @@ export function EntradaDialog({ open, entrada, onCancel, onGuardar }: EntradaDia
                     Generar
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-2rem)]">
+                <PopoverContent align="end" className="w-88 max-w-[calc(100vw-2rem)]">
                   <Generador
                     onUsar={(c) => {
                       cambiar("contrasena", c);

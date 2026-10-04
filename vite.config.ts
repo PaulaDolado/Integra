@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 // Política de seguridad de contenido para el build de producción: solo se
@@ -47,7 +48,7 @@ export default defineConfig(({ mode }) => {
         ignored: ["**/.agents/**", "**/.claude/**"],
       },
     },
-    plugins: [react(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
+    plugins: [react(), tailwindcss(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
     build: {
       rolldownOptions: {
         output: {

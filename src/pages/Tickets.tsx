@@ -243,7 +243,7 @@ export default function Tickets({ vista = "mios" }: TicketsProps) {
                     tabIndex={0}
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground">{numeroTicket(t.id)}</TableCell>
-                    <TableCell className="max-w-[22rem]">
+                    <TableCell className="max-w-88">
                       <div className="flex items-center gap-2">
                         <TicketBadge clase="tipo" valor={t.tipo} className="shrink-0" />
                         <span className="truncate font-medium">{t.titulo}</span>

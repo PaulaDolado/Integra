@@ -37,7 +37,7 @@ export function InfoRow({ label, value }: { label: string; value?: string | null
   return (
     <div>
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="font-medium break-words">{value?.trim() ? value : "-"}</dd>
+      <dd className="font-medium wrap-break-word">{value?.trim() ? value : "-"}</dd>
     </div>
   );
 }

@@ -131,7 +131,7 @@ export function MessageThread({ conversation, messages, loading, myId, participa
                   )}
                   <div className={cn("flex items-end gap-2", mine ? "justify-end" : "justify-start", !continued && "mt-3")}>
                     {!mine && isGroup && (
-                      <div className="w-8 flex-shrink-0">
+                      <div className="w-8 shrink-0">
                         {!continued && <ChatAvatar name={colleagueName(author)} size="sm" />}
                       </div>
                     )}
@@ -144,7 +144,7 @@ export function MessageThread({ conversation, messages, loading, myId, participa
                       {!mine && isGroup && !continued && (
                         <p className="text-xs font-semibold text-primary mb-0.5">{colleagueName(author)}</p>
                       )}
-                      <p className="text-sm whitespace-pre-wrap break-words">{message.contenido}</p>
+                      <p className="text-sm whitespace-pre-wrap wrap-break-word">{message.contenido}</p>
                       <p className={cn("text-[10px] text-right mt-0.5", mine ? "text-primary-foreground/70" : "text-muted-foreground")}>
                         {format(date, "HH:mm")}
                       </p>
@@ -172,7 +172,7 @@ export function MessageThread({ conversation, messages, loading, myId, participa
           />
           <Button
             size="icon"
-            className="h-10 w-10 flex-shrink-0"
+            className="h-10 w-10 shrink-0"
             onClick={handleSend}
             disabled={!draft.trim() || sending}
             aria-label="Enviar"
