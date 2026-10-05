@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { notificarError } from "@/lib/monitorizacion";
 
 const CLAVE_RECARGA = "integra:recarga-por-version";
 const MARGEN_RECARGA_MS = 10_000;
@@ -47,7 +48,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Error al pintar la interfaz:", error, info.componentStack);
-    if (esErrorDeVersion(error)) recargarPorVersion();
+    // Los fallos por versión antigua se arreglan solos recargando: solo se avisa
+    // si no se ha podido recargar (por ejemplo, porque acaba de fallar otra vez)
+    if (esErrorDeVersion(error) && recargarPorVersion()) return;
+    notificarError(error, { origen: "interfaz", componentStack: info.componentStack ?? undefined });
   }
 
   componentDidUpdate(prev: ErrorBoundaryProps) {
