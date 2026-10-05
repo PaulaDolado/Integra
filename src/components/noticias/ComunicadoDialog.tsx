@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type AreaComunicado, AREAS } from "./areas";
+import { calcularFin, type Duracion, DURACIONES, duracionDe, esEnlaceValido } from "./vigencia";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export interface Comunicado {
   id: string;
@@ -30,7 +32,13 @@ export interface Comunicado {
   fecha_publicacion: string;
   autor_id: string | null;
   area: string;
+  tipo: string;
+  enlace: string | null;
+  // null = fijo, no caduca
+  fecha_fin: string | null;
 }
+
+type TipoNota = "comunicado" | "formulario";
 
 interface ComunicadoDialogProps {
   open: boolean;
@@ -55,6 +63,9 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
   const [contenido, setContenido] = useState("");
   const [fecha, setFecha] = useState("");
   const [area, setArea] = useState<AreaComunicado>(areas[0]);
+  const [tipo, setTipo] = useState<TipoNota>("comunicado");
+  const [enlace, setEnlace] = useState("");
+  const [duracion, setDuracion] = useState<Duracion>("1");
   const [saving, setSaving] = useState(false);
   const areaPorDefecto = areas[0];
 
@@ -67,6 +78,9 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
       setContenido(comunicado?.contenido ?? "");
       setFecha(format(comunicado ? new Date(comunicado.fecha_publicacion) : new Date(), "yyyy-MM-dd"));
       setArea(comunicado ? (comunicado.area as AreaComunicado) : areaPorDefecto);
+      setTipo(comunicado?.tipo === "formulario" ? "formulario" : "comunicado");
+      setEnlace(comunicado?.enlace ?? "");
+      setDuracion(comunicado ? duracionDe(comunicado.fecha_publicacion, comunicado.fecha_fin) : "1");
     }
   }
 
@@ -75,17 +89,34 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
       toast({ title: "Error", description: "El título y el texto son obligatorios", variant: "destructive" });
       return;
     }
+    if (tipo === "formulario" && !esEnlaceValido(enlace.trim())) {
+      toast({
+        title: "Error",
+        description: "Indica el enlace al formulario (debe empezar por https://)",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!fecha) {
       toast({ title: "Error", description: "Indica la fecha de publicación", variant: "destructive" });
       return;
     }
 
     const fechaOriginal = comunicado ? format(new Date(comunicado.fecha_publicacion), "yyyy-MM-dd") : null;
+    // Al editar sin cambiar el día se conserva la hora original
+    const fechaPublicacion = fecha === fechaOriginal ? comunicado!.fecha_publicacion : toFechaPublicacion(fecha);
+    const duracionOriginal = comunicado ? duracionDe(comunicado.fecha_publicacion, comunicado.fecha_fin) : null;
     const values = {
       titulo: titulo.trim(),
       contenido: contenido.trim(),
-      // Al editar sin cambiar el día se conserva la hora original
-      fecha_publicacion: fecha === fechaOriginal ? comunicado!.fecha_publicacion : toFechaPublicacion(fecha),
+      fecha_publicacion: fechaPublicacion,
+      tipo,
+      enlace: tipo === "formulario" ? enlace.trim() : null,
+      // Sin tocar la fecha ni la duración se conserva el fin original
+      fecha_fin:
+        fechaPublicacion === comunicado?.fecha_publicacion && duracion === duracionOriginal
+          ? comunicado.fecha_fin
+          : calcularFin(fechaPublicacion, duracion),
     };
 
     setSaving(true);
@@ -142,29 +173,86 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
             </div>
           )}
           <div className="space-y-2">
+            {/* No es un <label>: un grupo de botones no es un campo al que asociarlo */}
+            <p id="comunicado-tipo" className="text-sm font-medium leading-none">
+              Tipo de nota
+            </p>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              className="justify-start"
+              value={tipo}
+              onValueChange={(value) => value && setTipo(value as TipoNota)}
+              aria-labelledby="comunicado-tipo"
+            >
+              <ToggleGroupItem value="comunicado" className="px-3 text-xs">
+                Comunicado
+              </ToggleGroupItem>
+              <ToggleGroupItem value="formulario" className="px-3 text-xs">
+                Formulario
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="comunicado-titulo">Título *</Label>
             <Input id="comunicado-titulo" maxLength={255} value={titulo} onChange={(e) => setTitulo(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="comunicado-contenido">Texto *</Label>
+            <Label htmlFor="comunicado-contenido">{tipo === "formulario" ? "Descripción *" : "Texto *"}</Label>
             <Textarea
               id="comunicado-contenido"
-              rows={8}
+              rows={tipo === "formulario" ? 5 : 8}
+              placeholder={tipo === "formulario" ? "Para qué sirve el formulario, quién debe rellenarlo y hasta cuándo" : undefined}
               value={contenido}
               onChange={(e) => setContenido(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="comunicado-fecha">Fecha de publicación</Label>
-            <Input
-              id="comunicado-fecha"
-              type="date"
-              className="w-auto"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">El comunicado aparece en el tablón del mes de esta fecha.</p>
+          {tipo === "formulario" && (
+            <div className="space-y-2">
+              <Label htmlFor="comunicado-enlace">Enlace al formulario *</Label>
+              <Input
+                id="comunicado-enlace"
+                type="url"
+                inputMode="url"
+                placeholder="https://forms.office.com/..."
+                value={enlace}
+                onChange={(e) => setEnlace(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="comunicado-fecha">Fecha de publicación</Label>
+              <Input
+                id="comunicado-fecha"
+                type="date"
+                className="w-auto"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comunicado-duracion">Duración</Label>
+              <Select value={duracion} onValueChange={(value) => setDuracion(value as Duracion)}>
+                <SelectTrigger id="comunicado-duracion" className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DURACIONES.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            {duracion === "fijo"
+              ? "Se queda en el tablón hasta que se elimine."
+              : "Se retira del tablón al pasar ese tiempo desde la fecha de publicación."}
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>

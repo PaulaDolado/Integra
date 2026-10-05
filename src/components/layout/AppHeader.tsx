@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Settings, LogOut, Clock, Moon, Sun, User } from "lucide-react";
+import { Settings, LogOut, Clock, Moon, Sun, User } from "lucide-react";
 import { guardarTema } from "@/lib/tema";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,13 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useFichajeActual } from "@/hooks/useFichajeActual";
+import { CampanaAvisos } from "./CampanaAvisos";
 
 export function AppHeader() {
   const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
@@ -115,13 +115,8 @@ export function AppHeader() {
             )}
           </Button>
 
-          {/* Notificaciones */}
-          <Button variant="outline" size="icon" className="relative" aria-label="Notificaciones: 3 sin leer" title="Notificaciones">
-            <Bell className="w-4 h-4" />
-            <Badge aria-hidden="true" className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-xs">
-              3
-            </Badge>
-          </Button>
+          {/* Avisos */}
+          <CampanaAvisos />
 
           {/* Menú Usuario */}
           <DropdownMenu>

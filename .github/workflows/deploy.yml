@@ -44,6 +44,9 @@ jobs:
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # Monitorización de errores: si el secreto no existe queda vacío y está apagada
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_RELEASE: ${{ github.sha }}
 
       # GitHub Pages no redirige las rutas de la app: sirve 404.html para
       # cualquier ruta desconocida, así que se usa una copia de index.html

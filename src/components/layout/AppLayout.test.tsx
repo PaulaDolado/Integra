@@ -18,6 +18,9 @@ vi.mock("@/hooks/useEmployeeProfile", () => ({
     getFirstName: () => "Laura",
   }),
 }));
+vi.mock("@/hooks/useAvisos", () => ({
+  useAvisos: () => ({ avisos: [], sinLeer: 2, loading: false, marcarLeido: vi.fn(), marcarTodos: vi.fn() }),
+}));
 vi.mock("@/hooks/useFichajeActual", () => ({
   useFichajeActual: () => ({ dentro: false, loading: false, registrando: false, fichar: vi.fn() }),
 }));
@@ -59,7 +62,7 @@ describe("AppLayout", () => {
   it("los botones de la barra superior tienen nombre", () => {
     pintar();
     expect(screen.getByRole("button", { name: "Cambiar a modo oscuro" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Notificaciones/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Avisos, 2 sin leer" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Navegación principal" })).toBeInTheDocument();
   });
 
