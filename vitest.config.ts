@@ -19,5 +19,8 @@ export default defineConfig({
       VITE_SUPABASE_PUBLISHABLE_KEY: "clave-de-prueba",
     },
     restoreMocks: true,
+    // Las páginas grandes (Calendario, Fichajes) renderizan mucho en cada clic:
+    // con toda la batería en paralelo, 5 s se quedan cortos
+    testTimeout: 15_000,
   },
 });

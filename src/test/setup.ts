@@ -22,3 +22,11 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// jsdom tampoco implementa lo que usan los Select de Radix para abrirse y
+// desplazarse, ni las URL de objeto de las miniaturas de imágenes
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.scrollIntoView ??= () => {};
+URL.createObjectURL ??= () => "blob:miniatura";
+URL.revokeObjectURL ??= () => {};
