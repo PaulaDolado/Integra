@@ -12,6 +12,8 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import type { Database } from "@/integrations/supabase/types";
 
 export type Ticket = Database["public"]["Tables"]["tickets"]["Row"];
@@ -100,6 +102,8 @@ export const PESO_PRIORIDAD: Record<string, number> = { primordial: 0, alta: 1, 
 
 // Número corto y legible del ticket, como el ID de GLPI
 export const numeroTicket = (id: string) => `#${id.slice(0, 6).toUpperCase()}`;
+
+export const fechaCorta = (fecha: string) => format(new Date(fecha), "d MMM yyyy, HH:mm", { locale: es });
 
 export const getEstado = (v: string) => ESTADOS[v as EstadoTicket] ?? ESTADOS.nuevo;
 export const getPrioridad = (v: string) => PRIORIDADES[v as PrioridadTicket] ?? PRIORIDADES.media;

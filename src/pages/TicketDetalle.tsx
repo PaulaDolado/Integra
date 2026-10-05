@@ -1,172 +1,42 @@
-import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { format, formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  History,
-  Loader2,
-  MessageSquare,
-  Send,
-  ThumbsDown,
-  ThumbsUp,
-  Wrench,
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { comprobar } from "@/lib/query-client";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { usePermisos } from "@/hooks/usePermisos";
 import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
-import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
-import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { TicketBadge } from "@/components/tickets/TicketBadge";
-import {
-  CLAVE_PERSONAS_TICKETS,
-  CLAVE_TICKETS,
-  ESTADOS,
-  ORDEN_ESTADOS,
-  ORDEN_PRIORIDADES,
-  ORDEN_TIPOS,
-  PRIORIDADES,
-  TIPOS,
-  claveTicket,
-  numeroTicket,
-  type Seguimiento,
-  type Ticket,
-} from "@/components/tickets/ticket-config";
-import { SelectorImagenes } from "@/components/tickets/SelectorImagenes";
-import { GaleriaAdjuntos } from "@/components/tickets/GaleriaAdjuntos";
-import {
-  imagenesDelPortapapeles,
-  subirAdjuntos,
-  urlsAdjuntos,
-  validarImagenes,
-  type Adjunto,
-} from "@/components/tickets/adjuntos";
-
-type Plantilla = { id: string; nombre: string; contenido: string };
-type Modo = "respuesta" | "solucion";
-const SIN_ASIGNAR = "none";
-
-// Valores por defecto estables mientras no hay datos
-const SIN_SEGUIMIENTOS: Seguimiento[] = [];
-const SIN_ADJUNTOS: Adjunto[] = [];
-const SIN_URLS = new Map<string, string>();
-const SIN_PLANTILLAS: Plantilla[] = [];
-const SIN_TECNICOS: { id: string; nombre: string }[] = [];
-
-const iniciales = (nombre: string) =>
-  nombre
-    .split(" ")
-    .slice(0, 2)
-    .map((p) => p.charAt(0))
-    .join("")
-    .toUpperCase();
-
-const fechaCorta = (fecha: string) => format(new Date(fecha), "d MMM yyyy, HH:mm", { locale: es });
+import { numeroTicket } from "@/components/tickets/ticket-config";
+import { useTicketDetalle } from "@/components/tickets/useTicketDetalle";
+import { HistorialTicket } from "@/components/tickets/HistorialTicket";
+import { RedactorTicket } from "@/components/tickets/RedactorTicket";
+import { ValoracionSolucion } from "@/components/tickets/ValoracionSolucion";
+import { PropiedadesTicket } from "@/components/tickets/PropiedadesTicket";
 
 export default function TicketDetalle() {
   const { id } = useParams<{ id: string }>();
-  const { toast } = useToast();
   const { tiene } = usePermisos();
-  const queryClient = useQueryClient();
   const { empleadoId: miId, loading: cargandoEmpleado } = useMiEmpleadoId();
-  const [archivos, setArchivos] = useState<File[]>([]);
-  const [modo, setModo] = useState<Modo>("respuesta");
-  const [texto, setTexto] = useState("");
+  // Compartido entre responder y valorar la solución: mientras se envía una, la otra espera
   const [enviando, setEnviando] = useState(false);
-  const [rechazando, setRechazando] = useState(false);
-  const [motivoRechazo, setMotivoRechazo] = useState("");
-  const [propiedades, setPropiedades] = useState({ tipo: "", prioridad: "", estado: "", asignado: SIN_ASIGNAR });
-  const [guardandoPropiedades, setGuardandoPropiedades] = useState(false);
 
   const esSoporte = tiene("tickets.gestionar");
-
-  // Ticket, historial y adjuntos, con sus URLs firmadas (duran 1 hora y se renuevan en cada recarga)
   const {
-    data: detalle,
-    isLoading: cargandoTicket,
-    error: errorTicket,
-    refetch: reintentarTicket,
-    isFetching: reintentando,
-  } = useQuery({
-    queryKey: claveTicket(id),
-    queryFn: async () => {
-      const [t, segs, adj] = await Promise.all([
-        supabase.from("tickets").select("*").eq("id", id!).maybeSingle().then(comprobar),
-        supabase.from("ticket_seguimientos").select("*").eq("ticket_id", id!).order("created_at").then(comprobar),
-        supabase.from("ticket_adjuntos").select("*").eq("ticket_id", id!).order("created_at").then(comprobar),
-      ]);
-      const adjuntos = adj ?? [];
-      return { ticket: t, seguimientos: segs ?? [], adjuntos, urls: await urlsAdjuntos(adjuntos) };
-    },
-    enabled: !!id,
-  });
+    ticket,
+    seguimientos,
+    adjuntos,
+    urls,
+    nombres,
+    plantillas,
+    tecnicos,
+    cargando,
+    errorTicket,
+    reintentarTicket,
+    reintentando,
+    recargar,
+  } = useTicketDetalle(id, esSoporte);
 
-  const { data: personas, isLoading: cargandoPersonas } = useQuery({
-    queryKey: CLAVE_PERSONAS_TICKETS,
-    queryFn: async () => comprobar(await supabase.rpc("personas_tickets")),
-  });
-
-  const { data: plantillas = SIN_PLANTILLAS } = useQuery({
-    queryKey: ["plantillas-solucion"],
-    queryFn: async (): Promise<Plantilla[]> =>
-      comprobar(await supabase.from("plantillas_solucion").select("id, nombre, contenido").order("orden")) ?? [],
-  });
-
-  const { data: tecnicos = SIN_TECNICOS } = useQuery({
-    queryKey: ["tecnicos-tickets"],
-    queryFn: async () => comprobar(await supabase.rpc("tecnicos_tickets")) ?? [],
-    enabled: esSoporte,
-  });
-
-  useInvalidarEnCambios(
-    id ? `ticket-${id}` : null,
-    [
-      { table: "ticket_seguimientos", filter: `ticket_id=eq.${id}` },
-      { table: "tickets", filter: `id=eq.${id}` },
-      { table: "ticket_adjuntos", filter: `ticket_id=eq.${id}` },
-    ],
-    [claveTicket(id)]
-  );
-
-  const ticket = detalle?.ticket ?? null;
-  const seguimientos = detalle?.seguimientos ?? SIN_SEGUIMIENTOS;
-  const adjuntos = detalle?.adjuntos ?? SIN_ADJUNTOS;
-  const urls = detalle?.urls ?? SIN_URLS;
-  const nombres = useMemo(() => new Map((personas ?? []).map((p) => [p.id, p.nombre])), [personas]);
-  const loading = cargandoTicket || cargandoPersonas || cargandoEmpleado;
-
-  // El formulario de propiedades vuelve a los valores del ticket cada vez que este cambia
-  const [ticketPrevio, setTicketPrevio] = useState<Ticket | null>(null);
-  if (ticket !== ticketPrevio) {
-    setTicketPrevio(ticket);
-    if (ticket) {
-      setPropiedades({ tipo: ticket.tipo, prioridad: ticket.prioridad, estado: ticket.estado, asignado: ticket.asignado_a_id ?? SIN_ASIGNAR });
-    }
-  }
-
-  // Tras una acción: recarga el ticket y deja anticuadas las listas de tickets
-  const recargar = () => {
-    queryClient.invalidateQueries({ queryKey: claveTicket(id) });
-    queryClient.invalidateQueries({ queryKey: CLAVE_TICKETS });
-  };
-
-  if (loading) {
+  if (cargando || cargandoEmpleado) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -222,122 +92,6 @@ export default function TicketDetalle() {
   const soyTecnico = esSoporte || ticket.asignado_a_id === miId;
   const cerrado = ticket.estado === "cerrado";
   const puedeSolucionar = soyTecnico && !["resuelto", "cerrado"].includes(ticket.estado);
-  const modoActivo: Modo = puedeSolucionar ? modo : "respuesta";
-  const propiedadesCambiadas =
-    propiedades.tipo !== ticket.tipo ||
-    propiedades.prioridad !== ticket.prioridad ||
-    propiedades.estado !== ticket.estado ||
-    propiedades.asignado !== (ticket.asignado_a_id ?? SIN_ASIGNAR);
-
-  // Errores de Supabase ({ message }) y excepciones (red caída, etc.)
-  const avisarFallo = (error: unknown) => {
-    console.error("Error in ticket action:", error);
-    const mensaje = (error as { message?: string } | null)?.message;
-    toast({ title: "Error", description: mensaje || "Inténtalo de nuevo", variant: "destructive" });
-  };
-
-  const enviar = async () => {
-    if (!texto.trim()) return;
-    setEnviando(true);
-    try {
-      const { data: seguimientoId, error } =
-        modoActivo === "solucion"
-          ? await supabase.rpc("solucionar_ticket", { p_ticket: ticket.id, p_contenido: texto })
-          : await supabase.rpc("responder_ticket", { p_ticket: ticket.id, p_contenido: texto });
-      if (error) {
-        avisarFallo(error);
-        return;
-      }
-      // El mensaje ya está guardado: si fallan las imágenes se dice en el mismo aviso
-      const { fallidas } = await subirAdjuntos(ticket.id, seguimientoId, archivos).catch((e: unknown) => {
-        console.error("Error uploading ticket images:", e);
-        return { fallidas: archivos.length };
-      });
-      const titulo = modoActivo === "solucion" ? "Solución añadida" : "Respuesta enviada";
-      if (fallidas > 0) {
-        toast({
-          title: `${titulo}, pero sin todas las imágenes`,
-          description: `${fallidas} imagen(es) no se pudieron adjuntar`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: titulo,
-          description: modoActivo === "solucion" ? "El ticket queda resuelto a la espera de que el solicitante lo apruebe" : undefined,
-        });
-      }
-      setTexto("");
-      setArchivos([]);
-      setModo("respuesta");
-      recargar();
-    } catch (error) {
-      avisarFallo(error);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const valorar = async (aprobar: boolean) => {
-    setEnviando(true);
-    try {
-      const { error } = await supabase.rpc("valorar_solucion", {
-        p_ticket: ticket.id,
-        p_aprobar: aprobar,
-        p_comentario: aprobar ? undefined : motivoRechazo.trim(),
-      });
-      if (error) {
-        avisarFallo(error);
-        return;
-      }
-      toast({ title: aprobar ? "Solución aprobada" : "Solución rechazada", description: aprobar ? "El ticket se ha cerrado" : "El ticket vuelve a estar en curso" });
-      setRechazando(false);
-      setMotivoRechazo("");
-      recargar();
-    } catch (error) {
-      avisarFallo(error);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const guardarPropiedades = async () => {
-    setGuardandoPropiedades(true);
-    try {
-      const { error } = await supabase.rpc("actualizar_ticket", {
-        p_ticket: ticket.id,
-        p_tipo: propiedades.tipo,
-        p_prioridad: propiedades.prioridad,
-        p_estado: propiedades.estado,
-        p_asignado: propiedades.asignado === SIN_ASIGNAR ? null : propiedades.asignado,
-      });
-      if (error) {
-        avisarFallo(error);
-        return;
-      }
-      toast({ title: "Ticket actualizado" });
-      recargar();
-    } catch (error) {
-      avisarFallo(error);
-    } finally {
-      setGuardandoPropiedades(false);
-    }
-  };
-
-  const pegar = (event: React.ClipboardEvent) => {
-    const imagenes = imagenesDelPortapapeles(event);
-    if (imagenes.length === 0) return;
-    event.preventDefault();
-    const { validas, errores } = validarImagenes(imagenes, archivos);
-    if (errores.length > 0) toast({ title: "Algunas imágenes no se han añadido", description: errores.join(". "), variant: "destructive" });
-    setArchivos([...archivos, ...validas]);
-  };
-
-  const adjuntosDe = (seguimientoId: string | null) => adjuntos.filter((a) => a.seguimiento_id === seguimientoId);
-
-  const aplicarPlantilla = (plantillaId: string) => {
-    const plantilla = plantillas.find((p) => p.id === plantillaId);
-    if (plantilla) setTexto(plantilla.contenido);
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -358,325 +112,41 @@ export default function TicketDetalle() {
       </div>
 
       {ticket.estado === "resuelto" && soySolicitante && (
-        <Card className="border-green-200 bg-green-50/60 dark:border-green-900 dark:bg-green-950/30">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                <div>
-                  <p className="font-medium">Se ha propuesto una solución</p>
-                  <p className="text-sm text-muted-foreground">¿Resuelve tu solicitud? Si la apruebas, el ticket se cierra.</p>
-                </div>
-              </div>
-              {!rechazando && (
-                <div className="flex gap-2 sm:shrink-0">
-                  <Button variant="outline" className="gap-1" onClick={() => setRechazando(true)} disabled={enviando}>
-                    <ThumbsDown className="w-4 h-4" />
-                    Rechazar
-                  </Button>
-                  <Button className="gap-1" onClick={() => valorar(true)} disabled={enviando}>
-                    <ThumbsUp className="w-4 h-4" />
-                    Aprobar solución
-                  </Button>
-                </div>
-              )}
-            </div>
-            {rechazando && (
-              <div className="space-y-2">
-                <Label htmlFor="motivo-rechazo">¿Por qué no resuelve tu solicitud?</Label>
-                <Textarea
-                  id="motivo-rechazo"
-                  rows={3}
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  placeholder="El ticket volverá a estar en curso con tu comentario"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setRechazando(false)} disabled={enviando}>
-                    Cancelar
-                  </Button>
-                  <Button variant="destructive" onClick={() => valorar(false)} disabled={enviando || !motivoRechazo.trim()}>
-                    Rechazar solución
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ValoracionSolucion ticketId={ticket.id} enviando={enviando} setEnviando={setEnviando} recargar={recargar} />
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Historial */}
         <div className="space-y-4">
-          <ol className="space-y-4">
-            <li>
-              <Mensaje
-                autor={nombre(ticket.autor_id)}
-                fecha={ticket.fecha_creacion}
-                etiqueta="Descripción"
-                contenido={ticket.descripcion}
-              >
-                <GaleriaAdjuntos adjuntos={adjuntosDe(null)} urls={urls} />
-              </Mensaje>
-            </li>
-            {seguimientos.map((s) =>
-              s.tipo === "evento" ? (
-                <li key={s.id} className="flex gap-3 pl-3 text-sm text-muted-foreground">
-                  <History className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <p className="whitespace-pre-line">{s.contenido}</p>
-                    <p className="text-xs">
-                      {nombre(s.autor_id)} · {formatDistanceToNow(new Date(s.created_at), { addSuffix: true, locale: es })}
-                    </p>
-                  </div>
-                </li>
-              ) : (
-                <li key={s.id}>
-                  <Mensaje
-                    autor={nombre(s.autor_id)}
-                    fecha={s.created_at}
-                    etiqueta={s.tipo === "solucion" ? "Solución" : undefined}
-                    contenido={s.contenido}
-                    solucion={s.tipo === "solucion"}
-                  >
-                    <GaleriaAdjuntos adjuntos={adjuntosDe(s.id)} urls={urls} />
-                  </Mensaje>
-                </li>
-              )
-            )}
-          </ol>
+          <HistorialTicket ticket={ticket} seguimientos={seguimientos} adjuntos={adjuntos} urls={urls} nombre={nombre} />
 
           {cerrado ? (
             <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
               Este ticket está cerrado. Si el problema vuelve a aparecer, abre un ticket nuevo.
             </p>
           ) : (
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                {puedeSolucionar && (
-                  <Tabs value={modoActivo} onValueChange={(v) => setModo(v as Modo)}>
-                    <TabsList>
-                      <TabsTrigger value="respuesta" className="gap-1.5">
-                        <MessageSquare className="w-4 h-4" />
-                        Responder
-                      </TabsTrigger>
-                      <TabsTrigger value="solucion" className="gap-1.5">
-                        <Wrench className="w-4 h-4" />
-                        Añadir una solución
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                )}
-                {modoActivo === "solucion" && plantillas.length > 0 && (
-                  <Select onValueChange={aplicarPlantilla}>
-                    <SelectTrigger className="sm:w-72" aria-label="Plantilla de solución">
-                      <SelectValue placeholder="Usar una plantilla de respuesta..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {plantillas.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Textarea
-                  aria-label={modoActivo === "solucion" ? "Solución" : "Respuesta"}
-                  rows={modoActivo === "solucion" ? 8 : 4}
-                  placeholder={modoActivo === "solucion" ? "Describe la solución aplicada..." : "Escribe tu respuesta..."}
-                  value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
-                  onPaste={pegar}
-                />
-                <SelectorImagenes archivos={archivos} onChange={setArchivos} disabled={enviando} />
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    {modoActivo === "solucion"
-                      ? "El ticket pasará a Resuelto y el solicitante podrá aprobarlo o rechazarlo."
-                      : soySolicitante && ["en_espera", "resuelto"].includes(ticket.estado)
-                        ? "Al responder, el ticket volverá a estar en curso."
-                        : "Todos los participantes del ticket verán tu respuesta."}
-                  </p>
-                  <Button className="gap-2 shrink-0" onClick={enviar} disabled={enviando || !texto.trim()}>
-                    {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : modoActivo === "solucion" ? <Wrench className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                    {modoActivo === "solucion" ? "Añadir solución" : "Responder"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <RedactorTicket
+              ticket={ticket}
+              puedeSolucionar={puedeSolucionar}
+              soySolicitante={soySolicitante}
+              plantillas={plantillas}
+              enviando={enviando}
+              setEnviando={setEnviando}
+              recargar={recargar}
+            />
           )}
         </div>
 
         {/* Detalles */}
-        <Card className="h-fit lg:sticky lg:top-20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Detalles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {esSoporte && !cerrado ? (
-              <>
-                <Propiedad label="Tipo">
-                  <Select value={propiedades.tipo} onValueChange={(v) => setPropiedades({ ...propiedades, tipo: v })}>
-                    <SelectTrigger aria-label="Tipo">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDEN_TIPOS.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {TIPOS[t].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Propiedad>
-                <Propiedad label="Estado">
-                  <Select value={propiedades.estado} onValueChange={(v) => setPropiedades({ ...propiedades, estado: v })}>
-                    <SelectTrigger aria-label="Estado">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDEN_ESTADOS.map((e) => (
-                        <SelectItem
-                          key={e}
-                          value={e}
-                          // Solo se resuelve añadiendo una solución
-                          disabled={e === "resuelto" && ticket.estado !== "resuelto"}
-                        >
-                          {ESTADOS[e].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Propiedad>
-                <Propiedad label="Prioridad">
-                  <Select value={propiedades.prioridad} onValueChange={(v) => setPropiedades({ ...propiedades, prioridad: v })}>
-                    <SelectTrigger aria-label="Prioridad">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDEN_PRIORIDADES.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {PRIORIDADES[p].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Propiedad>
-                <Propiedad label="Asignado a">
-                  <Select value={propiedades.asignado} onValueChange={(v) => setPropiedades({ ...propiedades, asignado: v })}>
-                    <SelectTrigger aria-label="Asignado a">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
-                      {tecnicos.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.id === miId ? `${t.nombre} (tú)` : t.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Propiedad>
-                {propiedadesCambiadas && (
-                  <Button className="w-full" onClick={guardarPropiedades} disabled={guardandoPropiedades}>
-                    {guardandoPropiedades && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Guardar cambios
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Propiedad label="Tipo">
-                  <TicketBadge clase="tipo" valor={ticket.tipo} />
-                </Propiedad>
-                <Propiedad label="Estado">
-                  <TicketBadge clase="estado" valor={ticket.estado} />
-                </Propiedad>
-                <Propiedad label="Prioridad">
-                  <TicketBadge clase="prioridad" valor={ticket.prioridad} />
-                </Propiedad>
-                <Propiedad label="Asignado a">
-                  <span className="text-sm">{ticket.asignado_a_id ? nombre(ticket.asignado_a_id) : "Sin asignar"}</span>
-                </Propiedad>
-              </>
-            )}
-            <div className="space-y-2 border-t pt-4 text-sm">
-              <Dato label="Solicitante" valor={nombre(ticket.autor_id)} />
-              <Dato label="Abierto" valor={fechaCorta(ticket.fecha_creacion)} />
-              {ticket.fecha_resolucion && <Dato label="Resuelto" valor={fechaCorta(ticket.fecha_resolucion)} />}
-              {ticket.fecha_cierre && <Dato label="Cerrado" valor={fechaCorta(ticket.fecha_cierre)} />}
-            </div>
-          </CardContent>
-        </Card>
+        <PropiedadesTicket
+          ticket={ticket}
+          editable={esSoporte && !cerrado}
+          tecnicos={tecnicos}
+          miId={miId}
+          nombre={nombre}
+          recargar={recargar}
+        />
       </div>
-    </div>
-  );
-}
-
-function Mensaje({
-  autor,
-  fecha,
-  contenido,
-  etiqueta,
-  solucion = false,
-  children,
-}: {
-  autor: string;
-  fecha: string;
-  contenido: string;
-  etiqueta?: string;
-  solucion?: boolean;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3">
-      <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className={`text-xs font-medium ${solucion ? "bg-green-100 text-green-700" : "bg-primary/10 text-primary"}`}>
-          {autor === "Tú" ? "TÚ" : iniciales(autor)}
-        </AvatarFallback>
-      </Avatar>
-      <div
-        className={`min-w-0 flex-1 rounded-xl border p-4 ${
-          solucion ? "border-green-200 bg-green-50/60 dark:border-green-900 dark:bg-green-950/30" : "bg-card"
-        }`}
-      >
-        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <span className="font-medium">{autor}</span>
-          {etiqueta && (
-            <span
-              className={`rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-                solucion ? "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-200" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {etiqueta}
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground" title={fechaCorta(fecha)}>
-            {formatDistanceToNow(new Date(fecha), { addSuffix: true, locale: es })}
-          </span>
-        </div>
-        <p className="whitespace-pre-line text-sm leading-relaxed">{contenido}</p>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Propiedad({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function Dato({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{valor}</span>
     </div>
   );
 }

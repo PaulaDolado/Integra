@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// findBy y waitFor esperan 1 s por defecto: con toda la batería en paralelo a
+// veces no basta y el test falla de forma intermitente
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   cleanup();
