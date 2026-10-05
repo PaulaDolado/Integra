@@ -5,10 +5,12 @@ import {
   datosDelFormulario,
   desplazarFecha,
   diasConEventos,
+  duracion,
   etiquetaCrearEvento,
   fechasValidas,
   getDaysToDisplay,
   getViewRange,
+  huecosLibres,
   layoutDayEvents,
   solapa,
   type Event,
@@ -156,5 +158,59 @@ describe("formulario", () => {
   it("no da por válido un fin igual o anterior al inicio, ni un título vacío", () => {
     expect(fechasValidas({ ...form, fecha_fin: form.fecha_inicio })).toBeNull();
     expect(fechasValidas({ ...form, titulo: "" })).toBeNull();
+  });
+});
+
+describe("huecosLibres", () => {
+  // Antes de que empiece la jornada, para ver el día entero
+  const MADRUGADA = new Date(2026, 9, 7, 6, 0);
+  const tramos = (huecos: { inicio: Date; fin: Date }[]) =>
+    huecos.map((h) => `${h.inicio.getHours()}:${String(h.inicio.getMinutes()).padStart(2, "0")}-${h.fin.getHours()}:${String(h.fin.getMinutes()).padStart(2, "0")}`);
+
+  it("sin eventos, toda la jornada está libre", () => {
+    expect(tramos(huecosLibres([], DIA, "emp1", MADRUGADA))).toEqual(["8:00-18:00"]);
+  });
+
+  it("los eventos propios parten la jornada y los solapados se juntan", () => {
+    const eventos = [
+      evento(hora(9), hora(10)),
+      evento(hora(9, 30), hora(11)),
+      evento(hora(13), hora(14, 30)),
+    ];
+    expect(tramos(huecosLibres(eventos, DIA, "emp1", MADRUGADA))).toEqual(["8:00-9:00", "11:00-13:00", "14:30-18:00"]);
+  });
+
+  it("descarta los huecos de menos de 30 minutos", () => {
+    const eventos = [evento(hora(8), hora(12)), evento(hora(12, 20), hora(18))];
+    expect(huecosLibres(eventos, DIA, "emp1", MADRUGADA)).toEqual([]);
+  });
+
+  it("los públicos de otros no ocupan mi tiempo; los privados (en los que participo) sí", () => {
+    const publicoAjeno = { ...evento(hora(9), hora(12)), creador_id: "otra" };
+    const privadoAjeno = { ...evento(hora(15), hora(16)), creador_id: "otra", es_privado: true };
+    expect(tramos(huecosLibres([publicoAjeno, privadoAjeno], DIA, "emp1", MADRUGADA))).toEqual(["8:00-15:00", "16:00-18:00"]);
+  });
+
+  it("hoy empieza en el cuarto de hora siguiente a ahora; los días pasados no tienen huecos", () => {
+    const ahora = new Date(2026, 9, 7, 10, 5);
+    expect(tramos(huecosLibres([], DIA, "emp1", ahora))).toEqual(["10:15-18:00"]);
+    expect(huecosLibres([], new Date(2026, 9, 6), "emp1", ahora)).toEqual([]);
+  });
+
+  it("los fines de semana no hay jornada", () => {
+    expect(huecosLibres([], new Date(2026, 9, 10), "emp1", MADRUGADA)).toEqual([]);
+  });
+
+  it("un evento que empieza antes de la jornada y la cubre entera no deja huecos", () => {
+    const eventos = [evento(hora(7), hora(19))];
+    expect(huecosLibres(eventos, DIA, "emp1", MADRUGADA)).toEqual([]);
+  });
+});
+
+describe("duracion", () => {
+  it("escribe horas y minutos", () => {
+    expect(duracion(45)).toBe("45 min");
+    expect(duracion(180)).toBe("3 h");
+    expect(duracion(150)).toBe("2 h 30 min");
   });
 });

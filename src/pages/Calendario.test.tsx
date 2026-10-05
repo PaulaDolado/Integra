@@ -91,7 +91,9 @@ const consultasDeRango = () =>
   consultas.filter((c) => c.some(([m]) => m === "lte") && !c.some(([m]) => m === "limit"));
 const escrituras = (metodo: string) => consultas.filter((c) => c.some(([m]) => m === metodo));
 
-describe("Calendario", () => {
+// La rejilla horaria pinta 168 huecos con botón: con toda la batería en paralelo,
+// cada clic puede tardar varios segundos en volver a renderizarse
+describe("Calendario", { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(AHORA);
@@ -388,6 +390,43 @@ describe("Calendario", () => {
     expect(await screen.findByRole("button", { name: /Octubre\s*1 evento/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Noviembre\s*1 evento/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Diciembre$/ })).toBeInTheDocument();
+  });
+
+  it("muestra el tiempo libre de la semana y crea un evento en un hueco", async () => {
+    renderConQuery(<Calendario />);
+    await screen.findAllByText("Reunión de equipo");
+
+    const boton = screen.getByRole("button", { name: "Mostrar tiempo libre" });
+    expect(boton).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(boton);
+    expect(screen.getByRole("button", { name: "Ocultar tiempo libre" })).toHaveAttribute("aria-pressed", "true");
+
+    // Hoy (miércoles, 10:00) desde que acaba la reunión; jueves y viernes enteros.
+    // Lunes y martes ya han pasado y el fin de semana no hay jornada.
+    const huecos = screen.getAllByRole("button", { name: /^Tiempo libre de/ });
+    expect(huecos.map((h) => h.getAttribute("aria-label"))).toEqual([
+      "Tiempo libre de 10:30 a 18:00 (7 h 30 min). Crear evento",
+      "Tiempo libre de 08:00 a 18:00 (10 h). Crear evento",
+      "Tiempo libre de 08:00 a 18:00 (10 h). Crear evento",
+    ]);
+    expect(screen.getByText(/27 h 30 min libres en 3 huecos/)).toBeInTheDocument();
+
+    await userEvent.click(huecos[0]);
+    const dialogo = screen.getByRole("dialog", { name: "Crear Nuevo Evento" });
+    expect(within(dialogo).getByLabelText("Inicio")).toHaveValue("2026-10-07T10:30");
+  });
+
+  it("al pedir el tiempo libre desde la vista de mes pasa a la semana, y se puede ocultar", async () => {
+    renderConQuery(<Calendario />);
+    await screen.findAllByText("Reunión de equipo");
+    await userEvent.click(screen.getByRole("radio", { name: "Vista mensual" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Mostrar tiempo libre" }));
+    expect(screen.getByText("5 oct – 11 oct 2026")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Tiempo libre de/ })).toHaveLength(3);
+
+    await userEvent.click(screen.getByRole("button", { name: "Ocultar tiempo libre" }));
+    expect(screen.queryByRole("button", { name: /^Tiempo libre de/ })).not.toBeInTheDocument();
   });
 
   it("avisa si no se pueden cargar los eventos", async () => {
