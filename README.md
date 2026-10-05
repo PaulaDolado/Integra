@@ -1,4 +1,22 @@
-# Integra
+<div align="center">
+
+# 🏢 Integra
+
+**Portal del empleado: fichajes, ausencias, tareas, calendario, tickets y comunicación interna en un solo sitio.**
+
+[![Publicar en GitHub Pages](https://github.com/PaulaDolado/Integra/actions/workflows/deploy.yml/badge.svg)](https://github.com/PaulaDolado/Integra/actions/workflows/deploy.yml)
+[![Comprobaciones](https://github.com/PaulaDolado/Integra/actions/workflows/ci.yml/badge.svg)](https://github.com/PaulaDolado/Integra/actions/workflows/ci.yml)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)
+
+[**🔗 Sitio en vivo**](https://pauladolado.github.io/Integra/)
+
+<img src="public/miniatura.png" alt="Vista previa del dashboard de Integra" width="720" />
+
+</div>
 
 Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: fichajes, ausencias, cambios de turno, tareas, calendario, tickets, tablón de anuncios, chat interno y gestor de contraseñas. RRHH, Dirección, Finanzas y Tecnología tienen además sus propias pantallas de gestión.
 
