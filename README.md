@@ -23,16 +23,16 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | Capa | Tecnología |
 | --- | --- |
 | Lenguaje | TypeScript 5 |
-| Interfaz | React 18 |
+| Interfaz | React 19 |
 | Build y servidor de desarrollo | Vite 8 (empaquetador Rolldown, plugin React) |
-| Rutas | React Router 7 (modo declarativo, paquete `react-router`) |
+| Rutas | React Router 8 (modo declarativo, paquete `react-router`) |
 | Estilos | Tailwind CSS 4 (plugin de Vite, tema en `src/index.css`), fuente Inter Variable, tema claro y oscuro |
 | Componentes | shadcn/ui sobre Radix UI, iconos Lucide |
 | Datos del servidor | Supabase JS y TanStack Query 5 |
-| Fechas | date-fns y react-day-picker |
+| Fechas | date-fns 4 y react-day-picker 10 |
 | Backend | Supabase: PostgreSQL, Auth (con doble factor TOTP), Storage, Realtime y Row Level Security |
 | Tests | Vitest 5, Testing Library y jsdom; Playwright para los tests end-to-end |
-| Calidad de código | ESLint 9 y typescript-eslint |
+| Calidad de código | ESLint 10, typescript-eslint y las reglas del React Compiler (eslint-plugin-react-hooks 7) |
 
 ## Puesta en marcha
 
@@ -154,7 +154,7 @@ Un empleado con `es_admin = true` tiene todos los permisos.
 - **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
 - **Adjuntos.** Solo se admiten imágenes PNG, JPG, WEBP o GIF de hasta 5 MB. Van a buckets privados y se sirven con URLs firmadas de 1 hora.
-- **Dependencias.** Dependabot abre cada lunes una PR con las versiones menores y los parches, otra por cada versión mayor y otra para las acciones de GitHub. Los parches de seguridad llegan al momento. Todas pasan por el CI antes de poder fusionarse. `npm audit --omit=dev` debe salir limpio, y el CI lo comprueba en cada PR. Las herramientas que solo se usan al compilar van en `devDependencies`. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg.
+- **Dependencias.** Dependabot abre cada lunes una PR con las versiones menores y los parches, otra por cada versión mayor y otra para las acciones de GitHub. Los parches de seguridad llegan al momento. Todas pasan por el CI antes de poder fusionarse. `npm audit --omit=dev` debe salir limpio, y el CI lo comprueba en cada PR. Las herramientas que solo se usan al compilar van en `devDependencies`. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg. Dependabot no propone versiones mayores de `@types/node`: los tipos siguen a la versión de Node más antigua que admite el proyecto.
 
 ## Base de datos
 
