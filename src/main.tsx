@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import "@fontsource-variable/inter";
 import "./index.css";
 import { aplicarTema, temaInicial } from "@/lib/tema";
+import { iniciarMonitorizacion } from "@/lib/monitorizacion";
 
 // Antes del primer render para que no parpadee el tema claro
 aplicarTema(temaInicial());
@@ -25,6 +26,8 @@ if (isFramed) {
     document.body.textContent = "Integra no se puede mostrar dentro de otra página.";
   }
 } else {
+  // Solo hace algo en producción con VITE_SENTRY_DSN; no espera a que cargue
+  void iniciarMonitorizacion();
   createRoot(document.getElementById("root")!).render(<App />);
 
   // App instalable: solo en producción, para que el desarrollo no sirva archivos viejos

@@ -1,6 +1,26 @@
-# Integra
+<div align="center">
+
+# 🏢 Integra
+
+**Portal del empleado: fichajes, ausencias, tareas, calendario, tickets y comunicación interna en un solo sitio.**
+
+[![Publicar en GitHub Pages](https://github.com/PaulaDolado/Integra/actions/workflows/deploy.yml/badge.svg)](https://github.com/PaulaDolado/Integra/actions/workflows/deploy.yml)
+[![Comprobaciones](https://github.com/PaulaDolado/Integra/actions/workflows/ci.yml/badge.svg)](https://github.com/PaulaDolado/Integra/actions/workflows/ci.yml)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)
+
+[**🔗 Sitio en vivo**](https://pauladolado.github.io/Integra/)
+
+<img src="public/miniatura.png" alt="Vista previa del dashboard de Integra" width="720" />
+
+</div>
 
 Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: fichajes, ausencias, cambios de turno, tareas, calendario, tickets, tablón de anuncios, chat interno y gestor de contraseñas. RRHH, Dirección, Finanzas y Tecnología tienen además sus propias pantallas de gestión.
+
+🔗 **Sitio en vivo:** https://pauladolado.github.io/Integra
 
 ## Índice
 
@@ -11,8 +31,10 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Permisos por departamento](#permisos-por-departamento)
 - [Seguridad](#seguridad)
 - [Instalar en el móvil](#instalar-en-el-móvil)
+- [Monitorización de errores](#monitorización-de-errores)
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
+- [Avisos en la app](#avisos-en-la-app)
 - [Tests](#tests)
 - [Tests end-to-end](#tests-end-to-end)
 - [Estructura del proyecto](#estructura-del-proyecto)
@@ -66,6 +88,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=
 - El `.env` no se sube a git.
 - La clave publicable es pública por diseño: lo que protege los datos son las políticas RLS de la base de datos.
 - **No pongas nunca la clave `secret` ni la `service_role` en el frontend ni en `.env`.**
+- `VITE_SENTRY_DSN` es opcional y normalmente se deja vacío: ver [Monitorización de errores](#monitorización-de-errores).
 - Si cambias el `.env`, reinicia `npm run dev` para que Vite cargue los valores nuevos.
 
 ### Usuario demo
@@ -105,7 +128,7 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 | `/tareas` | Tablero kanban con detalle de cada tarea, propiedades personalizadas e imágenes, en tiempo real |
 | `/comunicacion` | Chat interno con indicador de presencia |
 | `/tickets`, `/tickets/:id` | Tickets al estilo GLPI: incidencias y peticiones, prioridades, respuestas, soluciones e imágenes adjuntas |
-| `/noticias` | Tablón de corcho con los comunicados de RRHH y de Marketing |
+| `/noticias` | Tablón de corcho con los comunicados y formularios (con enlace para rellenarlos) de RRHH y de Marketing; cada nota dura 1, 2 o 3 meses o queda fija |
 | `/organigrama` | Quién es quién por departamento. Solo muestra el nombre y el puesto, sin datos personales |
 | `/fichajes` | Fichaje de entrada y salida, y el historial propio |
 | `/vacaciones` | Solicitar ausencia: tipo, motivo y justificante |
@@ -153,7 +176,7 @@ Un empleado con `es_admin = true` tiene todos los permisos.
   - El IBAN llega enmascarado. Para verlo entero hay que pedirlo con `ver_iban()`, que registra quién lo consultó en `accesos_datos_pago`.
 - **Gestor de contraseñas cifrado de extremo a extremo.** La bóveda se cifra en el navegador: la contraseña maestra se convierte en una clave AES-GCM de 256 bits con PBKDF2-SHA256 (600.000 iteraciones) y nunca sale del navegador. La base de datos solo guarda texto cifrado, así que ni un administrador ni Supabase pueden leer las contraseñas. Por eso la contraseña maestra no se puede recuperar: si se olvida, solo queda vaciar la bóveda. La bóveda se bloquea al salir de la página y tras 5 minutos sin actividad, y las contraseñas copiadas se borran del portapapeles a los 30 segundos.
 - **Doble factor.** Si un usuario lo activa, una política restrictiva en cada tabla (`public.cumple_doble_factor()`) le bloquea los datos hasta que lo verifique.
-- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. El service worker y el manifiesto de la app instalable también tienen que ser propios (`worker-src` y `manifest-src`). En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
+- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase (y con Sentry, solo si la [monitorización de errores](#monitorización-de-errores) está activada). El service worker y el manifiesto de la app instalable también tienen que ser propios (`worker-src` y `manifest-src`). En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
 - **Sin datos personales en caché.** El service worker de la app instalable solo guarda los archivos del build. Ver [Instalar en el móvil](#instalar-en-el-móvil).
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
 - **Adjuntos.** Solo se admiten imágenes PNG, JPG, WEBP o GIF de hasta 5 MB. Van a buckets privados y se sirven con URLs firmadas de 1 hora.
@@ -177,6 +200,34 @@ Detalles técnicos:
 - Se genera con `vite-plugin-pwa` (configuración en `vite.config.ts`). El registro y el aviso de versión nueva están en `src/lib/pwa.ts`. Solo se registra en el build de producción, así que ni `npm run dev` ni los tests usan el service worker.
 - El manifiesto y el service worker respetan la ruta base (`/Integra/` en GitHub Pages).
 - Los iconos (`public/pwa-*.png`, `public/maskable-icon-512x512.png` y `public/apple-touch-icon.png`) salen de `public/favicon.svg`. Si cambia el logotipo, ejecuta `npm run iconos` y sube los PNG.
+
+## Monitorización de errores
+
+Los errores de producción se pueden enviar a [Sentry](https://sentry.io). **Está apagado por defecto**: sin `VITE_SENTRY_DSN`, la app no descarga Sentry ni envía nada a ningún sitio. En desarrollo y en los tests tampoco se activa, aunque haya DSN.
+
+Para activarlo:
+
+1. En Sentry, crea un proyecto de tipo **React**. Si puedes, elige la región de la UE.
+2. En **Settings → Security & Privacy** del proyecto, activa **Prevent Storing of IP Addresses** y deja activado **Data Scrubber**.
+3. Copia el DSN (**Settings → Client Keys (DSN)**).
+4. En GitHub, **Settings → Secrets and variables → Actions**, crea el secreto `VITE_SENTRY_DSN` con ese valor.
+5. Vuelve a publicar (push a `main` o **Run workflow**). El build añade el host de Sentry a la CSP y cada error lleva como versión (`release`) el commit publicado.
+
+Para apagarlo, borra el secreto y vuelve a publicar.
+
+Cómo funciona (`src/lib/monitorizacion.ts`):
+
+- Sentry se descarga aparte (`import()`), después del primer render y solo si está activado. Sin DSN, el código inicial apenas crece unos cientos de bytes.
+- Se envían los errores al pintar una pantalla (`ErrorBoundary`), los fallos de las consultas y mutaciones de TanStack Query, y los errores y promesas rechazadas que nadie captura. Los avisos al usuario no cambian.
+
+Qué se envía: el mensaje de error, su traza, la URL de la página **sin parámetros ni fragmento**, el idioma y la zona horaria, el origen del error (`interfaz`, `consulta`, `mutacion`…) y el nombre de la consulta (solo el primer elemento de la clave, sin ids).
+
+Qué no se envía:
+
+- Nada del usuario: ni el correo, ni el id, ni la IP (`dataCollection.userInfo: false`; `sendDefaultPii` ya no existe en Sentry 11 y esta es su opción equivalente).
+- Ni cabeceras, ni cookies, ni el cuerpo de las peticiones, ni parámetros de URL. Los `details` y `hint` de los errores de Supabase se descartan, porque pueden llevar valores de la fila.
+- Ni grabación de sesiones (Session Replay), ni datos de rendimiento, ni sesiones, ni migas de la consola ni de los clics.
+- Antes de salir, `beforeSend` repasa el evento entero y sustituye por `[filtrado]` todo lo que parezca un correo, un IBAN, un JWT, un `Bearer` o un parámetro de token o contraseña.
 
 ## Base de datos
 
@@ -207,6 +258,7 @@ Tablas principales:
 | `anuncios` | Tablón de anuncios |
 | `contactos_emergencia`, `datos_pago`, `accesos_datos_pago` | Datos personales y registro de consultas del IBAN |
 | `notificaciones` | Cola de avisos para Teams y Google Chat, con su estado de envío |
+| `avisos` | Avisos de la campana de la cabecera, uno por persona |
 | `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
@@ -280,6 +332,36 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/notificar \
 
 Para ver qué se ha enviado y qué ha fallado, consulta la tabla `notificaciones` en el panel de Supabase (columnas `estado` y `error`).
 
+## Avisos en la app
+
+La campana de la cabecera muestra los últimos 30 avisos de cada persona y cuántos tiene sin leer. Los avisos nuevos llegan al momento por Realtime y, con la app abierta, también salen en un toast. Al pulsar uno se marca como leído y se abre la pantalla correspondiente.
+
+| Evento | A quién |
+| --- | --- |
+| Ausencia aprobada o rechazada | Quien la pidió |
+| Propuesta de intercambio de turno, o su cancelación | El compañero |
+| El compañero acepta o rechaza el intercambio | Quien lo pidió |
+| Cambio de turno aprobado o rechazado | Quien lo pidió y, si es un intercambio, el compañero |
+| Respuesta o solución en un ticket | Quien lo abrió, si escribe otra persona |
+| Respuesta o solución en un ticket asignado | El técnico asignado, si escribe otra persona |
+| Ticket asignado | El técnico |
+| Cambio de estado de un ticket (en curso, en espera, cerrado…) | Quien lo abrió |
+| El solicitante aprueba la solución | El técnico asignado |
+| Comunicado nuevo en el tablón | Toda la plantilla activa con acceso a la app, salvo quien lo publica |
+
+Cómo funciona:
+
+- Unos triggers de la base de datos crean los avisos en la tabla `avisos`. Son independientes de los de Teams y Google Chat: no hace falta configurar webhooks.
+- Cada persona solo ve sus avisos y solo puede marcarlos como leídos (`marcar_avisos_leidos`). Nadie puede crearlos ni borrarlos desde la app.
+- Nadie recibe aviso de lo que ha hecho él mismo, ni quien está de baja.
+- Un fallo de los avisos nunca impide aprobar la ausencia, responder el ticket, etc.
+- Como en Teams, no se incluyen ni el tipo ni el motivo de una ausencia.
+- Un comunicado crea una fila por persona. Con unos cientos de empleados no es un problema.
+
+Para activarlo, **aplica la migración** `20261006100000_avisos.sql` (después de `20261002120000_notificaciones_chat.sql`, de la que usa algunas funciones). También añade la tabla a Realtime.
+
+Limpieza: `pg_cron` ejecuta `limpiar_avisos()` cada noche. Borra los avisos leídos hace más de 90 días y cualquier aviso de más de un año. Si `pg_cron` no está activado, la migración no falla, pero hay que ejecutar `SELECT public.limpiar_avisos();` a mano de vez en cuando.
+
 ## Tests
 
 ```sh
@@ -294,12 +376,13 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `components/contrasenas/contrasenas.test.ts` | Generador, fuerza de las contraseñas, débiles y repetidas, y que nunca se abren enlaces `javascript:` |
 | `components/fichajes/calculo.test.ts` | Horas trabajadas, tramos, incidencias, fichajes anulados y corregidos, y el formato del CSV para Excel |
 | `components/tickets/adjuntos.test.ts` | Tipos, tamaño y número máximo de imágenes adjuntas |
-| `components/ErrorBoundary.test.tsx` | Si una pantalla falla, muestra un aviso en vez de dejarla en blanco; tras publicar una versión nueva, recarga una sola vez |
+| `components/ErrorBoundary.test.tsx` | Si una pantalla falla, muestra un aviso en vez de dejarla en blanco; tras publicar una versión nueva, recarga una sola vez. El error va a la monitorización |
 | `components/ProtectedRoute.test.tsx` | Redirige al login sin sesión o sin el doble factor verificado |
 | `components/layout/AppSidebar.test.tsx` | El menú solo muestra las pantallas de gestión que concede el departamento, y marca el apartado activo |
 | `hooks/usePermisos.test.tsx` | Carga los permisos una vez por usuario y no concede nada si la consulta falla |
 | `hooks/useInvalidarEnCambios.test.tsx` | Los cambios recibidos por Realtime invalidan las consultas indicadas, sin suscribirse de nuevo en cada render |
 | `contexts/AuthContext.test.tsx` | Al cerrar sesión se vacía la caché de datos |
+| `lib/monitorizacion.test.ts` | Sin DSN no se descarga Sentry ni se envía nada; con DSN, no van ni el usuario, ni cabeceras, ni cuerpos, y se borran correos, IBAN, tokens y parámetros de URL |
 | `lib/tema.test.ts` | El modo oscuro se recuerda y, si no hay preferencia guardada, sigue la del sistema |
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
@@ -392,7 +475,7 @@ src/
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…
 ├── integrations/supabase/   # Cliente y tipos
-├── lib/                     # Utilidades, rutas base, tema, app instalable y cliente de TanStack Query
+├── lib/                     # Utilidades, rutas base, tema, app instalable, cliente de TanStack Query y monitorización de errores
 ├── pages/                   # Una página por ruta
 └── test/                    # Configuración y ayudantes de los tests
 scripts/
