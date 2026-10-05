@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SolicitudTurnoCard, type SolicitudTurno } from "@/components/turnos/SolicitudTurnoCard";
 import { ComentarioDialog } from "@/components/turnos/ComentarioDialog";
 
@@ -116,8 +116,9 @@ export default function BandejaTurnos() {
         <p className="text-muted-foreground mt-1">Revisa y aprueba las solicitudes de cambio e intercambio de turno.</p>
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
+      {/* Las pestañas filtran la lista de abajo, que es su panel */}
+      <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)} className="space-y-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <TabsList className="h-auto flex-wrap justify-start">
             {FILTROS.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
@@ -125,63 +126,66 @@ export default function BandejaTurnos() {
               </TabsTrigger>
             ))}
           </TabsList>
-        </Tabs>
-        <div className="relative lg:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar empleado o departamento..."
-            className="pl-9"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : visibles.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {filtro === "pendiente" && !texto ? "No hay cambios de turno pendientes de aprobar" : "No hay solicitudes"}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {visibles.map((s) => (
-            <SolicitudTurnoCard
-              key={s.id}
-              solicitud={s}
-              mostrarDepartamento
-              acciones={
-                s.estado === "pendiente" ? (
-                  participo(s) ? (
-                    <p className="max-w-48 text-xs text-muted-foreground md:text-right">
-                      Participas en este cambio: lo revisará otra persona con permiso.
-                    </p>
-                  ) : (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="gap-1 text-destructive hover:text-destructive"
-                        onClick={() => setRevisando({ solicitud: s, aprobar: false })}
-                      >
-                        <X className="h-4 w-4" />
-                        Rechazar
-                      </Button>
-                      <Button className="gap-1" onClick={() => setRevisando({ solicitud: s, aprobar: true })}>
-                        <Check className="h-4 w-4" />
-                        Aprobar
-                      </Button>
-                    </>
-                  )
-                ) : undefined
-              }
+          <div className="relative lg:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar empleado o departamento..."
+              aria-label="Buscar empleado o departamento"
+              className="pl-9"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
             />
-          ))}
+          </div>
         </div>
-      )}
+
+        <TabsContent value={filtro} className="mt-0">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : visibles.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                {filtro === "pendiente" && !texto ? "No hay cambios de turno pendientes de aprobar" : "No hay solicitudes"}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {visibles.map((s) => (
+                <SolicitudTurnoCard
+                  key={s.id}
+                  solicitud={s}
+                  mostrarDepartamento
+                  acciones={
+                    s.estado === "pendiente" ? (
+                      participo(s) ? (
+                        <p className="max-w-48 text-xs text-muted-foreground md:text-right">
+                          Participas en este cambio: lo revisará otra persona con permiso.
+                        </p>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            className="gap-1 text-destructive hover:text-destructive"
+                            onClick={() => setRevisando({ solicitud: s, aprobar: false })}
+                          >
+                            <X className="h-4 w-4" />
+                            Rechazar
+                          </Button>
+                          <Button className="gap-1" onClick={() => setRevisando({ solicitud: s, aprobar: true })}>
+                            <Check className="h-4 w-4" />
+                            Aprobar
+                          </Button>
+                        </>
+                      )
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <ComentarioDialog
         open={!!revisando}

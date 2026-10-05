@@ -3,7 +3,7 @@ import { MapPin, Lock } from "lucide-react";
 import { format, addHours, isToday, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { HOUR_HEIGHT, eventosDelDia, hours, layoutDayEvents, type Event } from "./fechas";
+import { HOUR_HEIGHT, etiquetaCrearEvento, eventosDelDia, hours, layoutDayEvents, nombreDelDia, type Event } from "./fechas";
 
 interface RejillaHorariaProps {
   days: Date[];
@@ -30,17 +30,8 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
           <div className="w-14 shrink-0 border-r" />
           {days.map((day) => {
             const isDayToday = isToday(day);
-            return (
-              <button
-                type="button"
-                key={day.toISOString()}
-                onClick={() => days.length > 1 && onAbrirDia(day)}
-                className={cn(
-                  "flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-r last:border-r-0",
-                  days.length > 1 && "hover:bg-muted/50 transition-colors cursor-pointer",
-                  days.length === 1 && "cursor-default"
-                )}
-              >
+            const contenido = (
+              <>
                 <span className="text-xs font-medium uppercase text-muted-foreground">
                   {format(day, 'EEE', { locale: es })}
                 </span>
@@ -52,7 +43,24 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
                 >
                   {format(day, 'd')}
                 </span>
+              </>
+            );
+            const clases = "flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-r last:border-r-0";
+            // En la vista de un solo día la cabecera no hace nada: no es un botón
+            return days.length > 1 ? (
+              <button
+                type="button"
+                key={day.toISOString()}
+                onClick={() => onAbrirDia(day)}
+                aria-label={`Ver el ${nombreDelDia(day)}`}
+                className={cn(clases, "hover:bg-muted/50 transition-colors cursor-pointer")}
+              >
+                {contenido}
               </button>
+            ) : (
+              <div key={day.toISOString()} className={clases}>
+                {contenido}
+              </div>
             );
           })}
         </div>
@@ -80,15 +88,20 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
                 key={day.toISOString()}
                 className={cn("flex-1 min-w-0 relative border-r last:border-r-0", isDayToday && "bg-primary/3")}
               >
-                {hours.map((hour) => (
-                  <div
-                    key={hour}
-                    className="border-b border-border/60 hover:bg-muted/40 transition-colors cursor-pointer"
-                    style={{ height: HOUR_HEIGHT }}
-                    onClick={() => onCrear(addHours(startOfDay(day), hour))}
-                    title="Crear evento"
-                  />
-                ))}
+                {hours.map((hour) => {
+                  const inicio = addHours(startOfDay(day), hour);
+                  return (
+                    <button
+                      type="button"
+                      key={hour}
+                      className="block w-full border-b border-border/60 hover:bg-muted/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      style={{ height: HOUR_HEIGHT }}
+                      onClick={() => onCrear(inicio)}
+                      title="Crear evento"
+                      aria-label={etiquetaCrearEvento(inicio)}
+                    />
+                  );
+                })}
 
                 {positioned.map(({ event, top, height, lane, lanes }) => {
                   const compact = height < 40;
@@ -109,7 +122,12 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
                         className="w-full h-full text-left rounded-md border-l-[3px] border-primary bg-accent text-accent-foreground px-2 py-1 overflow-hidden shadow-sm hover:brightness-95 transition"
                       >
                         <div className={cn("flex items-center gap-1 font-medium truncate", compact ? "text-[11px]" : "text-xs")}>
-                          {event.es_privado && <Lock className="w-3 h-3 shrink-0" />}
+                          {event.es_privado && (
+                            <>
+                              <Lock className="w-3 h-3 shrink-0" />
+                              <span className="sr-only">Privado:</span>
+                            </>
+                          )}
                           <span className="truncate">{event.titulo}</span>
                           {compact && (
                             <span className="font-normal opacity-80 shrink-0">

@@ -66,7 +66,8 @@ export function Generador({ onUsar, onCopiar }: GeneradorProps) {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Longitud</Label>
+          {/* El deslizador no admite <label for>: su nombre va en aria-label */}
+          <span className="block text-sm font-medium leading-none">Longitud</span>
           <span className="text-sm font-medium tabular-nums">{opciones.longitud}</span>
         </div>
         <Slider

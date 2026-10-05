@@ -7,6 +7,7 @@ import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import type { SolicitudTurno } from "@/components/turnos/SolicitudTurnoCard";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import BandejaTurnos from "./BandejaTurnos";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -190,5 +191,16 @@ describe("Bandeja de cambios de turno", () => {
       expect.objectContaining({ description: "La solicitud ya no está pendiente", variant: "destructive" })
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    conPermisos("turnos.aprobar");
+    renderConQuery(<BandejaTurnos />);
+    await screen.findByText(/^Laura Gómez/);
+    await expectSinViolaciones();
+
+    await userEvent.click(within(tarjetaDe("Laura Gómez")).getByRole("button", { name: /Rechazar/ }));
+    screen.getByRole("dialog", { name: "Rechazar el cambio de turno" });
+    await expectSinViolaciones();
   });
 });

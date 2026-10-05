@@ -77,9 +77,10 @@ export function AppHeader() {
         
         <div className="flex-1 min-w-0 flex items-center gap-4">
           <div className="flex flex-col min-w-0">
-            <h1 className="text-sm sm:text-base font-semibold text-foreground truncate">
+            {/* No es un encabezado: el <h1> es el título de cada pantalla */}
+            <p className="text-sm sm:text-base font-semibold text-foreground truncate">
               ¡Bienvenido, <span className="text-primary">{getFirstName()}</span>!
-            </h1>
+            </p>
             <p className="hidden sm:block text-xs text-muted-foreground truncate first-letter:uppercase">
               {getCurrentDate()} - {getCurrentTime()}
             </p>
@@ -104,6 +105,8 @@ export function AppHeader() {
             variant="outline"
             size="icon"
             onClick={handleThemeToggle}
+            aria-label={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            title={isDarkMode ? "Modo claro" : "Modo oscuro"}
           >
             {isDarkMode ? (
               <Sun className="w-4 h-4" />

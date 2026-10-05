@@ -173,7 +173,10 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
             </div>
           )}
           <div className="space-y-2">
-            <Label>Tipo de nota</Label>
+            {/* No es un <label>: un grupo de botones no es un campo al que asociarlo */}
+            <p id="comunicado-tipo" className="text-sm font-medium leading-none">
+              Tipo de nota
+            </p>
             <ToggleGroup
               type="single"
               size="sm"
@@ -181,7 +184,7 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
               className="justify-start"
               value={tipo}
               onValueChange={(value) => value && setTipo(value as TipoNota)}
-              aria-label="Tipo de nota"
+              aria-labelledby="comunicado-tipo"
             >
               <ToggleGroupItem value="comunicado" className="px-3 text-xs">
                 Comunicado

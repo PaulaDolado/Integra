@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Ticket } from "./ticket-config";
 import { SelectorImagenes } from "./SelectorImagenes";
@@ -91,11 +91,53 @@ export function RedactorTicket({ ticket, puedeSolucionar, soySolicitante, planti
     if (plantilla) setTexto(plantilla.contenido);
   };
 
+  const editor = (
+    <>
+      {modoActivo === "solucion" && plantillas.length > 0 && (
+        <Select onValueChange={aplicarPlantilla}>
+          <SelectTrigger className="sm:w-72" aria-label="Plantilla de solución">
+            <SelectValue placeholder="Usar una plantilla de respuesta..." />
+          </SelectTrigger>
+          <SelectContent>
+            {plantillas.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Textarea
+        aria-label={modoActivo === "solucion" ? "Solución" : "Respuesta"}
+        rows={modoActivo === "solucion" ? 8 : 4}
+        placeholder={modoActivo === "solucion" ? "Describe la solución aplicada..." : "Escribe tu respuesta..."}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onPaste={pegar}
+      />
+      <SelectorImagenes archivos={archivos} onChange={setArchivos} disabled={enviando} />
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {modoActivo === "solucion"
+            ? "El ticket pasará a Resuelto y el solicitante podrá aprobarlo o rechazarlo."
+            : soySolicitante && ["en_espera", "resuelto"].includes(ticket.estado)
+              ? "Al responder, el ticket volverá a estar en curso."
+              : "Todos los participantes del ticket verán tu respuesta."}
+        </p>
+        <Button className="gap-2 shrink-0" onClick={enviar} disabled={enviando || !texto.trim()}>
+          {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : modoActivo === "solucion" ? <Wrench className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+          {modoActivo === "solucion" ? "Añadir solución" : "Responder"}
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
-        {puedeSolucionar && (
-          <Tabs value={modoActivo} onValueChange={(v) => setModo(v as Modo)}>
+        {puedeSolucionar ? (
+          // Con las dos modalidades, el editor es el panel de la pestaña elegida
+          <Tabs value={modoActivo} onValueChange={(v) => setModo(v as Modo)} className="space-y-3">
             <TabsList>
               <TabsTrigger value="respuesta" className="gap-1.5">
                 <MessageSquare className="w-4 h-4" />
@@ -106,44 +148,13 @@ export function RedactorTicket({ ticket, puedeSolucionar, soySolicitante, planti
                 Añadir una solución
               </TabsTrigger>
             </TabsList>
+            <TabsContent value={modoActivo} className="mt-0 space-y-3">
+              {editor}
+            </TabsContent>
           </Tabs>
+        ) : (
+          editor
         )}
-        {modoActivo === "solucion" && plantillas.length > 0 && (
-          <Select onValueChange={aplicarPlantilla}>
-            <SelectTrigger className="sm:w-72" aria-label="Plantilla de solución">
-              <SelectValue placeholder="Usar una plantilla de respuesta..." />
-            </SelectTrigger>
-            <SelectContent>
-              {plantillas.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Textarea
-          aria-label={modoActivo === "solucion" ? "Solución" : "Respuesta"}
-          rows={modoActivo === "solucion" ? 8 : 4}
-          placeholder={modoActivo === "solucion" ? "Describe la solución aplicada..." : "Escribe tu respuesta..."}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onPaste={pegar}
-        />
-        <SelectorImagenes archivos={archivos} onChange={setArchivos} disabled={enviando} />
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            {modoActivo === "solucion"
-              ? "El ticket pasará a Resuelto y el solicitante podrá aprobarlo o rechazarlo."
-              : soySolicitante && ["en_espera", "resuelto"].includes(ticket.estado)
-                ? "Al responder, el ticket volverá a estar en curso."
-                : "Todos los participantes del ticket verán tu respuesta."}
-          </p>
-          <Button className="gap-2 shrink-0" onClick={enviar} disabled={enviando || !texto.trim()}>
-            {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : modoActivo === "solucion" ? <Wrench className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-            {modoActivo === "solucion" ? "Añadir solución" : "Responder"}
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );

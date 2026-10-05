@@ -6,6 +6,7 @@ import { usePermisos } from "@/hooks/usePermisos";
 import type { Database } from "@/integrations/supabase/types";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import BandejaAusencias from "./BandejaAusencias";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -196,5 +197,16 @@ describe("Bandeja de ausencias", () => {
     expect(supabase.storage.from).toHaveBeenCalledWith("justificantes");
     expect(createSignedUrl).toHaveBeenCalledWith("e1/justificante.pdf", 60);
     expect(abrir).toHaveBeenCalledWith("https://firmado.test/j.pdf", "_blank", "noopener,noreferrer");
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    conPermisos("ausencias.aprobar");
+    renderConQuery(<BandejaAusencias />);
+    await screen.findByText("Pablo Sanz");
+    await expectSinViolaciones();
+
+    await userEvent.click(within(tarjetaDe("Pablo Sanz")).getByRole("button", { name: /Aprobar/ }));
+    screen.getByRole("dialog", { name: "Aprobar solicitud" });
+    await expectSinViolaciones();
   });
 });

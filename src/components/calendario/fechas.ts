@@ -52,6 +52,13 @@ export const toInputValue = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm");
 
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+// Para los nombres accesibles de la rejilla: "jueves 8 de octubre"
+export const nombreDelDia = (fecha: Date) => format(fecha, "EEEE d 'de' MMMM", { locale: es });
+
+// "Crear evento el jueves 8 de octubre a las 15:00" (sin hora en la vista de mes)
+export const etiquetaCrearEvento = (fecha: Date, conHora = true) =>
+  `Crear evento el ${nombreDelDia(fecha)}${conHora ? ` a las ${format(fecha, "HH:mm")}` : ""}`;
+
 export const getViewRange = (viewType: ViewType, currentDate: Date) => {
   switch (viewType) {
     case 'daily':

@@ -8,6 +8,7 @@ import { descargarCsv, type Fichaje } from "@/components/fichajes/calculo";
 import type { Database } from "@/integrations/supabase/types";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import GestionFichajes from "./GestionFichajes";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -197,7 +198,7 @@ describe("Fichajes de la plantilla", () => {
     renderConQuery(<GestionFichajes />);
     await userEvent.click(await screen.findByText("Laura Gómez"));
 
-    expect(filaDe("Laura Gómez")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Laura Gómez/ })).toHaveAttribute("aria-expanded", "true");
     const detalle = filaDe("Laura Gómez").nextElementSibling as HTMLElement;
     const dias = within(detalle).getAllByRole("listitem").slice(0, 3).map((li) => li.textContent);
     expect(dias).toEqual([
@@ -218,7 +219,7 @@ describe("Fichajes de la plantilla", () => {
 
     // La salida que falta se marca como incidencia
     await userEvent.click(screen.getByText("Pablo Sanz"));
-    expect(filaDe("Laura Gómez")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Laura Gómez/ })).toHaveAttribute("aria-expanded", "false");
     const detallePablo = filaDe("Pablo Sanz").nextElementSibling as HTMLElement;
     expect(within(detallePablo).getByText("09:00 – ¿?", { exact: false })).toHaveAttribute("title", "Falta la salida");
   });
@@ -381,5 +382,19 @@ describe("Fichajes de la plantilla", () => {
       )
     );
     expect(await screen.findByText("No hay empleados que coincidan")).toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    conPermisos("fichajes.ver_todos", "fichajes.editar");
+    renderConQuery(<GestionFichajes />);
+    await userEvent.click(await screen.findByText("Pablo Sanz"));
+    await expectSinViolaciones();
+
+    const detalle = filaDe("Pablo Sanz").nextElementSibling as HTMLElement;
+    const lunes = within(detalle).getByText("lun 5 oct").closest("li") as HTMLElement;
+    await userEvent.click(within(lunes).getByRole("button", { name: "Corregir" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Corregir fichajes" });
+    await within(dialogo).findByLabelText("Hora de entrada");
+    await expectSinViolaciones();
   });
 });

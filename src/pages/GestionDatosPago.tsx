@@ -151,7 +151,7 @@ export default function GestionDatosPago() {
         </p>
         <div className="relative sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar empleado o departamento..." className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <Input placeholder="Buscar empleado o departamento..." aria-label="Buscar empleado o departamento" className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
       </div>
 

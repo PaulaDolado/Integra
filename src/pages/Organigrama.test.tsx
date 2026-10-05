@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { supabase } from "@/integrations/supabase/client";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import Organigrama from "./Organigrama";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
@@ -55,5 +56,11 @@ describe("Organigrama", () => {
     await userEvent.clear(screen.getByPlaceholderText(/buscar/i));
     await userEvent.type(screen.getByPlaceholderText(/buscar/i), "zzz");
     expect(screen.getByText("No hay personas que coincidan")).toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    renderConQuery(<Organigrama />);
+    await screen.findByText("Laura Gómez");
+    await expectSinViolaciones();
   });
 });

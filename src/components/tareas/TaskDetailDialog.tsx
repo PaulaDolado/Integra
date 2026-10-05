@@ -83,10 +83,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // Campo de texto con botón OK que también responde a Intro
 function AddInput({
   placeholder,
+  etiqueta,
   onAdd,
   className,
 }: {
   placeholder: string;
+  // Nombre accesible: el placeholder ("+ Paso") no sirve como etiqueta
+  etiqueta: string;
   onAdd: (value: string) => void;
   className?: string;
 }) {
@@ -101,6 +104,7 @@ function AddInput({
       <Input
         value={value}
         placeholder={placeholder}
+        aria-label={etiqueta}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -409,7 +413,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                     {uploading ? "Subiendo..." : "Añadir imagen"}
                   </Button>
                 )}
-                <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={handleImage} />
+                <input ref={fileInput} type="file" accept="image/*" className="hidden" aria-label="Elegir imagen" onChange={handleImage} />
               </div>
 
               <div>
@@ -481,7 +485,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                     ))}
                   </ul>
                 )}
-                <AddInput placeholder="+ Paso" onAdd={addSubtarea} />
+                <AddInput placeholder="+ Paso" etiqueta="Añadir subtarea" onAdd={addSubtarea} />
               </div>
 
               <div>
@@ -514,7 +518,7 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
                     ))}
                   </div>
                 )}
-                <AddInput placeholder="+ etiqueta" onAdd={addEtiqueta} className="max-w-xs" />
+                <AddInput placeholder="+ etiqueta" etiqueta="Añadir etiqueta" onAdd={addEtiqueta} className="max-w-xs" />
               </div>
 
               <div>

@@ -58,6 +58,7 @@ export default function Organigrama() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar persona, puesto o departamento..."
+            aria-label="Buscar persona, puesto o departamento"
             className="pl-9"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}

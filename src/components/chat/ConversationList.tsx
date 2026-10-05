@@ -39,6 +39,7 @@ export function ConversationList({ conversations, loading, selectedId, myId, onl
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar conversación"
+            aria-label="Buscar conversación"
             className="pl-9 h-9"
           />
         </div>

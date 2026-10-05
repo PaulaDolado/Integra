@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { comprobar } from "@/lib/query-client";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { getArea } from "@/components/noticias/areas";
 
 export function NewsWidget() {
@@ -45,15 +45,15 @@ export function NewsWidget() {
           </p>
         ) : (
           news.map((item) => (
-            <div
+            <Link
               key={item.id}
-              className="p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
-              onClick={() => navigate("/noticias")}
+              to="/noticias"
+              className="block p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-foreground leading-tight">
+                <h3 className="text-sm font-medium text-foreground leading-tight">
                   {item.titulo}
-                </h4>
+                </h3>
                 
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {item.contenido}
@@ -68,7 +68,7 @@ export function NewsWidget() {
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))
         )}
         

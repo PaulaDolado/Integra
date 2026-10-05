@@ -5,6 +5,7 @@ import {
   datosDelFormulario,
   desplazarFecha,
   diasConEventos,
+  etiquetaCrearEvento,
   fechasValidas,
   getDaysToDisplay,
   getViewRange,
@@ -120,6 +121,13 @@ describe("diasConEventos", () => {
   it("marca todos los días que ocupa, sin el de un fin a medianoche", () => {
     const dias = diasConEventos([evento(hora(22, 0, 5), hora(0, 0, 7))]);
     expect([...dias]).toEqual(["2026-10-05", "2026-10-06"]);
+  });
+});
+
+describe("etiquetaCrearEvento", () => {
+  it("nombra el hueco con el día y la hora, en español", () => {
+    expect(etiquetaCrearEvento(new Date(2026, 9, 8, 15))).toBe("Crear evento el jueves 8 de octubre a las 15:00");
+    expect(etiquetaCrearEvento(new Date(2026, 9, 8), false)).toBe("Crear evento el jueves 8 de octubre");
   });
 });
 

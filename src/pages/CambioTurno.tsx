@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -172,7 +172,8 @@ export default function CambioTurno() {
         </Button>
       </div>
 
-      <Tabs value={vista} onValueChange={(v) => setVista(v as Vista)}>
+      {/* Las pestañas filtran la lista de abajo, que es su panel */}
+      <Tabs value={vista} onValueChange={(v) => setVista(v as Vista)} className="space-y-6">
         <TabsList>
           <TabsTrigger value="mias">Mis solicitudes ({mias.length})</TabsTrigger>
           <TabsTrigger value="companeros" className="gap-1.5">
@@ -180,53 +181,55 @@ export default function CambioTurno() {
             {pendientesDeMi > 0 && <Badge className="h-5 px-1.5">{pendientesDeMi}</Badge>}
           </TabsTrigger>
         </TabsList>
-      </Tabs>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : visibles.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {vista === "mias" ? "No has solicitado ningún cambio de turno" : "Ningún compañero te ha pedido un intercambio"}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {visibles.map((s) => (
-            <SolicitudTurnoCard
-              key={s.id}
-              solicitud={s}
-              nombreSolicitante={s.solicitante_id === miId ? "Tu solicitud" : `Solicitado por ${s.solicitante}`}
-              nombreCompanero={s.companero_id === miId ? "ti" : undefined}
-              acciones={
-                s.solicitante_id === miId && ["pendiente_companero", "pendiente"].includes(s.estado) ? (
-                  <Button variant="outline" size="sm" onClick={() => cancelar(s)}>
-                    Cancelar solicitud
-                  </Button>
-                ) : s.companero_id === miId && s.estado === "pendiente_companero" ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1 text-destructive hover:text-destructive"
-                      onClick={() => setRespondiendo({ solicitud: s, aceptar: false })}
-                    >
-                      <X className="h-4 w-4" />
-                      Rechazar
-                    </Button>
-                    <Button size="sm" className="gap-1" onClick={() => setRespondiendo({ solicitud: s, aceptar: true })}>
-                      <Check className="h-4 w-4" />
-                      Aceptar intercambio
-                    </Button>
-                  </>
-                ) : undefined
-              }
-            />
-          ))}
-        </div>
-      )}
+        <TabsContent value={vista} className="mt-0">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : visibles.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                {vista === "mias" ? "No has solicitado ningún cambio de turno" : "Ningún compañero te ha pedido un intercambio"}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {visibles.map((s) => (
+                <SolicitudTurnoCard
+                  key={s.id}
+                  solicitud={s}
+                  nombreSolicitante={s.solicitante_id === miId ? "Tu solicitud" : `Solicitado por ${s.solicitante}`}
+                  nombreCompanero={s.companero_id === miId ? "ti" : undefined}
+                  acciones={
+                    s.solicitante_id === miId && ["pendiente_companero", "pendiente"].includes(s.estado) ? (
+                      <Button variant="outline" size="sm" onClick={() => cancelar(s)}>
+                        Cancelar solicitud
+                      </Button>
+                    ) : s.companero_id === miId && s.estado === "pendiente_companero" ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive"
+                          onClick={() => setRespondiendo({ solicitud: s, aceptar: false })}
+                        >
+                          <X className="h-4 w-4" />
+                          Rechazar
+                        </Button>
+                        <Button size="sm" className="gap-1" onClick={() => setRespondiendo({ solicitud: s, aceptar: true })}>
+                          <Check className="h-4 w-4" />
+                          Aceptar intercambio
+                        </Button>
+                      </>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={creando} onOpenChange={setCreando}>
         <DialogContent className="sm:max-w-lg">
