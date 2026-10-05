@@ -263,6 +263,20 @@ Todos los colores deben ser HSL para compatibilidad completa.
     -webkit-text-size-adjust: 100%;
   }
 
+  /* En modo oscuro el navegador pinta oscuros sus propios controles (barras de
+     desplazamiento, calendario de los campos de fecha...); sin esto los pinta
+     claros y resaltan sobre el fondo */
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Barras de desplazamiento discretas, con los colores del tema: un pulgar
+     apagado sobre un carril transparente */
+  .dark,
+  .dark * {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
