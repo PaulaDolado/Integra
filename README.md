@@ -103,7 +103,7 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 | `/tareas` | Tablero kanban con detalle de cada tarea, propiedades personalizadas e imágenes, en tiempo real |
 | `/comunicacion` | Chat interno con indicador de presencia |
 | `/tickets`, `/tickets/:id` | Tickets al estilo GLPI: incidencias y peticiones, prioridades, respuestas, soluciones e imágenes adjuntas |
-| `/noticias` | Tablón de corcho con los comunicados de RRHH y de Marketing |
+| `/noticias` | Tablón de corcho con los comunicados y formularios (con enlace para rellenarlos) de RRHH y de Marketing; cada nota dura 1, 2 o 3 meses o queda fija |
 | `/organigrama` | Quién es quién por departamento. Solo muestra el nombre y el puesto, sin datos personales |
 | `/fichajes` | Fichaje de entrada y salida, y el historial propio |
 | `/vacaciones` | Solicitar ausencia: tipo, motivo y justificante |

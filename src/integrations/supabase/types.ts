@@ -44,8 +44,11 @@ export type Database = {
           autor_id: string | null
           contenido: string
           created_at: string
+          enlace: string | null
+          fecha_fin: string | null
           fecha_publicacion: string
           id: string
+          tipo: string
           titulo: string
           updated_at: string
         }
@@ -54,8 +57,11 @@ export type Database = {
           autor_id?: string | null
           contenido: string
           created_at?: string
+          enlace?: string | null
+          fecha_fin?: string | null
           fecha_publicacion?: string
           id?: string
+          tipo?: string
           titulo: string
           updated_at?: string
         }
@@ -64,8 +70,11 @@ export type Database = {
           autor_id?: string | null
           contenido?: string
           created_at?: string
+          enlace?: string | null
+          fecha_fin?: string | null
           fecha_publicacion?: string
           id?: string
+          tipo?: string
           titulo?: string
           updated_at?: string
         }
