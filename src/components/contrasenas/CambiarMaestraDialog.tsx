@@ -27,14 +27,17 @@ export function CambiarMaestraDialog({ open, onCancel, onCambiar }: CambiarMaest
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState(false);
 
-  useEffect(() => {
+  // Al abrirse, el formulario empieza vacío
+  const [abierto, setAbierto] = useState(false);
+  if (open !== abierto) {
+    setAbierto(open);
     if (open) {
       setActual("");
       setNueva("");
       setConfirmacion("");
       setError(null);
     }
-  }, [open]);
+  }
 
   const cambiar = async (e: React.FormEvent) => {
     e.preventDefault();

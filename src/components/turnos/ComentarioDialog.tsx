@@ -38,9 +38,12 @@ export function ComentarioDialog({
   const [comentario, setComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
+  // Al abrirse, el comentario empieza vacío
+  const [abierto, setAbierto] = useState(false);
+  if (open !== abierto) {
+    setAbierto(open);
     if (open) setComentario("");
-  }, [open]);
+  }
 
   const enviar = async () => {
     setEnviando(true);

@@ -54,12 +54,16 @@ export function CorreccionFichajesDialog({ open, onOpenChange, empleado, fecha: 
   const [justificacion, setJustificacion] = useState("");
   const [guardando, setGuardando] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setFecha(fechaInicial);
-    setNuevos([]);
-    setJustificacion("");
-  }, [open, fechaInicial]);
+  // Al abrirse (o al cambiar el día propuesto) el formulario empieza de cero
+  const [previo, setPrevio] = useState({ open: false, fechaInicial });
+  if (open !== previo.open || fechaInicial !== previo.fechaInicial) {
+    setPrevio({ open, fechaInicial });
+    if (open) {
+      setFecha(fechaInicial);
+      setNuevos([]);
+      setJustificacion("");
+    }
+  }
 
   // Fichajes vigentes (no anulados) del empleado ese día
   const { data: delDia, isLoading: cargando } = useQuery({
@@ -84,11 +88,15 @@ export function CorreccionFichajesDialog({ open, onOpenChange, empleado, fecha: 
     staleTime: 0,
   });
 
-  // Precarga las filas editables con los fichajes cargados
-  useEffect(() => {
-    if (!delDia) return;
-    setExistentes(delDia.map((f) => ({ fichaje: f, hora: format(new Date(f.fecha_hora), "HH:mm"), anular: false })));
-  }, [delDia]);
+  // Precarga las filas editables cada vez que llegan los fichajes del día
+  // Empieza sin datos para que también se precarguen si ya estaban en la caché
+  const [delDiaPrevio, setDelDiaPrevio] = useState<typeof delDia>(undefined);
+  if (delDia !== delDiaPrevio) {
+    setDelDiaPrevio(delDia);
+    if (delDia) {
+      setExistentes(delDia.map((f) => ({ fichaje: f, hora: format(new Date(f.fecha_hora), "HH:mm"), anular: false })));
+    }
+  }
 
   const horaOriginal = (f: Fichaje) => format(new Date(f.fecha_hora), "HH:mm");
   const modificados = existentes.filter((e) => !e.anular && e.hora !== horaOriginal(e.fichaje));

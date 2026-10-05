@@ -127,14 +127,17 @@ function CambiarContrasenaDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [needsNonce, setNeedsNonce] = useState(false);
   const [nonce, setNonce] = useState("");
 
-  useEffect(() => {
+  // Al abrirse, el formulario empieza vacío
+  const [abierto, setAbierto] = useState(false);
+  if (open !== abierto) {
+    setAbierto(open);
     if (open) {
       setPassword("");
       setConfirm("");
       setNonce("");
       setNeedsNonce(false);
     }
-  }, [open]);
+  }
 
   const save = async () => {
     if (password.length < 8) {
@@ -304,7 +307,17 @@ function DobleFactor() {
   };
 
   useEffect(() => {
-    fetchFactors();
+    // Igual que fetchFactors, pero sin cambiar el estado si el componente ya no está
+    let vigente = true;
+    supabase.auth.mfa.listFactors().then(({ data, error }) => {
+      if (!vigente) return;
+      if (error) console.error("Error listing MFA factors:", error);
+      setFactors(data?.totp ?? []);
+      setLoading(false);
+    });
+    return () => {
+      vigente = false;
+    };
   }, []);
 
   const totp = factors.find((f) => f.status === "verified");

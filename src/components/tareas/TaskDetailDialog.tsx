@@ -194,12 +194,19 @@ export function TaskDetailDialog({ open, task, empleadoId, onClose, onSaved, onD
 
   const isNew = task === null;
 
+  // Al abrirse (o al cambiar la tarea abierta) el borrador parte de la tarea
+  const [previo, setPrevio] = useState<{ open: boolean; task: typeof task }>({ open: false, task: null });
+  if (open !== previo.open || task !== previo.task) {
+    setPrevio({ open, task });
+    if (open) {
+      setDraft(toDraft(task));
+      setMinutosRegistro("");
+      setNuevaPropiedad(false);
+    }
+  }
+  // Las subidas pendientes de una edición anterior ya no son de esta
   useEffect(() => {
-    if (!open) return;
-    setDraft(toDraft(task));
-    setMinutosRegistro("");
-    setNuevaPropiedad(false);
-    pendingUploads.current = [];
+    if (open) pendingUploads.current = [];
   }, [open, task]);
 
   // El enlace firmado dura una hora; se pide de nuevo a los 50 minutos

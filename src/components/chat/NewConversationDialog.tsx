@@ -26,14 +26,17 @@ export function NewConversationDialog({ open, onOpenChange, colleagues, online, 
   const [members, setMembers] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  // Al abrirse, el diálogo empieza de cero
+  const [abierto, setAbierto] = useState(false);
+  if (open !== abierto) {
+    setAbierto(open);
     if (open) {
       setTab("persona");
       setSearch("");
       setGroupName("");
       setMembers(new Set());
     }
-  }, [open]);
+  }
 
   const query = search.trim().toLowerCase();
   const filtered = colleagues.filter(c =>

@@ -16,6 +16,9 @@ import { ordenar } from "./lista";
 // La bóveda se bloquea sola tras este tiempo sin actividad, y al salir de la página
 const BLOQUEO_INACTIVIDAD_MS = 5 * 60 * 1000;
 
+const leerParametros = async () =>
+  await supabase.from("boveda_claves").select("sal, iteraciones, verificador").maybeSingle();
+
 export type EstadoBoveda = "cargando" | "sin-boveda" | "bloqueada" | "abierta" | "error";
 
 // Estado de la bóveda de la página de Contraseñas: carga, creación, desbloqueo,
@@ -38,10 +41,10 @@ export function useBoveda() {
   const [cambiandoMaestra, setCambiandoMaestra] = useState(false);
   const [vaciando, setVaciando] = useState(false);
 
-  const ultimaActividad = useRef(Date.now());
+  // Se pone en hora al abrir la bóveda, en el efecto del bloqueo por inactividad
+  const ultimaActividad = useRef(0);
 
-  const cargarParametros = useCallback(async () => {
-    const { data, error } = await supabase.from("boveda_claves").select("sal, iteraciones, verificador").maybeSingle();
+  const aplicarParametros = useCallback(({ data, error }: Awaited<ReturnType<typeof leerParametros>>) => {
     if (error) {
       console.error("Error fetching bóveda:", error);
       setEstado("error");
@@ -51,9 +54,11 @@ export function useBoveda() {
     setEstado(data ? "bloqueada" : "sin-boveda");
   }, []);
 
+  const cargarParametros = useCallback(async () => aplicarParametros(await leerParametros()), [aplicarParametros]);
+
   useEffect(() => {
-    cargarParametros();
-  }, [cargarParametros]);
+    leerParametros().then(aplicarParametros);
+  }, [aplicarParametros]);
 
   const bloquear = useCallback(() => {
     setClave(null);

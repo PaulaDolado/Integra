@@ -34,13 +34,16 @@ export function EntradaDialog({ open, entrada, onCancel, onGuardar }: EntradaDia
   const [generador, setGenerador] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  useEffect(() => {
+  // Al abrirse (o al cambiar la entrada abierta) el formulario parte de la entrada
+  const [previo, setPrevio] = useState<{ open: boolean; entrada: Entrada | null }>({ open: false, entrada: null });
+  if (open !== previo.open || entrada !== previo.entrada) {
+    setPrevio({ open, entrada });
     if (open) {
       setForm(entrada ?? VACIA);
       setVisible(false);
       setGenerador(false);
     }
-  }, [open, entrada]);
+  }
 
   const cambiar = <K extends keyof Entrada>(campo: K, valor: Entrada[K]) => setForm((f) => ({ ...f, [campo]: valor }));
 

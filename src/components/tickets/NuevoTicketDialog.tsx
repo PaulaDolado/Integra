@@ -50,14 +50,18 @@ export function NuevoTicketDialog({ open, onOpenChange, onCreated }: NuevoTicket
   const [archivos, setArchivos] = useState<File[]>([]);
   const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    setTitulo("");
-    setDescripcion("");
-    setTipo("incidencia");
-    setPrioridad("media");
-    setArchivos([]);
-  }, [open]);
+  // Al abrirse, el formulario empieza vacío
+  const [abierto, setAbierto] = useState(false);
+  if (open !== abierto) {
+    setAbierto(open);
+    if (open) {
+      setTitulo("");
+      setDescripcion("");
+      setTipo("incidencia");
+      setPrioridad("media");
+      setArchivos([]);
+    }
+  }
 
   const pegar = (event: React.ClipboardEvent) => {
     const imagenes = imagenesDelPortapapeles(event);
