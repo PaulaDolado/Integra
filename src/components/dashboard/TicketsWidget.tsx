@@ -79,7 +79,7 @@ export function TicketsWidget() {
 
             {/* Tickets abiertos más recientes */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Tickets Recientes</h4>
+              <h3 className="text-sm font-medium text-muted-foreground">Tickets Recientes</h3>
               {recientes.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <TicketIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />

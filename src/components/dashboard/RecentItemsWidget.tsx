@@ -93,9 +93,9 @@ export function RecentItemsWidget() {
               
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-sm font-medium text-foreground leading-tight">
+                  <h3 className="text-sm font-medium text-foreground leading-tight">
                     {item.title}
-                  </h4>
+                  </h3>
                   {item.status === "urgent" && (
                     <Badge variant="destructive" className="text-xs">
                       Urgente

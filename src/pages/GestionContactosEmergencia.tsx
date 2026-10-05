@@ -7,7 +7,7 @@ import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Fila = Database["public"]["Functions"]["contactos_emergencia_plantilla"]["Returns"][number];
@@ -102,74 +102,77 @@ export default function GestionContactosEmergencia() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
+      {/* Las pestañas filtran la tabla de abajo, que es su panel */}
+      <Tabs value={filtro} onValueChange={(v) => setFiltro(v as Filtro)} className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <TabsList>
             <TabsTrigger value="todos">Toda la plantilla ({empleados.length})</TabsTrigger>
             <TabsTrigger value="sin_contacto" className="gap-1.5">
               Sin contacto ({sinContacto})
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-        <div className="relative sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar empleado o contacto..." className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <div className="relative sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Buscar empleado o contacto..." aria-label="Buscar empleado o contacto" className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          </div>
         </div>
-      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : visibles.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">No hay empleados que coincidan</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Contactos de emergencia</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibles.map((e) => (
-                  <TableRow key={e.id} className="align-top">
-                    <TableCell className="w-72">
-                      <div className="font-medium">{e.nombre}</div>
-                      <div className="text-xs text-muted-foreground">{e.departamento ?? "Sin departamento"}</div>
-                      {e.telefono && (
-                        <div className="mt-1 text-xs">
-                          <Telefono numero={e.telefono} />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {e.contactos.length === 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
-                          <AlertTriangle className="h-3 w-3" />
-                          No ha indicado ningún contacto
-                        </span>
-                      ) : (
-                        <ul className="space-y-1.5">
-                          {e.contactos.map((c) => (
-                            <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
-                              <span className="font-medium">{c.nombre}</span>
-                              {c.relacion && <span className="text-muted-foreground">{c.relacion}</span>}
-                              <Telefono numero={c.telefono} />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Card>
+        <TabsContent value={filtro} className="mt-0">
+          <Card className="overflow-hidden">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : visibles.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">No hay empleados que coincidan</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>Empleado</TableHead>
+                      <TableHead>Contactos de emergencia</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibles.map((e) => (
+                      <TableRow key={e.id} className="align-top">
+                        <TableCell className="w-72">
+                          <div className="font-medium">{e.nombre}</div>
+                          <div className="text-xs text-muted-foreground">{e.departamento ?? "Sin departamento"}</div>
+                          {e.telefono && (
+                            <div className="mt-1 text-xs">
+                              <Telefono numero={e.telefono} />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {e.contactos.length === 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+                              <AlertTriangle className="h-3 w-3" />
+                              No ha indicado ningún contacto
+                            </span>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {e.contactos.map((c) => (
+                                <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+                                  <span className="font-medium">{c.nombre}</span>
+                                  {c.relacion && <span className="text-muted-foreground">{c.relacion}</span>}
+                                  <Telefono numero={c.telefono} />
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

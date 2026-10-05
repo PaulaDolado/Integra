@@ -171,6 +171,7 @@ export function MessageThread({ conversation, messages, loading, myId, participa
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribe un mensaje"
+            aria-label="Mensaje"
             rows={1}
             maxLength={4000}
             className="min-h-[40px] max-h-32 resize-none"

@@ -68,6 +68,7 @@ export function SelectorImagenes({ archivos, onChange, disabled }: SelectorImage
         accept={TIPOS_IMAGEN.join(",")}
         multiple
         className="hidden"
+        aria-label="Elegir imágenes"
         onChange={(e) => {
           añadir(e.target.files);
           e.target.value = "";

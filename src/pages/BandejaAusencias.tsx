@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -146,8 +146,9 @@ export default function BandejaAusencias() {
         <p className="text-muted-foreground mt-1">Revisa y aprueba las solicitudes de ausencia de la plantilla.</p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={filtro} onValueChange={(value) => setFiltro(value as Filtro)}>
+      {/* Las pestañas filtran la lista de abajo, que es su panel */}
+      <Tabs value={filtro} onValueChange={(value) => setFiltro(value as Filtro)} className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <TabsList className="h-auto flex-wrap justify-start">
             {FILTROS.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
@@ -155,103 +156,106 @@ export default function BandejaAusencias() {
               </TabsTrigger>
             ))}
           </TabsList>
-        </Tabs>
-        <div className="relative sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar empleado o departamento..."
-            className="pl-9"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
+          <div className="relative sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar empleado o departamento..."
+              aria-label="Buscar empleado o departamento"
+              className="pl-9"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : visibles.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CalendarDays className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {filtro === "pendiente" && !texto ? "No hay solicitudes pendientes de revisar" : "No hay solicitudes"}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {visibles.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{s.empleado_nombre}</span>
-                      {s.departamento && <span className="text-sm text-muted-foreground">· {s.departamento}</span>}
-                      <EstadoAusenciaBadge estado={s.estado} />
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">{getTipoLabel(s.tipo_ausencia)}</span>
-                      {s.razon_especifica && (
-                        <span className="text-muted-foreground"> · {getRazonLabel(s.tipo_ausencia, s.razon_especifica)}</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatFecha(s.fecha_inicio)} – {formatFecha(s.fecha_fin)} · {calcularDias(s.fecha_inicio, s.fecha_fin)} día(s)
-                    </div>
-                    {s.motivo && <p className="text-sm text-muted-foreground">Motivo: {s.motivo}</p>}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>Solicitado el {format(new Date(s.created_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}</span>
-                      {s.justificante_path && (
-                        <button
-                          type="button"
-                          onClick={() => abrirJustificante(s.justificante_path!)}
-                          className="inline-flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <Paperclip className="w-3 h-3" />
-                          Ver justificante
-                        </button>
-                      )}
-                    </div>
-                    {s.estado !== "pendiente" && s.fecha_revision && (
-                      <p className="text-xs text-muted-foreground">
-                        {s.estado === "aprobada" ? "Aprobada" : "Rechazada"}
-                        {s.revisado_por_nombre && ` por ${s.revisado_por_nombre}`} el{" "}
-                        {format(new Date(s.fecha_revision), "dd/MM/yyyy", { locale: es })}
-                        {s.comentario_revision && <span className="block italic">«{s.comentario_revision}»</span>}
-                      </p>
-                    )}
-                  </div>
-
-                  {s.estado === "pendiente" &&
-                    (s.es_mia ? (
-                      <p className="text-xs text-muted-foreground md:max-w-48 md:text-right">
-                        Es tu solicitud: la revisará otra persona con permiso.
-                      </p>
-                    ) : (
-                      <div className="flex gap-2 md:shrink-0">
-                        <Button
-                          variant="outline"
-                          className="gap-1 text-destructive hover:text-destructive"
-                          onClick={() => iniciarRevision(s, "rechazada")}
-                        >
-                          <X className="w-4 h-4" />
-                          Rechazar
-                        </Button>
-                        <Button className="gap-1" onClick={() => iniciarRevision(s, "aprobada")}>
-                          <Check className="w-4 h-4" />
-                          Aprobar
-                        </Button>
-                      </div>
-                    ))}
-                </div>
+        <TabsContent value={filtro} className="mt-0">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : visibles.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CalendarDays className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {filtro === "pendiente" && !texto ? "No hay solicitudes pendientes de revisar" : "No hay solicitudes"}
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-3">
+              {visibles.map((s) => (
+                <Card key={s.id}>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold">{s.empleado_nombre}</span>
+                          {s.departamento && <span className="text-sm text-muted-foreground">· {s.departamento}</span>}
+                          <EstadoAusenciaBadge estado={s.estado} />
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">{getTipoLabel(s.tipo_ausencia)}</span>
+                          {s.razon_especifica && (
+                            <span className="text-muted-foreground"> · {getRazonLabel(s.tipo_ausencia, s.razon_especifica)}</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatFecha(s.fecha_inicio)} – {formatFecha(s.fecha_fin)} · {calcularDias(s.fecha_inicio, s.fecha_fin)} día(s)
+                        </div>
+                        {s.motivo && <p className="text-sm text-muted-foreground">Motivo: {s.motivo}</p>}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span>Solicitado el {format(new Date(s.created_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}</span>
+                          {s.justificante_path && (
+                            <button
+                              type="button"
+                              onClick={() => abrirJustificante(s.justificante_path!)}
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Paperclip className="w-3 h-3" />
+                              Ver justificante
+                            </button>
+                          )}
+                        </div>
+                        {s.estado !== "pendiente" && s.fecha_revision && (
+                          <p className="text-xs text-muted-foreground">
+                            {s.estado === "aprobada" ? "Aprobada" : "Rechazada"}
+                            {s.revisado_por_nombre && ` por ${s.revisado_por_nombre}`} el{" "}
+                            {format(new Date(s.fecha_revision), "dd/MM/yyyy", { locale: es })}
+                            {s.comentario_revision && <span className="block italic">«{s.comentario_revision}»</span>}
+                          </p>
+                        )}
+                      </div>
+
+                      {s.estado === "pendiente" &&
+                        (s.es_mia ? (
+                          <p className="text-xs text-muted-foreground md:max-w-48 md:text-right">
+                            Es tu solicitud: la revisará otra persona con permiso.
+                          </p>
+                        ) : (
+                          <div className="flex gap-2 md:shrink-0">
+                            <Button
+                              variant="outline"
+                              className="gap-1 text-destructive hover:text-destructive"
+                              onClick={() => iniciarRevision(s, "rechazada")}
+                            >
+                              <X className="w-4 h-4" />
+                              Rechazar
+                            </Button>
+                            <Button className="gap-1" onClick={() => iniciarRevision(s, "aprobada")}>
+                              <Check className="w-4 h-4" />
+                              Aprobar
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!revisando} onOpenChange={(open) => !open && setRevisando(null)}>
         <DialogContent className="sm:max-w-md">

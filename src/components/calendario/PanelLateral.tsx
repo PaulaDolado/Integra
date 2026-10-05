@@ -67,7 +67,7 @@ export function PanelLateral({ currentDate, onCambiarFecha, upcomingEvents, load
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <h4 className="font-medium text-sm truncate">{event.titulo}</h4>
+                        <h3 className="font-medium text-sm truncate">{event.titulo}</h3>
                         {event.es_privado && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
                       </div>
                       <p className="text-xs text-muted-foreground">

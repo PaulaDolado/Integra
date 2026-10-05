@@ -117,26 +117,28 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border bg-card">
       <SidebarContent className="gap-0">
-        {/* Misma altura que la barra superior (h-16) para que las líneas coincidan */}
-        <div className="flex h-16 shrink-0 items-center border-b border-border px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-xs">
-              <Home className="w-4 h-4 text-primary-foreground" />
-            </div>
-            {!isCollapsed && (
-              <div className="leading-tight">
-                <h2 className="text-sm font-semibold text-foreground">Integra</h2>
-                <p className="text-xs text-muted-foreground">Portal del empleado</p>
+        <nav aria-label="Navegación principal" className="flex flex-col">
+          {/* Misma altura que la barra superior (h-16) para que las líneas coincidan */}
+          <div className="flex h-16 shrink-0 items-center border-b border-border px-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-xs">
+                <Home className="w-4 h-4 text-primary-foreground" />
               </div>
-            )}
+              {!isCollapsed && (
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold text-foreground">Integra</p>
+                  <p className="text-xs text-muted-foreground">Portal del empleado</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <NavGroup label="Menú Principal" items={menuItems} isCollapsed={isCollapsed} />
-        <NavGroup label="Solicitudes" items={requestItems} isCollapsed={isCollapsed} />
-        {visibleManagementItems.length > 0 && (
-          <NavGroup label="Gestión" items={visibleManagementItems} isCollapsed={isCollapsed} />
-        )}
+          <NavGroup label="Menú Principal" items={menuItems} isCollapsed={isCollapsed} />
+          <NavGroup label="Solicitudes" items={requestItems} isCollapsed={isCollapsed} />
+          {visibleManagementItems.length > 0 && (
+            <NavGroup label="Gestión" items={visibleManagementItems} isCollapsed={isCollapsed} />
+          )}
+        </nav>
       </SidebarContent>
     </Sidebar>
   );

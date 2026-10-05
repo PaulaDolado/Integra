@@ -85,6 +85,7 @@ export function NewConversationDialog({ open, onOpenChange, colleagues, online, 
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Buscar por nombre, cargo o departamento"
+        aria-label="Buscar por nombre, cargo o departamento"
         className="pl-9"
       />
     </div>

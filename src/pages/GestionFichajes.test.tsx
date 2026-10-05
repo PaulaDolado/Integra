@@ -197,7 +197,7 @@ describe("Fichajes de la plantilla", () => {
     renderConQuery(<GestionFichajes />);
     await userEvent.click(await screen.findByText("Laura Gómez"));
 
-    expect(filaDe("Laura Gómez")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Laura Gómez/ })).toHaveAttribute("aria-expanded", "true");
     const detalle = filaDe("Laura Gómez").nextElementSibling as HTMLElement;
     const dias = within(detalle).getAllByRole("listitem").slice(0, 3).map((li) => li.textContent);
     expect(dias).toEqual([
@@ -218,7 +218,7 @@ describe("Fichajes de la plantilla", () => {
 
     // La salida que falta se marca como incidencia
     await userEvent.click(screen.getByText("Pablo Sanz"));
-    expect(filaDe("Laura Gómez")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Laura Gómez/ })).toHaveAttribute("aria-expanded", "false");
     const detallePablo = filaDe("Pablo Sanz").nextElementSibling as HTMLElement;
     expect(within(detallePablo).getByText("09:00 – ¿?", { exact: false })).toHaveAttribute("title", "Falta la salida");
   });

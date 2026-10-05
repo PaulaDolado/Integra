@@ -32,7 +32,7 @@ export function BarraFiltros({ filtro, onFiltro, busqueda, onBusqueda }: BarraFi
       </div>
       <div className="relative sm:w-72">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Buscar..." className="pl-9" value={busqueda} onChange={(e) => onBusqueda(e.target.value)} />
+        <Input placeholder="Buscar..." aria-label="Buscar en la bóveda" className="pl-9" value={busqueda} onChange={(e) => onBusqueda(e.target.value)} />
       </div>
     </div>
   );

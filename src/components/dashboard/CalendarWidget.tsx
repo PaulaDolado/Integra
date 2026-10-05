@@ -9,7 +9,7 @@ import { comprobar } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,7 +122,6 @@ export function CalendarWidget() {
     ubicacion: "",
     es_privado: false,
   });
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { empleadoId, loading: cargandoEmpleado } = useMiEmpleadoId();
   const queryClient = useQueryClient();
@@ -235,17 +234,14 @@ export function CalendarWidget() {
   };
 
   const renderEvent = (event: Event, showTime = false) => (
-    <div
+    <Link
       key={event.id}
-      className={`p-2 rounded-md text-xs cursor-pointer ${getEventColor()}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        navigate("/calendario");
-      }}
+      to="/calendario"
+      className={`block p-2 rounded-md text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${getEventColor()}`}
     >
-      <div className="font-medium truncate">{event.titulo}</div>
-      {showTime && <div className="opacity-80">{formatTimeRange(event)}</div>}
-    </div>
+      <span className="block font-medium truncate">{event.titulo}</span>
+      {showTime && <span className="block opacity-80">{formatTimeRange(event)}</span>}
+    </Link>
   );
 
   const renderWeek = () => {

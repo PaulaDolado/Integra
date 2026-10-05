@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, Lock, Plus, Search, Ticket as TicketIcon } from "lucide-react";
@@ -13,7 +13,7 @@ import { useAvisarError } from "@/hooks/useAvisarError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -160,8 +160,9 @@ export default function Tickets({ vista = "mios" }: TicketsProps) {
         </Button>
       </div>
 
-      <div className="space-y-3">
-        <Tabs value={estado} onValueChange={(v) => setEstado(v as FiltroEstado)}>
+      {/* Las pestañas filtran la tabla de abajo, que es su panel */}
+      <Tabs value={estado} onValueChange={(v) => setEstado(v as FiltroEstado)} className="space-y-6">
+        <div className="space-y-3">
           <TabsList className="h-auto flex-wrap justify-start">
             {filtrosEstado.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
@@ -169,115 +170,120 @@ export default function Tickets({ vista = "mios" }: TicketsProps) {
               </TabsTrigger>
             ))}
           </TabsList>
-        </Tabs>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={esSoporte ? "Buscar por título, número o solicitante..." : "Buscar por título o número..."}
-              className="pl-9"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-          </div>
-          <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger className="sm:w-44" aria-label="Filtrar por tipo">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos los tipos</SelectItem>
-              {ORDEN_TIPOS.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TIPOS[t].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={prioridad} onValueChange={setPrioridad}>
-            <SelectTrigger className="sm:w-48" aria-label="Filtrar por prioridad">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todas las prioridades</SelectItem>
-              {ORDEN_PRIORIDADES.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {PRIORIDADES[p].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : visibles.length === 0 ? (
-          <div className="py-12 text-center">
-            <TicketIcon className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-muted-foreground">No hay tickets que coincidan</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="w-24">Nº</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Solicitante</TableHead>
-                  <TableHead>Asignado a</TableHead>
-                  <TableHead className="text-right">Actualizado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibles.map((t) => (
-                  <TableRow
-                    key={t.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/tickets/${t.id}`)}
-                    onKeyDown={(e) => e.key === "Enter" && navigate(`/tickets/${t.id}`)}
-                    tabIndex={0}
-                  >
-                    <TableCell className="font-mono text-xs text-muted-foreground">{numeroTicket(t.id)}</TableCell>
-                    <TableCell className="max-w-88">
-                      <div className="flex items-center gap-2">
-                        <TicketBadge clase="tipo" valor={t.tipo} className="shrink-0" />
-                        <span className="truncate font-medium">{t.titulo}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <TicketBadge clase="estado" valor={t.estado} />
-                    </TableCell>
-                    <TableCell>
-                      <TicketBadge clase="prioridad" valor={t.prioridad} />
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {t.autor_id === miId ? "Tú" : nombres.get(t.autor_id) ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {t.asignado_a_id ? (
-                        t.asignado_a_id === miId ? "Tú" : nombres.get(t.asignado_a_id) ?? "—"
-                      ) : (
-                        <span className="text-muted-foreground">Sin asignar</span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className="whitespace-nowrap text-right text-sm text-muted-foreground"
-                      title={format(new Date(t.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}
-                    >
-                      {formatDistanceToNow(new Date(t.updated_at), { addSuffix: true, locale: es })}
-                    </TableCell>
-                  </TableRow>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={esSoporte ? "Buscar por título, número o solicitante..." : "Buscar por título o número..."}
+                aria-label="Buscar tickets"
+                className="pl-9"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </div>
+            <Select value={tipo} onValueChange={setTipo}>
+              <SelectTrigger className="sm:w-44" aria-label="Filtrar por tipo">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Todos los tipos</SelectItem>
+                {ORDEN_TIPOS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {TIPOS[t].label}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
+              </SelectContent>
+            </Select>
+            <Select value={prioridad} onValueChange={setPrioridad}>
+              <SelectTrigger className="sm:w-48" aria-label="Filtrar por prioridad">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Todas las prioridades</SelectItem>
+                {ORDEN_PRIORIDADES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PRIORIDADES[p].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </Card>
+        </div>
+
+        <TabsContent value={estado} className="mt-0">
+          <Card className="overflow-hidden">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : visibles.length === 0 ? (
+              <div className="py-12 text-center">
+                <TicketIcon className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                <p className="text-muted-foreground">No hay tickets que coincidan</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="w-24">Nº</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Prioridad</TableHead>
+                      <TableHead>Solicitante</TableHead>
+                      <TableHead>Asignado a</TableHead>
+                      <TableHead className="text-right">Actualizado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibles.map((t) => (
+                      // El título es el enlace (se anuncia y se usa con el teclado);
+                      // el clic en el resto de la fila es un atajo para el ratón
+                      <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/tickets/${t.id}`)}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{numeroTicket(t.id)}</TableCell>
+                        <TableCell className="max-w-88">
+                          <div className="flex items-center gap-2">
+                            <TicketBadge clase="tipo" valor={t.tipo} className="shrink-0" />
+                            <Link
+                              to={`/tickets/${t.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="truncate font-medium rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {t.titulo}
+                            </Link>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <TicketBadge clase="estado" valor={t.estado} />
+                        </TableCell>
+                        <TableCell>
+                          <TicketBadge clase="prioridad" valor={t.prioridad} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {t.autor_id === miId ? "Tú" : nombres.get(t.autor_id) ?? "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {t.asignado_a_id ? (
+                            t.asignado_a_id === miId ? "Tú" : nombres.get(t.asignado_a_id) ?? "—"
+                          ) : (
+                            <span className="text-muted-foreground">Sin asignar</span>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className="whitespace-nowrap text-right text-sm text-muted-foreground"
+                          title={format(new Date(t.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                        >
+                          {formatDistanceToNow(new Date(t.updated_at), { addSuffix: true, locale: es })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <NuevoTicketDialog open={creando} onOpenChange={setCreando} onCreated={(id) => navigate(`/tickets/${id}`)} />
     </div>

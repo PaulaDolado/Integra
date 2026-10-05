@@ -81,7 +81,7 @@ export default function Perfil() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-xl font-semibold text-foreground">{getFullName()}</h3>
+                  <h2 className="text-xl font-semibold text-foreground">{getFullName()}</h2>
                   <p className="text-muted-foreground">{profile?.cargo_nombre || "Empleado"}</p>
                   <Badge variant="secondary" className="mt-2">
                     {profile?.departamento_nombre || "Sin departamento"}

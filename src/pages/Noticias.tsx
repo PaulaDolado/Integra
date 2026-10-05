@@ -201,7 +201,7 @@ export default function Noticias() {
                       {format(new Date(noticia.fecha_publicacion), "d MMM", { locale: es })}
                     </span>
                   </div>
-                  <h3 className="mb-2 font-semibold leading-snug">{noticia.titulo}</h3>
+                  <h2 className="mb-2 font-semibold leading-snug">{noticia.titulo}</h2>
                   <p className="line-clamp-6 whitespace-pre-line text-sm opacity-90">{noticia.contenido}</p>
                 </button>
               );

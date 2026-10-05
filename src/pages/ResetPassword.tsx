@@ -84,10 +84,10 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xs shadow-lg">
         <CardHeader className="space-y-6 pb-8">
-          <div className="flex justify-center">
+          <div className="flex justify-center" aria-hidden="true">
             <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center shadow-lg">
               <div className="w-12 h-12 bg-background rounded-lg flex items-center justify-center">
                 <span className="text-2xl font-bold text-primary">HS</span>
@@ -121,7 +121,8 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -146,7 +147,8 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showConfirmPassword ? "Ocultar la confirmación" : "Mostrar la confirmación"}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -170,6 +172,6 @@ export default function ResetPassword() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

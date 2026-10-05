@@ -11,6 +11,7 @@ import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { useAvisarError } from "@/hooks/useAvisarError";
 import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
+import { activarConTeclado } from "@/lib/teclado";
 import { type Task, type TaskStatus, getSubtareas } from "@/components/tareas/task-utils";
 
 const COLUMNS: { status: TaskStatus; title: string; empty: string; icon: typeof Clock; iconClass: string }[] = [
@@ -178,14 +179,18 @@ export default function Tareas() {
                           onDragStart={(e) => handleDragStart(e, task)}
                           onDragEnd={handleDragEnd}
                           onClick={() => setOpenTask(task)}
-                          className={`group p-3 border rounded-lg hover:bg-accent/50 transition-[background-color,box-shadow] duration-150 ease-out cursor-move hover:shadow-md ${
+                          // Arrastrar no se puede con el teclado: el estado se cambia en el detalle
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={activarConTeclado(() => setOpenTask(task))}
+                          className={`group p-3 border rounded-lg hover:bg-accent/50 transition-[background-color,box-shadow] duration-150 ease-out cursor-move hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                             status === 'completado' ? 'opacity-75' : ''
                           } ${draggedTask?.id === task.id ? 'opacity-40' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <h4 className={`font-medium text-sm mb-1 ${status === 'completado' ? 'line-through' : ''}`}>
+                            <h3 className={`font-medium text-sm mb-1 ${status === 'completado' ? 'line-through' : ''}`}>
                               {task.titulo}
-                            </h4>
+                            </h3>
                             <Pencil className="w-3.5 h-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                           </div>
                           {resumen && (

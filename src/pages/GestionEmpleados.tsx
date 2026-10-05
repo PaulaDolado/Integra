@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -206,123 +206,127 @@ export default function GestionEmpleados() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={estado} onValueChange={(value) => setEstado(value as Estado)}>
+      {/* Las pestañas filtran la tabla de abajo, que es su panel */}
+      <Tabs value={estado} onValueChange={(value) => setEstado(value as Estado)} className="space-y-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <TabsList>
             <TabsTrigger value="activos">Activos ({contar("activos")})</TabsTrigger>
             <TabsTrigger value="bajas">Bajas ({contar("bajas")})</TabsTrigger>
             <TabsTrigger value="todos">Todos ({contar("todos")})</TabsTrigger>
           </TabsList>
-        </Tabs>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
-            <SelectTrigger className="sm:w-56" aria-label="Filtrar por departamento">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos los departamentos</SelectItem>
-              {departamentos.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="relative sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre, correo o cargo..."
-              className="pl-9"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
+              <SelectTrigger className="sm:w-56" aria-label="Filtrar por departamento">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODOS}>Todos los departamentos</SelectItem>
+                {departamentos.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, correo o cargo..."
+                aria-label="Buscar por nombre, correo o cargo"
+                className="pl-9"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : visibles.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">No hay empleados que coincidan</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Departamento</TableHead>
-                  <TableHead>Cargo</TableHead>
-                  <TableHead>Ingreso</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-12">
-                    <span className="sr-only">Acciones</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibles.map((e) => (
-                  <TableRow key={e.id} className={e.activo ? "" : "opacity-60"}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                            {iniciales(e)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            {nombreCompleto(e)}
-                            {e.es_yo && <span className="text-xs font-normal text-muted-foreground">(tú)</span>}
+        <TabsContent value={estado} className="mt-0">
+          <Card className="overflow-hidden">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : visibles.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">No hay empleados que coincidan</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>Empleado</TableHead>
+                      <TableHead>Departamento</TableHead>
+                      <TableHead>Cargo</TableHead>
+                      <TableHead>Ingreso</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="w-12">
+                        <span className="sr-only">Acciones</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibles.map((e) => (
+                      <TableRow key={e.id} className={e.activo ? "" : "opacity-60"}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                                {iniciales(e)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                {nombreCompleto(e)}
+                                {e.es_yo && <span className="text-xs font-normal text-muted-foreground">(tú)</span>}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">{e.correo_electronico}</div>
+                            </div>
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">{e.correo_electronico}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{e.departamento ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-sm">{e.cargo ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="whitespace-nowrap text-sm tabular-nums">
-                      {format(new Date(e.fecha_ingreso), "d MMM yyyy", { locale: es })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1.5">
-                        {e.activo ? (
-                          <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700">Activo</Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1">
-                            <UserX className="h-3 w-3" />
-                            Baja
-                          </Badge>
-                        )}
-                        {e.es_admin && (
-                          <Badge variant="secondary" className="gap-1">
-                            <ShieldCheck className="h-3 w-3" />
-                            Admin
-                          </Badge>
-                        )}
-                        {!e.tiene_cuenta && (
-                          <Badge variant="outline" className="text-muted-foreground" title="Aún no tiene cuenta de acceso">
-                            Sin cuenta
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {puedeEditar(e) && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Editar a ${nombreCompleto(e)}`} onClick={() => abrir(e)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Card>
+                        </TableCell>
+                        <TableCell className="text-sm">{e.departamento ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-sm">{e.cargo ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm tabular-nums">
+                          {format(new Date(e.fecha_ingreso), "d MMM yyyy", { locale: es })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5">
+                            {e.activo ? (
+                              <Badge variant="outline" className="border-green-300 bg-green-50 text-green-700">Activo</Badge>
+                            ) : (
+                              <Badge variant="outline" className="gap-1">
+                                <UserX className="h-3 w-3" />
+                                Baja
+                              </Badge>
+                            )}
+                            {e.es_admin && (
+                              <Badge variant="secondary" className="gap-1">
+                                <ShieldCheck className="h-3 w-3" />
+                                Admin
+                              </Badge>
+                            )}
+                            {!e.tiene_cuenta && (
+                              <Badge variant="outline" className="text-muted-foreground" title="Aún no tiene cuenta de acceso">
+                                Sin cuenta
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {puedeEditar(e) && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Editar a ${nombreCompleto(e)}`} onClick={() => abrir(e)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={editando !== undefined} onOpenChange={(open) => !open && setEditando(undefined)}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">

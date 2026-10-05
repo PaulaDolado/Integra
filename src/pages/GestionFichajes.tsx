@@ -313,7 +313,7 @@ export default function GestionFichajes() {
           </Select>
           <div className="relative sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Buscar empleado..." className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+            <Input placeholder="Buscar empleado..." aria-label="Buscar empleado" className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           </div>
         </div>
       </div>
@@ -346,14 +346,23 @@ export default function GestionFichajes() {
                   const expandido = abierto === empleado.id;
                   return (
                     <Fragment key={empleado.id}>
-                      <TableRow
-                        className="cursor-pointer"
-                        onClick={() => setAbierto(expandido ? null : empleado.id)}
-                        aria-expanded={expandido}
-                      >
+                      {/* El botón del nombre despliega el detalle (teclado y lectores de
+                          pantalla); el clic en el resto de la fila es un atajo para el ratón */}
+                      <TableRow className="cursor-pointer" onClick={() => setAbierto(expandido ? null : empleado.id)}>
                         <TableCell>
-                          <div className="font-medium">{empleado.nombre}</div>
-                          <div className="text-xs text-muted-foreground">{empleado.departamento ?? "Sin departamento"}</div>
+                          <button
+                            type="button"
+                            className="rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-expanded={expandido}
+                            aria-controls={`detalle-${empleado.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAbierto(expandido ? null : empleado.id);
+                            }}
+                          >
+                            <span className="block font-medium">{empleado.nombre}</span>
+                            <span className="block text-xs text-muted-foreground">{empleado.departamento ?? "Sin departamento"}</span>
+                          </button>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {hoy.trabajandoDesde ? (
@@ -389,7 +398,7 @@ export default function GestionFichajes() {
                         </TableCell>
                       </TableRow>
                       {expandido && (
-                        <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableRow id={`detalle-${empleado.id}`} className="bg-muted/20 hover:bg-muted/20">
                           <TableCell colSpan={7} className="p-0">
                             {resumen.dias.length === 0 ? (
                               <p className="px-6 py-4 text-sm text-muted-foreground">Sin fichajes en este periodo.</p>

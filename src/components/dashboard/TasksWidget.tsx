@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { useAvisarError } from "@/hooks/useAvisarError";
+import { activarConTeclado } from "@/lib/teclado";
 import { TaskDetailDialog } from "@/components/tareas/TaskDetailDialog";
 import { type Task, type TaskStatus } from "@/components/tareas/task-utils";
 
@@ -188,7 +189,7 @@ export function TasksWidget() {
                 <span className="text-sm font-medium">Progreso General</span>
                 <span className="text-sm text-muted-foreground">{completionRate}%</span>
               </div>
-              <Progress value={completionRate} className="h-2" />
+              <Progress value={completionRate} className="h-2" aria-label="Progreso general" />
             </div>
 
             {/* Tablero kanban */}
@@ -239,7 +240,11 @@ export function TasksWidget() {
                             }}
                             onDragEnd={() => setDragOverColumn(null)}
                             onClick={() => setOpenTask(task)}
-                            className="p-2.5 rounded-md border border-border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing"
+                            // Arrastrar no se puede con el teclado: el estado se cambia en el detalle
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={activarConTeclado(() => setOpenTask(task))}
+                            className="p-2.5 rounded-md border border-border bg-card hover:bg-accent/50 transition-colors cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <p className="text-sm font-medium text-foreground line-clamp-2">
                               {task.titulo}
@@ -282,12 +287,12 @@ export function TasksWidget() {
                 <span className="text-sm font-medium">Progreso General</span>
                 <span className="text-sm text-muted-foreground">{completionRate}%</span>
               </div>
-              <Progress value={completionRate} className="h-2" />
+              <Progress value={completionRate} className="h-2" aria-label="Progreso general" />
             </div>
 
             {/* Lista de tareas recientes */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">Tareas Recientes</h4>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Tareas Recientes</h3>
               {tasks.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -299,9 +304,10 @@ export function TasksWidget() {
                   const Icon = statusConfig.icon;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={task.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                      className="flex w-full items-center gap-3 p-3 rounded-lg border border-border text-left hover:bg-accent/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => setOpenTask(task)}
                     >
                       <div className={`p-1 rounded-full ${statusConfig.bgColor}`}>
@@ -320,7 +326,7 @@ export function TasksWidget() {
                       <Badge variant="secondary" className="text-xs">
                         {statusConfig.label}
                       </Badge>
-                    </div>
+                    </button>
                   );
                 })
               )}

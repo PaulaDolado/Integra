@@ -147,11 +147,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xs shadow-lg">
         <CardHeader className="space-y-6 pb-8">
           {/* Company Logo */}
-          <div className="flex justify-center">
+          <div className="flex justify-center" aria-hidden="true">
             <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center shadow-lg">
               <div className="w-12 h-12 bg-background rounded-lg flex items-center justify-center">
                 <span className="text-2xl font-bold text-primary">I</span>
@@ -171,9 +171,9 @@ export default function Login() {
             <form onSubmit={handleVerifyMfa} className="space-y-6">
               <div className="space-y-2 text-center">
                 <ShieldCheck className="w-8 h-8 mx-auto text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">
+                <h2 className="text-lg font-semibold text-foreground">
                   Verificación en dos pasos
-                </h3>
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   Introduce el código de 6 dígitos de tu aplicación de autenticación
                 </p>
@@ -250,7 +250,8 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -296,9 +297,9 @@ export default function Login() {
           ) : (
             <form onSubmit={handleResetPassword} className="space-y-6">
               <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-foreground text-center">
+                <h2 className="text-lg font-semibold text-foreground text-center">
                   Recuperar Contraseña
-                </h3>
+                </h2>
                 <p className="text-sm text-muted-foreground text-center">
                   Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña
                 </p>
@@ -353,6 +354,6 @@ export default function Login() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
