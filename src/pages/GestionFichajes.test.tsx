@@ -8,6 +8,7 @@ import { descargarCsv, type Fichaje } from "@/components/fichajes/calculo";
 import type { Database } from "@/integrations/supabase/types";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import GestionFichajes from "./GestionFichajes";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -381,5 +382,19 @@ describe("Fichajes de la plantilla", () => {
       )
     );
     expect(await screen.findByText("No hay empleados que coincidan")).toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    conPermisos("fichajes.ver_todos", "fichajes.editar");
+    renderConQuery(<GestionFichajes />);
+    await userEvent.click(await screen.findByText("Pablo Sanz"));
+    await expectSinViolaciones();
+
+    const detalle = filaDe("Pablo Sanz").nextElementSibling as HTMLElement;
+    const lunes = within(detalle).getByText("lun 5 oct").closest("li") as HTMLElement;
+    await userEvent.click(within(lunes).getByRole("button", { name: "Corregir" }));
+    const dialogo = await screen.findByRole("dialog", { name: "Corregir fichajes" });
+    await within(dialogo).findByLabelText("Hora de entrada");
+    await expectSinViolaciones();
   });
 });

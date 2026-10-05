@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import Calendario from "./Calendario";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -399,5 +400,28 @@ describe("Calendario", () => {
         expect.objectContaining({ description: "No se pudieron cargar los eventos", variant: "destructive" })
       )
     );
+  });
+
+  // axe recorre los 168 huecos de la semana y los 42 días del mes: tarda más de lo normal
+  it("no tiene problemas de accesibilidad", { timeout: 60_000 }, async () => {
+    renderConQuery(<Calendario />);
+    await screen.findAllByText("Reunión de equipo");
+    await expectSinViolaciones();
+
+    // Los huecos de la rejilla se pueden usar con teclado y dicen qué crean
+    expect(screen.getByRole("button", { name: "Crear evento el jueves 8 de octubre a las 15:00" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "Vista mensual" }));
+    await screen.findByText("Octubre 2026");
+    expect(screen.getByRole("button", { name: "Crear evento el jueves 8 de octubre" })).toBeInTheDocument();
+    await expectSinViolaciones();
+
+    await userEvent.click(screen.getByRole("radio", { name: "Vista anual" }));
+    await screen.findByRole("button", { name: /Octubre/ });
+    await expectSinViolaciones();
+
+    await userEvent.click(screen.getByRole("button", { name: /Nuevo Evento/ }));
+    screen.getByRole("dialog", { name: "Crear Nuevo Evento" });
+    await expectSinViolaciones();
   });
 });

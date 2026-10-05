@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { supabase } from "@/integrations/supabase/client";
 import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import Vacaciones from "./Vacaciones";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -406,5 +407,14 @@ describe("Solicitud de ausencia", () => {
       )
     );
     expect(abrir).not.toHaveBeenCalled();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    renderConQuery(<Vacaciones />);
+    await screen.findByText("Compensación de días trabajados");
+    await expectSinViolaciones();
+
+    await abrirFormulario();
+    await expectSinViolaciones();
   });
 });

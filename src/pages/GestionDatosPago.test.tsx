@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePermisos } from "@/hooks/usePermisos";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import GestionDatosPago from "./GestionDatosPago";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: vi.fn() } }));
@@ -65,5 +66,12 @@ describe("Datos de pago", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Ocultar IBAN" }));
     expect(screen.queryByText("ES91 2100 0418 4502 0005 1332")).not.toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    conPermisos("datos_pago.ver");
+    renderConQuery(<GestionDatosPago />);
+    await screen.findByText("ES•• •••• •••• •••• •••• 1332");
+    await expectSinViolaciones();
   });
 });

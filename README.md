@@ -13,6 +13,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Tests](#tests)
+- [Accesibilidad](#accesibilidad)
 - [Tests end-to-end](#tests-end-to-end)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Añadir una página](#añadir-una-página)
@@ -283,6 +284,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
 | `supabase/functions/notificar/mensajes.test.ts` | Cada aviso va al webhook que le toca, con el formato de Teams o de Google Chat, y el texto de los usuarios no puede mencionar a todo un espacio |
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
+| `components/layout/AppLayout.test.tsx` | El enlace «Saltar al contenido» es lo primero que se enfoca y lleva al `<main>` |
 
 Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock` (hay un ayudante en `src/test/supabase-mock.ts`). Las políticas RLS no se prueban aquí, porque necesitan una base de datos real.
 
@@ -290,6 +292,31 @@ Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock`
 
 - **Pull requests:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta el lint, los tipos, los tests, el build y `npm audit --omit=dev`.
 - **Despliegue:** el workflow de despliegue ejecuta el lint, los tipos y los tests antes del build. Si algo falla, no se publica. Después de publicar, ejecuta la prueba de humo.
+
+## Accesibilidad
+
+Hay dos comprobaciones automáticas, y las dos se ejecutan con `npm run lint` y `npm test` (también en la integración continua):
+
+- **Lint ([`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y)).** Las reglas recomendadas revisan el JSX: imágenes sin `alt`, etiquetas sin control asociado, roles y atributos ARIA no válidos, o elementos con `onClick` que no se pueden usar con el teclado. Los componentes `Button`, `Input`, `Textarea` y `Label` de `ui/` se tratan como el elemento HTML que pintan. La única regla desactivada es `no-autofocus` (el motivo está en `eslint.config.js`). El plugin aún no declara compatibilidad con ESLint 10, pero funciona: `package.json` lo instala con un `overrides`.
+- **axe en los tests ([`axe-core`](https://github.com/dequelabs/axe-core)).** Cada pantalla principal tiene un test `no tiene problemas de accesibilidad` que la pinta con sus datos simulados (y, cuando los tiene, con sus diálogos abiertos) y le pasa axe con `expectSinViolaciones()` de [`src/test/accesibilidad.ts`](src/test/accesibilidad.ts). Si algo falla, el error dice qué regla, en qué elemento y cómo arreglarlo.
+
+```tsx
+import { expectSinViolaciones } from "@/test/accesibilidad";
+
+it("no tiene problemas de accesibilidad", async () => {
+  renderConQuery(<MiPantalla />);
+  await screen.findByText("Algo que ya ha cargado");
+  await expectSinViolaciones();
+});
+```
+
+Lo que jsdom no puede comprobar, y hay que revisar a mano en un navegador:
+
+- **Contraste de color.** jsdom no aplica los estilos de Tailwind, así que la regla `color-contrast` está desactivada en los tests. Conviene revisarlo con las herramientas del navegador (o la extensión de axe), en modo claro y oscuro.
+- **Landmarks.** Los tests de cada pantalla la pintan sin el layout, así que la regla `region` solo se comprueba en el test de `AppLayout` y en el login.
+- **Orden y visibilidad del foco**, y cómo lo anuncia un lector de pantalla de verdad (NVDA, VoiceOver).
+
+Al crear una pantalla nueva: un `<h1>` con su título (los `CardTitle` son `<h2>`), nombre accesible en los botones que solo llevan un icono (`aria-label` en español), una etiqueta para cada campo (con `<Label htmlFor>` o `aria-label`; el `placeholder` no cuenta) y botones o enlaces de verdad en lo que se pulsa. El layout ya incluye el enlace «Saltar al contenido» y el `<main>`.
 
 ## Tests end-to-end
 

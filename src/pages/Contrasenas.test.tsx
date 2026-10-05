@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { supabase } from "@/integrations/supabase/client";
 import { cifrarEntrada, crearBoveda, type ParametrosBoveda } from "@/components/contrasenas/cripto";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import Contrasenas from "./Contrasenas";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn(), rpc: vi.fn() } }));
@@ -134,5 +135,20 @@ describe("Contraseñas", { timeout: 20_000 }, () => {
     await userEvent.click(screen.getByRole("button", { name: "Bloquear" }));
     await waitFor(() => expect(screen.queryByText("GitHub")).not.toBeInTheDocument());
     expect(screen.getByText("Bóveda bloqueada")).toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    await conBoveda({ nombre: "GitHub", usuario: "laura", contrasena: SECRETO });
+    render(<Contrasenas />);
+    await screen.findByLabelText("Contraseña maestra");
+    await expectSinViolaciones();
+
+    await desbloquear();
+    await screen.findByText("GitHub");
+    await expectSinViolaciones();
+
+    await userEvent.click(screen.getByRole("button", { name: "Nueva contraseña" }));
+    await screen.findByLabelText("Nombre *");
+    await expectSinViolaciones();
   });
 });

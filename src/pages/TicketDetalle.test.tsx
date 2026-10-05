@@ -10,6 +10,7 @@ import type { Adjunto } from "@/components/tickets/adjuntos";
 import type { Seguimiento, Ticket } from "@/components/tickets/ticket-config";
 import { simularRpc, type RespuestasRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import TicketDetalle from "./TicketDetalle";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -467,5 +468,19 @@ describe("Detalle de un ticket", () => {
     expect(screen.queryByRole("combobox", { name: "Estado" })).not.toBeInTheDocument();
     // Insignias de cabecera y de detalles, más la fecha de cierre
     expect(screen.getAllByText("Cerrado")).toHaveLength(3);
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    // Soporte ve todo: historial, adjuntos, redactor con pestañas y propiedades editables
+    comoUsuario(SOPORTE, { soporte: true });
+    filas.seguimientos = [
+      seguimiento({ id: "s1", autor_id: TECNICA, contenido: "¿Has probado a reiniciarla?" }),
+      seguimiento({ id: "s2", autor_id: null, tipo: "evento", contenido: "Prioridad cambiada a Alta" }),
+    ];
+    filas.adjuntos = [adjunto({ id: "adj1", nombre: "error.png", path: `${TICKET_ID}/error.png` })];
+    abrirTicket();
+    await titulo();
+    await screen.findByRole("img", { name: "error.png" });
+    await expectSinViolaciones();
   });
 });

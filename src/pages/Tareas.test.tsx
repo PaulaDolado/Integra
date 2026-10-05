@@ -6,6 +6,7 @@ import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import type { Task } from "@/components/tareas/task-utils";
 import { renderConQuery } from "@/test/render";
+import { expectSinViolaciones } from "@/test/accesibilidad";
 import Tareas from "./Tareas";
 
 const toast = vi.hoisted(() => vi.fn());
@@ -163,7 +164,8 @@ describe("Tareas", () => {
     );
   });
 
-  it("crea una tarea con el contenido del formulario y recarga la lista", async () => {
+  // Escribe en muchos campos tecla a tecla: con toda la batería en paralelo, 15 s a veces no bastan
+  it("crea una tarea con el contenido del formulario y recarga la lista", { timeout: 30_000 }, async () => {
     renderConQuery(<Tareas />);
     await screen.findByText("Preparar informe");
 
@@ -361,5 +363,17 @@ describe("Tareas", () => {
     );
     expect(within(columna("En Progreso")).getByText("Revisar contrato")).toBeInTheDocument();
     expect(within(columna("Pendientes")).queryByText("Revisar contrato")).not.toBeInTheDocument();
+  });
+
+  it("no tiene problemas de accesibilidad", async () => {
+    renderConQuery(<Tareas />);
+    await screen.findByText("Preparar informe");
+    await expectSinViolaciones();
+
+    // Las tarjetas también se abren con el teclado
+    tarjeta("Preparar informe").focus();
+    await userEvent.keyboard("{Enter}");
+    screen.getByRole("dialog", { name: "Editar tarea" });
+    await expectSinViolaciones();
   });
 });
