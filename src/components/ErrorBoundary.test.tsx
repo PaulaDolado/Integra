@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { notificarError } from "@/lib/monitorizacion";
+
+vi.mock("@/lib/monitorizacion", () => ({ notificarError: vi.fn() }));
 
 let fallar: Error | null = null;
 const Pagina = () => {
@@ -18,6 +21,7 @@ describe("ErrorBoundary", () => {
   beforeEach(() => {
     fallar = null;
     sessionStorage.clear();
+    vi.mocked(notificarError).mockClear();
     vi.spyOn(console, "error").mockImplementation(() => {});
     window.addEventListener("error", silenciarErrorDeVentana);
     Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, reload: recargar } });
@@ -34,6 +38,15 @@ describe("ErrorBoundary", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Algo ha fallado");
     expect(screen.queryByText("Contenido")).not.toBeInTheDocument();
     expect(recargar).not.toHaveBeenCalled();
+  });
+
+  it("manda el error a la monitorización con el árbol de componentes", () => {
+    fallar = new Error("fallo al pintar");
+    render(<ErrorBoundary><Pagina /></ErrorBoundary>);
+    expect(notificarError).toHaveBeenCalledWith(
+      fallar,
+      expect.objectContaining({ origen: "interfaz", componentStack: expect.stringContaining("Pagina") })
+    );
   });
 
   it("vuelve a intentarlo al pulsar Reintentar", async () => {
@@ -62,7 +75,10 @@ describe("ErrorBoundary", () => {
     primero.unmount();
 
     // Si tras recargar vuelve a fallar enseguida, no entra en bucle
+    expect(notificarError).not.toHaveBeenCalled();
     render(<ErrorBoundary><Pagina /></ErrorBoundary>);
     expect(recargar).toHaveBeenCalledTimes(1);
+    // Si no se arregla recargando, sí se avisa
+    expect(notificarError).toHaveBeenCalledTimes(1);
   });
 });

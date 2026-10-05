@@ -4,11 +4,14 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 // Política de seguridad de contenido para el build de producción: solo se
-// permite cargar código propio y conectar con el proyecto de Supabase.
+// permite cargar código propio y conectar con el proyecto de Supabase (y con
+// Sentry, si la monitorización de errores está activada con VITE_SENTRY_DSN).
 // En desarrollo no se aplica porque Vite inyecta scripts en línea para el HMR.
-function contentSecurityPolicy(supabaseUrl: string | undefined): Plugin {
+function contentSecurityPolicy(supabaseUrl: string | undefined, sentryDsn: string | undefined): Plugin {
   const supabase = supabaseUrl ? new URL(supabaseUrl).origin : "";
   const supabaseWs = supabase.replace(/^http/, "ws");
+  // El DSN es https://<clave>@<host de ingesta>/<proyecto>: solo se permite ese host
+  const sentry = sentryDsn ? new URL(sentryDsn).origin : "";
   const policy = [
     "default-src 'self'",
     "script-src 'self'",
@@ -16,7 +19,7 @@ function contentSecurityPolicy(supabaseUrl: string | undefined): Plugin {
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: ${supabase}`,
     "font-src 'self' data:",
-    `connect-src 'self' ${supabase} ${supabaseWs}`,
+    `connect-src 'self' ${supabase} ${supabaseWs} ${sentry}`.trimEnd(),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -48,7 +51,7 @@ export default defineConfig(({ mode }) => {
         ignored: ["**/.agents/**", "**/.claude/**"],
       },
     },
-    plugins: [react(), tailwindcss(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
+    plugins: [react(), tailwindcss(), contentSecurityPolicy(env.VITE_SUPABASE_URL, env.VITE_SENTRY_DSN)],
     build: {
       rolldownOptions: {
         output: {

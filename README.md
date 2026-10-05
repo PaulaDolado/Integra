@@ -30,6 +30,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Módulos](#módulos)
 - [Permisos por departamento](#permisos-por-departamento)
 - [Seguridad](#seguridad)
+- [Monitorización de errores](#monitorización-de-errores)
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Avisos en la app](#avisos-en-la-app)
@@ -86,6 +87,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=
 - El `.env` no se sube a git.
 - La clave publicable es pública por diseño: lo que protege los datos son las políticas RLS de la base de datos.
 - **No pongas nunca la clave `secret` ni la `service_role` en el frontend ni en `.env`.**
+- `VITE_SENTRY_DSN` es opcional y normalmente se deja vacío: ver [Monitorización de errores](#monitorización-de-errores).
 - Si cambias el `.env`, reinicia `npm run dev` para que Vite cargue los valores nuevos.
 
 ### Usuario demo
@@ -172,10 +174,38 @@ Un empleado con `es_admin = true` tiene todos los permisos.
   - El IBAN llega enmascarado. Para verlo entero hay que pedirlo con `ver_iban()`, que registra quién lo consultó en `accesos_datos_pago`.
 - **Gestor de contraseñas cifrado de extremo a extremo.** La bóveda se cifra en el navegador: la contraseña maestra se convierte en una clave AES-GCM de 256 bits con PBKDF2-SHA256 (600.000 iteraciones) y nunca sale del navegador. La base de datos solo guarda texto cifrado, así que ni un administrador ni Supabase pueden leer las contraseñas. Por eso la contraseña maestra no se puede recuperar: si se olvida, solo queda vaciar la bóveda. La bóveda se bloquea al salir de la página y tras 5 minutos sin actividad, y las contraseñas copiadas se borran del portapapeles a los 30 segundos.
 - **Doble factor.** Si un usuario lo activa, una política restrictiva en cada tabla (`public.cumple_doble_factor()`) le bloquea los datos hasta que lo verifique.
-- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
+- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase (y con Sentry, solo si la [monitorización de errores](#monitorización-de-errores) está activada). En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
 - **Adjuntos.** Solo se admiten imágenes PNG, JPG, WEBP o GIF de hasta 5 MB. Van a buckets privados y se sirven con URLs firmadas de 1 hora.
 - **Dependencias.** Dependabot abre cada lunes una PR con las versiones menores y los parches, otra por cada versión mayor y otra para las acciones de GitHub. Los parches de seguridad llegan al momento. Todas pasan por el CI antes de poder fusionarse. `npm audit --omit=dev` debe salir limpio, y el CI lo comprueba en cada PR. Las herramientas que solo se usan al compilar van en `devDependencies`. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg. Dependabot no propone versiones mayores de `@types/node`: los tipos siguen a la versión de Node más antigua que admite el proyecto.
+
+## Monitorización de errores
+
+Los errores de producción se pueden enviar a [Sentry](https://sentry.io). **Está apagado por defecto**: sin `VITE_SENTRY_DSN`, la app no descarga Sentry ni envía nada a ningún sitio. En desarrollo y en los tests tampoco se activa, aunque haya DSN.
+
+Para activarlo:
+
+1. En Sentry, crea un proyecto de tipo **React**. Si puedes, elige la región de la UE.
+2. En **Settings → Security & Privacy** del proyecto, activa **Prevent Storing of IP Addresses** y deja activado **Data Scrubber**.
+3. Copia el DSN (**Settings → Client Keys (DSN)**).
+4. En GitHub, **Settings → Secrets and variables → Actions**, crea el secreto `VITE_SENTRY_DSN` con ese valor.
+5. Vuelve a publicar (push a `main` o **Run workflow**). El build añade el host de Sentry a la CSP y cada error lleva como versión (`release`) el commit publicado.
+
+Para apagarlo, borra el secreto y vuelve a publicar.
+
+Cómo funciona (`src/lib/monitorizacion.ts`):
+
+- Sentry se descarga aparte (`import()`), después del primer render y solo si está activado. Sin DSN, el código inicial apenas crece unos cientos de bytes.
+- Se envían los errores al pintar una pantalla (`ErrorBoundary`), los fallos de las consultas y mutaciones de TanStack Query, y los errores y promesas rechazadas que nadie captura. Los avisos al usuario no cambian.
+
+Qué se envía: el mensaje de error, su traza, la URL de la página **sin parámetros ni fragmento**, el idioma y la zona horaria, el origen del error (`interfaz`, `consulta`, `mutacion`…) y el nombre de la consulta (solo el primer elemento de la clave, sin ids).
+
+Qué no se envía:
+
+- Nada del usuario: ni el correo, ni el id, ni la IP (`dataCollection.userInfo: false`; `sendDefaultPii` ya no existe en Sentry 11 y esta es su opción equivalente).
+- Ni cabeceras, ni cookies, ni el cuerpo de las peticiones, ni parámetros de URL. Los `details` y `hint` de los errores de Supabase se descartan, porque pueden llevar valores de la fila.
+- Ni grabación de sesiones (Session Replay), ni datos de rendimiento, ni sesiones, ni migas de la consola ni de los clics.
+- Antes de salir, `beforeSend` repasa el evento entero y sustituye por `[filtrado]` todo lo que parezca un correo, un IBAN, un JWT, un `Bearer` o un parámetro de token o contraseña.
 
 ## Base de datos
 
@@ -324,12 +354,13 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `components/contrasenas/contrasenas.test.ts` | Generador, fuerza de las contraseñas, débiles y repetidas, y que nunca se abren enlaces `javascript:` |
 | `components/fichajes/calculo.test.ts` | Horas trabajadas, tramos, incidencias, fichajes anulados y corregidos, y el formato del CSV para Excel |
 | `components/tickets/adjuntos.test.ts` | Tipos, tamaño y número máximo de imágenes adjuntas |
-| `components/ErrorBoundary.test.tsx` | Si una pantalla falla, muestra un aviso en vez de dejarla en blanco; tras publicar una versión nueva, recarga una sola vez |
+| `components/ErrorBoundary.test.tsx` | Si una pantalla falla, muestra un aviso en vez de dejarla en blanco; tras publicar una versión nueva, recarga una sola vez. El error va a la monitorización |
 | `components/ProtectedRoute.test.tsx` | Redirige al login sin sesión o sin el doble factor verificado |
 | `components/layout/AppSidebar.test.tsx` | El menú solo muestra las pantallas de gestión que concede el departamento, y marca el apartado activo |
 | `hooks/usePermisos.test.tsx` | Carga los permisos una vez por usuario y no concede nada si la consulta falla |
 | `hooks/useInvalidarEnCambios.test.tsx` | Los cambios recibidos por Realtime invalidan las consultas indicadas, sin suscribirse de nuevo en cada render |
 | `contexts/AuthContext.test.tsx` | Al cerrar sesión se vacía la caché de datos |
+| `lib/monitorizacion.test.ts` | Sin DSN no se descarga Sentry ni se envía nada; con DSN, no van ni el usuario, ni cabeceras, ni cuerpos, y se borran correos, IBAN, tokens y parámetros de URL |
 | `lib/tema.test.ts` | El modo oscuro se recuerda y, si no hay preferencia guardada, sigue la del sistema |
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
@@ -422,7 +453,7 @@ src/
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…
 ├── integrations/supabase/   # Cliente y tipos
-├── lib/                     # Utilidades, rutas base, tema y cliente de TanStack Query
+├── lib/                     # Utilidades, rutas base, tema, cliente de TanStack Query y monitorización de errores
 ├── pages/                   # Una página por ruta
 └── test/                    # Configuración y ayudantes de los tests
 supabase/
