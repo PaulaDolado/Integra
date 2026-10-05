@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
+      // Lo genera vite-plugin-pwa, que aquí no se carga: los tests nunca registran el service worker
+      "virtual:pwa-register": path.resolve(import.meta.dirname, "./src/test/pwa-register.ts"),
     },
   },
   test: {

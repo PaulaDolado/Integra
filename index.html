@@ -6,8 +6,17 @@
     <title>Integra</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <meta name="description" content="Integra - Portal del empleado" />
+
+    <!-- App instalable: color de la barra del sistema (--background de cada tema) y ajustes de iOS.
+         El manifiesto lo enlaza vite-plugin-pwa al compilar. -->
+    <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Integra" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <meta property="og:title" content="Integra" />
     <meta property="og:description" content="Integra - Portal del empleado" />
