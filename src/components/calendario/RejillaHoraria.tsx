@@ -9,7 +9,7 @@ interface RejillaHorariaProps {
   days: Date[];
   events: Event[];
   now: Date;
-  contenedorRef: RefObject<HTMLDivElement>;
+  contenedorRef: RefObject<HTMLDivElement | null>;
   onCrear: (inicio: Date) => void;
   onEditar: (event: Event) => void;
   onAbrirDia: (day: Date) => void;

@@ -9,7 +9,7 @@ export type QueCopiar = "usuario" | "contrasena";
 // Copia al portapapeles avisando con un toast; las contraseñas se borran solas al rato
 export function usePortapapeles() {
   const { toast } = useToast();
-  const temporizadorPortapapeles = useRef<number>();
+  const temporizadorPortapapeles = useRef<number | undefined>(undefined);
 
   return async (texto: string, que: QueCopiar) => {
     try {
