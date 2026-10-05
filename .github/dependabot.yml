@@ -22,6 +22,10 @@ updates:
       # proyecto (engines en package.json), no a la última
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # typescript-eslint aún no admite TypeScript 7 (su peer pide <6.1); quitar
+      # esta regla cuando lo admita. La 6 sí se propone.
+      - dependency-name: "typescript"
+        versions: [">=7"]
 
   - package-ecosystem: github-actions
     directory: /
