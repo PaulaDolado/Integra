@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar, Loader2, Plus, Filter, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Dialog,
@@ -54,7 +54,8 @@ interface AbsenceRequest {
 }
 
 const JUSTIFICANTE_MAX_BYTES = 5 * 1024 * 1024;
-const JUSTIFICANTE_ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx";
+const JUSTIFICANTE_EXTENSIONES = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
+const JUSTIFICANTE_ACCEPT = JUSTIFICANTE_EXTENSIONES.join(",");
 
 const emptyForm = {
   tipo_ausencia: "",
@@ -122,6 +123,17 @@ export default function Vacaciones() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+    // `accept` solo filtra el selector: se puede elegir «Todos los archivos»
+    if (file && !JUSTIFICANTE_EXTENSIONES.some((ext) => file.name.toLowerCase().endsWith(ext))) {
+      toast({
+        title: "Tipo de archivo no admitido",
+        description: "El justificante debe ser un PDF, una imagen JPG o PNG, o un documento de Word",
+        variant: "destructive",
+      });
+      e.target.value = "";
+      setJustificante(null);
+      return;
+    }
     if (file && file.size > JUSTIFICANTE_MAX_BYTES) {
       toast({
         title: "Archivo demasiado grande",
@@ -157,13 +169,20 @@ export default function Vacaciones() {
       return;
     }
 
-    const startDate = new Date(formData.fecha_inicio);
-    const endDate = new Date(formData.fecha_fin);
-
-    if (endDate < startDate) {
+    if (!formData.fecha_inicio || !formData.fecha_fin) {
       toast({
         title: "Error",
-        description: "La fecha de fin debe ser posterior a la fecha de inicio",
+        description: "Indica las fechas de inicio y de fin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Las fechas vienen como AAAA-MM-DD: se comparan como texto, sin zonas horarias
+    if (formData.fecha_fin < formData.fecha_inicio) {
+      toast({
+        title: "Error",
+        description: "La fecha de fin no puede ser anterior a la fecha de inicio",
         variant: "destructive",
       });
       return;
@@ -224,7 +243,8 @@ export default function Vacaciones() {
   const openJustificante = async (path: string) => {
     const { data, error } = await supabase.storage
       .from("justificantes")
-      .createSignedUrl(path, 60);
+      .createSignedUrl(path, 60)
+      .catch((error: unknown) => ({ data: null, error }));
 
     if (error || !data) {
       toast({
@@ -406,8 +426,8 @@ export default function Vacaciones() {
                           {getTipoLabel(request.tipo_ausencia)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {format(new Date(request.fecha_inicio), "dd 'de' MMMM", { locale: es })} -{" "}
-                          {format(new Date(request.fecha_fin), "dd 'de' MMMM yyyy", { locale: es })}
+                          {format(parseISO(request.fecha_inicio), "dd 'de' MMMM", { locale: es })} -{" "}
+                          {format(parseISO(request.fecha_fin), "dd 'de' MMMM yyyy", { locale: es })}
                           {" · "}
                           {calcularDias(request.fecha_inicio, request.fecha_fin)} día(s)
                         </div>

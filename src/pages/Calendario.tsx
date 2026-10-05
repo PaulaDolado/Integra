@@ -5,7 +5,17 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addM
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,6 +98,24 @@ const toInputValue = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm");
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+// Los campos opcionales vacíos se guardan como null, no como texto vacío
+const datosDelFormulario = (form: EventFormData, inicio: Date, fin: Date) => ({
+  titulo: form.titulo.trim(),
+  descripcion: form.descripcion.trim() || null,
+  ubicacion: form.ubicacion.trim() || null,
+  es_privado: form.es_privado,
+  fecha_inicio: inicio.toISOString(),
+  fecha_fin: fin.toISOString(),
+});
+
+// ¿El evento ocupa parte del intervalo [desde, hasta]? El fin es exclusivo: un
+// evento que acaba a las 00:00 no aparece en el día siguiente
+const solapa = (event: Event, desde: Date, hasta: Date) => {
+  const inicio = new Date(event.fecha_inicio);
+  const fin = new Date(event.fecha_fin);
+  return inicio <= hasta && (fin > desde || inicio >= desde);
+};
+
 // Coloca los eventos de un día en la rejilla horaria. Los que se solapan
 // se reparten en carriles para que no queden uno encima de otro.
 const layoutDayEvents = (dayEvents: Event[], day: Date): PositionedEvent[] => {
@@ -143,6 +171,8 @@ export default function Calendario() {
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(new Date());
   const timeGridRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -151,6 +181,8 @@ export default function Calendario() {
   const queryClient = useQueryClient();
 
   const [eventForm, setEventForm] = useState<EventFormData>(EMPTY_FORM);
+  // La base de datos solo deja editar y borrar los eventos propios
+  const esMio = !!selectedEvent && !!profile && selectedEvent.creador_id === profile.id;
 
   // La clave depende del rango visible, no del día elegido: moverse dentro
   // de la misma semana o mes no vuelve a pedir los eventos
@@ -171,7 +203,7 @@ export default function Calendario() {
   });
   useAvisarError(error, "No se pudieron cargar los eventos");
 
-  const { data: upcomingEvents = [] } = useQuery({
+  const { data: upcomingEvents = [], isPending: loadingUpcoming } = useQuery({
     queryKey: ['eventos', 'proximos'],
     queryFn: async () =>
       comprobar(
@@ -234,17 +266,11 @@ export default function Calendario() {
       return;
     }
 
+    setSaving(true);
     try {
       const { error } = await supabase
         .from('eventos')
-        .insert([
-          {
-            ...eventForm,
-            creador_id: profile.id,
-            fecha_inicio: inicio.toISOString(),
-            fecha_fin: fin.toISOString(),
-          }
-        ]);
+        .insert([{ ...datosDelFormulario(eventForm, inicio, fin), creador_id: profile.id }]);
 
       if (error) {
         toast({
@@ -263,6 +289,9 @@ export default function Calendario() {
       }
     } catch (error) {
       console.error('Error creating event:', error);
+      toast({ title: "Error", description: "No se pudo crear el evento", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -281,7 +310,7 @@ export default function Calendario() {
 
   const handleUpdateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEvent || !profile) return;
+    if (!selectedEvent || !esMio) return;
 
     const inicio = new Date(eventForm.fecha_inicio);
     const fin = new Date(eventForm.fecha_fin);
@@ -290,20 +319,17 @@ export default function Calendario() {
       return;
     }
 
+    setSaving(true);
     try {
-      const { error } = await supabase
+      // Con .select() se sabe si se ha cambiado algo: si la base de datos no deja
+      // tocar el evento, no da error, solo no actualiza ninguna fila
+      const { data, error } = await supabase
         .from('eventos')
-        .update({
-          titulo: eventForm.titulo,
-          descripcion: eventForm.descripcion,
-          fecha_inicio: inicio.toISOString(),
-          fecha_fin: fin.toISOString(),
-          ubicacion: eventForm.ubicacion,
-          es_privado: eventForm.es_privado,
-        })
-        .eq('id', selectedEvent.id);
+        .update(datosDelFormulario(eventForm, inicio, fin))
+        .eq('id', selectedEvent.id)
+        .select('id');
 
-      if (error) {
+      if (error || data?.length === 0) {
         toast({
           title: "Error",
           description: "No se pudo actualizar el evento",
@@ -321,19 +347,24 @@ export default function Calendario() {
       }
     } catch (error) {
       console.error('Error updating event:', error);
+      toast({ title: "Error", description: "No se pudo actualizar el evento", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeleteEvent = async () => {
-    if (!selectedEvent) return;
+    if (!selectedEvent || !esMio) return;
 
+    setSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('eventos')
         .delete()
-        .eq('id', selectedEvent.id);
+        .eq('id', selectedEvent.id)
+        .select('id');
 
-      if (error) {
+      if (error || data?.length === 0) {
         toast({
           title: "Error",
           description: "No se pudo eliminar el evento",
@@ -344,12 +375,16 @@ export default function Calendario() {
           title: "Evento eliminado",
           description: "El evento se ha eliminado exitosamente",
         });
+        setConfirmDelete(false);
         setIsEditEventOpen(false);
         setSelectedEvent(null);
         queryClient.invalidateQueries({ queryKey: ['eventos'] });
       }
     } catch (error) {
       console.error('Error deleting event:', error);
+      toast({ title: "Error", description: "No se pudo eliminar el evento", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -434,11 +469,7 @@ export default function Calendario() {
   const getEventsForDay = (date: Date) => {
     const dayStart = startOfDay(date);
     const dayEnd = endOfDay(date);
-    return events.filter(event => {
-      const eventStart = new Date(event.fecha_inicio);
-      const eventEnd = new Date(event.fecha_fin);
-      return eventStart <= dayEnd && eventEnd >= dayStart;
-    });
+    return events.filter(event => solapa(event, dayStart, dayEnd));
   };
 
   const daysToDisplay = getDaysToDisplay();
@@ -726,11 +757,11 @@ export default function Calendario() {
   const renderYearView = () => {
     const eventDays = new Set<string>();
     events.forEach(event => {
-      let day = startOfDay(new Date(event.fecha_inicio));
+      const start = new Date(event.fecha_inicio);
       const end = new Date(event.fecha_fin);
-      while (day <= end) {
+      eventDays.add(format(start, 'yyyy-MM-dd'));
+      for (let day = addDays(startOfDay(start), 1); day < end; day = addDays(day, 1)) {
         eventDays.add(format(day, 'yyyy-MM-dd'));
-        day = addDays(day, 1);
       }
     });
 
@@ -743,7 +774,8 @@ export default function Calendario() {
           for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) {
             monthDays.push(day);
           }
-          const monthEventCount = events.filter(event => isSameMonth(new Date(event.fecha_inicio), month)).length;
+          // Cuenta también los eventos que empezaron antes y siguen en este mes
+          const monthEventCount = events.filter(event => solapa(event, startOfMonth(month), endOfMonth(month))).length;
 
           return (
             <div key={month.toISOString()} className="border rounded-lg p-3">
@@ -893,7 +925,7 @@ export default function Calendario() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {loadingUpcoming ? (
                 <div className="text-center py-4">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </div>
@@ -955,7 +987,7 @@ export default function Calendario() {
               <Button type="button" variant="outline" onClick={() => setIsCreateEventOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={saving}>
                 Crear Evento
               </Button>
             </div>
@@ -966,26 +998,63 @@ export default function Calendario() {
       <Dialog open={isEditEventOpen} onOpenChange={setIsEditEventOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Editar Evento</DialogTitle>
+            <DialogTitle>{esMio ? 'Editar Evento' : 'Detalle del evento'}</DialogTitle>
+            {!esMio && (
+              <DialogDescription>Solo quien creó el evento puede modificarlo o eliminarlo.</DialogDescription>
+            )}
           </DialogHeader>
           <form onSubmit={handleUpdateEvent} className="space-y-4">
-            {renderEventFields('edit-')}
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="destructive" onClick={handleDeleteEvent}>
-                Eliminar
-              </Button>
-              <div className="flex space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditEventOpen(false)}>
-                  Cancelar
+            <fieldset disabled={!esMio} className="space-y-4">
+              {renderEventFields('edit-')}
+            </fieldset>
+            {esMio ? (
+              <div className="flex justify-between pt-4">
+                <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)} disabled={saving}>
+                  Eliminar
                 </Button>
-                <Button type="submit">
-                  Guardar Cambios
+                <div className="flex space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsEditEventOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    Guardar Cambios
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditEventOpen(false)}>
+                  Cerrar
                 </Button>
               </div>
-            </div>
+            )}
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este evento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará "{selectedEvent?.titulo}" del calendario. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                // Se cierra al terminar, no al pulsar: si falla, se puede reintentar
+                e.preventDefault();
+                handleDeleteEvent();
+              }}
+              disabled={saving}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

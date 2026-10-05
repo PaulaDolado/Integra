@@ -97,7 +97,13 @@ export default function TicketDetalle() {
   const esSoporte = tiene("tickets.gestionar");
 
   // Ticket, historial y adjuntos, con sus URLs firmadas (duran 1 hora y se renuevan en cada recarga)
-  const { data: detalle, isLoading: cargandoTicket } = useQuery({
+  const {
+    data: detalle,
+    isLoading: cargandoTicket,
+    error: errorTicket,
+    refetch: reintentarTicket,
+    isFetching: reintentando,
+  } = useQuery({
     queryKey: claveTicket(id),
     queryFn: async () => {
       const [t, segs, adj] = await Promise.all([
@@ -168,6 +174,29 @@ export default function TicketDetalle() {
     );
   }
 
+  // Un fallo de red no es lo mismo que un ticket que no existe
+  if (errorTicket && !ticket) {
+    return (
+      <div className="p-6 space-y-4">
+        <Button variant="ghost" asChild className="gap-2 px-2">
+          <Link to="/tickets">
+            <ArrowLeft className="w-4 h-4" />
+            Volver a los tickets
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="py-16 text-center space-y-4">
+            <p className="text-muted-foreground">No se pudo cargar el ticket. Comprueba la conexión e inténtalo de nuevo.</p>
+            <Button variant="outline" onClick={() => reintentarTicket()} disabled={reintentando}>
+              {reintentando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!ticket) {
     return (
       <div className="p-6 space-y-4">
@@ -200,67 +229,98 @@ export default function TicketDetalle() {
     propiedades.estado !== ticket.estado ||
     propiedades.asignado !== (ticket.asignado_a_id ?? SIN_ASIGNAR);
 
+  // Errores de Supabase ({ message }) y excepciones (red caída, etc.)
+  const avisarFallo = (error: unknown) => {
+    console.error("Error in ticket action:", error);
+    const mensaje = (error as { message?: string } | null)?.message;
+    toast({ title: "Error", description: mensaje || "Inténtalo de nuevo", variant: "destructive" });
+  };
+
   const enviar = async () => {
     if (!texto.trim()) return;
     setEnviando(true);
-    const { data: seguimientoId, error } =
-      modoActivo === "solucion"
-        ? await supabase.rpc("solucionar_ticket", { p_ticket: ticket.id, p_contenido: texto })
-        : await supabase.rpc("responder_ticket", { p_ticket: ticket.id, p_contenido: texto });
-    if (error) {
+    try {
+      const { data: seguimientoId, error } =
+        modoActivo === "solucion"
+          ? await supabase.rpc("solucionar_ticket", { p_ticket: ticket.id, p_contenido: texto })
+          : await supabase.rpc("responder_ticket", { p_ticket: ticket.id, p_contenido: texto });
+      if (error) {
+        avisarFallo(error);
+        return;
+      }
+      // El mensaje ya está guardado: si fallan las imágenes se dice en el mismo aviso
+      const { fallidas } = await subirAdjuntos(ticket.id, seguimientoId, archivos).catch((e: unknown) => {
+        console.error("Error uploading ticket images:", e);
+        return { fallidas: archivos.length };
+      });
+      const titulo = modoActivo === "solucion" ? "Solución añadida" : "Respuesta enviada";
+      if (fallidas > 0) {
+        toast({
+          title: `${titulo}, pero sin todas las imágenes`,
+          description: `${fallidas} imagen(es) no se pudieron adjuntar`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: titulo,
+          description: modoActivo === "solucion" ? "El ticket queda resuelto a la espera de que el solicitante lo apruebe" : undefined,
+        });
+      }
+      setTexto("");
+      setArchivos([]);
+      setModo("respuesta");
+      recargar();
+    } catch (error) {
+      avisarFallo(error);
+    } finally {
       setEnviando(false);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
     }
-    const { fallidas } = await subirAdjuntos(ticket.id, seguimientoId, archivos);
-    setEnviando(false);
-    if (fallidas > 0) {
-      toast({ title: "Algunas imágenes no se han adjuntado", description: `${fallidas} imagen(es) no se pudieron subir`, variant: "destructive" });
-    }
-    toast({
-      title: modoActivo === "solucion" ? "Solución añadida" : "Respuesta enviada",
-      description: modoActivo === "solucion" ? "El ticket queda resuelto a la espera de que el solicitante lo apruebe" : undefined,
-    });
-    setTexto("");
-    setArchivos([]);
-    setModo("respuesta");
-    recargar();
   };
 
   const valorar = async (aprobar: boolean) => {
     setEnviando(true);
-    const { error } = await supabase.rpc("valorar_solucion", {
-      p_ticket: ticket.id,
-      p_aprobar: aprobar,
-      p_comentario: aprobar ? undefined : motivoRechazo,
-    });
-    setEnviando(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { error } = await supabase.rpc("valorar_solucion", {
+        p_ticket: ticket.id,
+        p_aprobar: aprobar,
+        p_comentario: aprobar ? undefined : motivoRechazo.trim(),
+      });
+      if (error) {
+        avisarFallo(error);
+        return;
+      }
+      toast({ title: aprobar ? "Solución aprobada" : "Solución rechazada", description: aprobar ? "El ticket se ha cerrado" : "El ticket vuelve a estar en curso" });
+      setRechazando(false);
+      setMotivoRechazo("");
+      recargar();
+    } catch (error) {
+      avisarFallo(error);
+    } finally {
+      setEnviando(false);
     }
-    toast({ title: aprobar ? "Solución aprobada" : "Solución rechazada", description: aprobar ? "El ticket se ha cerrado" : "El ticket vuelve a estar en curso" });
-    setRechazando(false);
-    setMotivoRechazo("");
-    recargar();
   };
 
   const guardarPropiedades = async () => {
     setGuardandoPropiedades(true);
-    const { error } = await supabase.rpc("actualizar_ticket", {
-      p_ticket: ticket.id,
-      p_tipo: propiedades.tipo,
-      p_prioridad: propiedades.prioridad,
-      p_estado: propiedades.estado,
-      p_asignado: propiedades.asignado === SIN_ASIGNAR ? null : propiedades.asignado,
-    });
-    setGuardandoPropiedades(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { error } = await supabase.rpc("actualizar_ticket", {
+        p_ticket: ticket.id,
+        p_tipo: propiedades.tipo,
+        p_prioridad: propiedades.prioridad,
+        p_estado: propiedades.estado,
+        p_asignado: propiedades.asignado === SIN_ASIGNAR ? null : propiedades.asignado,
+      });
+      if (error) {
+        avisarFallo(error);
+        return;
+      }
+      toast({ title: "Ticket actualizado" });
+      recargar();
+    } catch (error) {
+      avisarFallo(error);
+    } finally {
+      setGuardandoPropiedades(false);
     }
-    toast({ title: "Ticket actualizado" });
-    recargar();
   };
 
   const pegar = (event: React.ClipboardEvent) => {

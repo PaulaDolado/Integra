@@ -76,9 +76,11 @@ export async function subirAdjuntos(ticketId: string, seguimientoId: string | nu
 // URLs firmadas (1 hora) de todos los adjuntos de un ticket
 export async function urlsAdjuntos(adjuntos: Adjunto[]) {
   if (adjuntos.length === 0) return new Map<string, string>();
-  const { data } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from(BUCKET_TICKETS)
     .createSignedUrls(adjuntos.map((a) => a.path), 3600);
+  // Sin URL, la galería muestra que la imagen no se ha podido cargar
+  if (error) console.error("Error signing ticket images:", error);
   // Solo los que se han podido firmar y tienen ruta
   return new Map((data ?? []).flatMap((d) => (d.path && d.signedUrl ? [[d.path, d.signedUrl] as const] : [])));
 }

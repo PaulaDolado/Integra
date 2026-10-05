@@ -29,7 +29,6 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | Estilos | Tailwind CSS 4 (plugin de Vite, tema en `src/index.css`), fuente Inter Variable, tema claro y oscuro |
 | Componentes | shadcn/ui sobre Radix UI, iconos Lucide |
 | Datos del servidor | Supabase JS y TanStack Query 5 |
-| Formularios y validación | React Hook Form y Zod |
 | Fechas | date-fns y react-day-picker |
 | Backend | Supabase: PostgreSQL, Auth (con doble factor TOTP), Storage, Realtime y Row Level Security |
 | Tests | Vitest 5, Testing Library y jsdom; Playwright para los tests end-to-end |

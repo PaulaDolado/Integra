@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Adjunto } from "./adjuntos";
@@ -26,13 +26,17 @@ export function GaleriaAdjuntos({ adjuntos, urls }: GaleriaAdjuntosProps) {
               <button
                 type="button"
                 onClick={() => setAbierta(a)}
-                className="block overflow-hidden rounded-lg border bg-muted transition-[transform,box-shadow] duration-150 ease-out hover:shadow-md active:scale-[0.97]"
-                aria-label={`Ver ${a.nombre}`}
+                disabled={!url}
+                className="block overflow-hidden rounded-lg border bg-muted transition-[transform,box-shadow] duration-150 ease-out enabled:hover:shadow-md enabled:active:scale-[0.97] disabled:cursor-not-allowed"
+                aria-label={url ? `Ver ${a.nombre}` : `No se pudo cargar ${a.nombre}`}
+                title={url ? undefined : "No se pudo cargar la imagen"}
               >
                 {url ? (
                   <img src={url} alt={a.nombre} loading="lazy" className="h-24 w-24 object-cover" />
                 ) : (
-                  <div className="h-24 w-24" />
+                  <div className="flex h-24 w-24 items-center justify-center text-muted-foreground">
+                    <ImageOff className="h-6 w-6" />
+                  </div>
                 )}
               </button>
             </li>
