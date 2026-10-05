@@ -87,6 +87,7 @@ const CORRECCIONES: Correccion[] = [
 ];
 
 let fichajes: Fichaje[] = [];
+let correcciones: { data: Correccion[] | null; error: { message: string } | null };
 let llamadas: { tabla: string; metodo: string; args: unknown[] }[] = [];
 
 // Constructor de consultas encadenable: aplica eq/gte/lte sobre los datos simulados
@@ -94,7 +95,7 @@ function tabla(nombre: string) {
   const eq: [string, unknown][] = [];
   const rango: { gte?: string; lte?: string } = {};
   const resolver = () => {
-    if (nombre === "fichaje_correcciones") return { data: CORRECCIONES, error: null };
+    if (nombre === "fichaje_correcciones") return correcciones;
     const data = fichajes
       .filter((f) => eq.every(([campo, valor]) => f[campo as keyof Fichaje] === valor))
       .filter((f) => (!rango.gte || f.fecha_hora >= rango.gte) && (!rango.lte || f.fecha_hora <= rango.lte))
@@ -137,6 +138,7 @@ describe("Fichajes de la plantilla", () => {
     vi.setSystemTime(AHORA);
     toast.mockReset();
     fichajes = fichajesIniciales();
+    correcciones = { data: CORRECCIONES, error: null };
     llamadas = [];
     vi.mocked(useMiEmpleadoId).mockReturnValue({ empleadoId: MI_ID, loading: false });
     vi.mocked(supabase.from).mockImplementation(tabla as never);
@@ -219,6 +221,29 @@ describe("Fichajes de la plantilla", () => {
     expect(filaDe("Laura Gómez")).toHaveAttribute("aria-expanded", "false");
     const detallePablo = filaDe("Pablo Sanz").nextElementSibling as HTMLElement;
     expect(within(detallePablo).getByText("09:00 – ¿?", { exact: false })).toHaveAttribute("title", "Falta la salida");
+  });
+
+  it("una modificación sin hora nueva no rompe la página", async () => {
+    conPermisos("fichajes.ver_todos");
+    correcciones = { data: [{ ...CORRECCIONES[0], fecha_hora_nueva: null }], error: null };
+    renderConQuery(<GestionFichajes />);
+    await userEvent.click(await screen.findByText("Laura Gómez"));
+
+    expect(screen.getByText("Cambiada entrada: 6 oct 09:15 → —")).toBeInTheDocument();
+  });
+
+  it("avisa si no se pueden cargar las correcciones, sin dejar de mostrar los fichajes", async () => {
+    conPermisos("fichajes.ver_todos");
+    correcciones = { data: null, error: { message: "permission denied" } };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderConQuery(<GestionFichajes />);
+
+    expect(await screen.findByText("Laura Gómez")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "No se pudieron cargar las correcciones de los fichajes", variant: "destructive" })
+      )
+    );
   });
 
   it("filtra por departamento y por nombre, y los indicadores siguen al filtro", async () => {

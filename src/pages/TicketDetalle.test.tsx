@@ -81,6 +81,8 @@ let filas: {
   plantillas: { id: string; nombre: string; contenido: string }[];
 };
 let consultas: { tabla: string; filtros: [string, unknown][] }[];
+// Error al leer el ticket (red caída, por ejemplo)
+let errorTicket: { message: string } | null;
 const insertar = vi.fn();
 const subir = vi.fn();
 const firmar = vi.fn();
@@ -102,7 +104,10 @@ function tabla(nombre: string) {
     order: () => cadena,
     maybeSingle: () => cadena,
     insert: (fila: unknown) => (insertar(nombre, fila), Promise.resolve({ data: null, error: null })),
-    then: <T,>(ok: (r: { data: unknown; error: null }) => T) => Promise.resolve({ data: datos(), error: null }).then(ok),
+    then: <T,>(ok: (r: { data: unknown; error: { message: string } | null }) => T) =>
+      Promise.resolve(
+        nombre === "tickets" && errorTicket ? { data: null, error: errorTicket } : { data: datos(), error: null }
+      ).then(ok),
   };
   return cadena;
 }
@@ -152,6 +157,7 @@ describe("Detalle de un ticket", () => {
     toast.mockReset();
     insertar.mockReset();
     consultas = [];
+    errorTicket = null;
     filas = { ticket: crearTicket(), seguimientos: [], adjuntos: [], plantillas: [] };
     vi.mocked(supabase.from).mockImplementation(tabla as never);
     subir.mockResolvedValue({ data: null, error: null });
@@ -211,6 +217,30 @@ describe("Detalle de un ticket", () => {
 
     expect(await screen.findByText("El ticket no existe o no tienes acceso a él.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Volver a los tickets/ })).toHaveAttribute("href", "/tickets");
+  });
+
+  it("si falla la carga no dice que el ticket no existe y deja reintentar", async () => {
+    comoUsuario(SOLICITANTE);
+    errorTicket = { message: "Failed to fetch" };
+    abrirTicket();
+
+    expect(await screen.findByText(/No se pudo cargar el ticket/)).toBeInTheDocument();
+    expect(screen.queryByText("El ticket no existe o no tienes acceso a él.")).not.toBeInTheDocument();
+
+    errorTicket = null;
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await titulo()).toBeInTheDocument();
+  });
+
+  it("si una imagen no se puede firmar se indica en su miniatura", async () => {
+    comoUsuario(SOLICITANTE);
+    filas.adjuntos = [adjunto({})];
+    firmar.mockResolvedValue({ data: null, error: { message: "Object not found" } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    abrirTicket();
+    await titulo();
+
+    expect(screen.getByRole("button", { name: "No se pudo cargar foto.png" })).toBeDisabled();
   });
 
   it("el solicitante solo puede responder: ni soluciones ni edición de propiedades", async () => {
@@ -284,6 +314,46 @@ describe("Detalle de un ticket", () => {
     expect(subir).not.toHaveBeenCalled();
   });
 
+  it("si alguna imagen no se sube lo dice en un solo aviso", async () => {
+    comoUsuario(SOLICITANTE);
+    subir.mockResolvedValue({ data: null, error: { message: "Payload too large" } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = abrirTicket();
+    await titulo();
+
+    const imagen = new File(["png"], "pantallazo.png", { type: "image/png" });
+    await userEvent.upload(container.querySelector('input[type="file"]') as HTMLInputElement, imagen);
+    await userEvent.type(screen.getByRole("textbox", { name: "Respuesta" }), "Adjunto captura");
+    await userEvent.click(screen.getByRole("button", { name: "Responder" }));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Respuesta enviada, pero sin todas las imágenes", variant: "destructive" })
+      )
+    );
+    expect(toast).toHaveBeenCalledTimes(1);
+  });
+
+  it("si la conexión falla al enviar avisa y el formulario vuelve a estar disponible", async () => {
+    comoUsuario(SOLICITANTE);
+    vi.mocked(supabase.rpc).mockImplementation((async (nombre: string) => {
+      if (nombre === "personas_tickets") return { data: PERSONAS, error: null };
+      throw new TypeError("Failed to fetch");
+    }) as never);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    abrirTicket();
+    await titulo();
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Respuesta" }), "Hola");
+    await userEvent.click(screen.getByRole("button", { name: "Responder" }));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to fetch", variant: "destructive" }))
+    );
+    expect(screen.getByRole("button", { name: "Responder" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Respuesta" })).toHaveValue("Hola");
+  });
+
   it("la técnica asignada añade una solución partiendo de una plantilla", async () => {
     comoUsuario(TECNICA);
     filas.plantillas = [{ id: "p1", nombre: "Reinicio", contenido: "Se ha reiniciado el equipo y funciona." }];
@@ -334,7 +404,7 @@ describe("Detalle de un ticket", () => {
     await userEvent.click(screen.getByRole("button", { name: "Rechazar" }));
     const rechazar = screen.getByRole("button", { name: "Rechazar solución" });
     expect(rechazar).toBeDisabled();
-    await userEvent.type(screen.getByLabelText("¿Por qué no resuelve tu solicitud?"), "Sigue atascándose");
+    await userEvent.type(screen.getByLabelText("¿Por qué no resuelve tu solicitud?"), "  Sigue atascándose  ");
     await userEvent.click(rechazar);
 
     expect(supabase.rpc).toHaveBeenCalledWith("valorar_solucion", {

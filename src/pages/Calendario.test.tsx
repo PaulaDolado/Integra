@@ -49,11 +49,14 @@ let eventos: Evento[];
 let proximos: Evento[];
 let errorLectura: { message: string } | null;
 let errorEscritura: { message: string } | null;
+// Filas que devuelve un update o delete: 0 si la base de datos no deja tocar el evento
+let filasAfectadas: number;
 
 const responder = (cadena: Cadena) => {
   const metodos = cadena.map(([m]) => m);
   if (metodos.some((m) => m === "insert" || m === "update" || m === "delete")) {
-    return { data: null, error: errorEscritura };
+    if (errorEscritura) return { data: null, error: errorEscritura };
+    return { data: metodos.includes("insert") ? null : Array.from({ length: filasAfectadas }, () => ({ id: "ev1" })), error: null };
   }
   if (metodos.includes("limit")) return { data: proximos, error: null };
   return { data: errorLectura ? null : eventos, error: errorLectura };
@@ -97,6 +100,7 @@ describe("Calendario", () => {
     proximos = [evento({ ubicacion: "Sala Azul" })];
     errorLectura = null;
     errorEscritura = null;
+    filasAfectadas = 1;
     vi.mocked(supabase.from).mockImplementation(tabla as never);
     vi.mocked(useAuth).mockReturnValue({ user: { id: "u1" } } as ReturnType<typeof useAuth>);
     vi.mocked(useEmployeeProfile).mockReturnValue({ profile: { id: "emp1" } } as ReturnType<typeof useEmployeeProfile>);
@@ -214,7 +218,7 @@ describe("Calendario", () => {
         [
           {
             titulo: "Revisión trimestral",
-            descripcion: "",
+            descripcion: null,
             fecha_inicio: iso(2026, 9, 7, 11),
             fecha_fin: iso(2026, 9, 7, 12),
             ubicacion: "Sala Verde",
@@ -288,27 +292,32 @@ describe("Calendario", () => {
         "update",
         {
           titulo: "Reunión de planificación",
-          descripcion: "",
+          descripcion: null,
+          ubicacion: null,
+          es_privado: false,
           fecha_inicio: iso(2026, 9, 7, 9),
           fecha_fin: iso(2026, 9, 7, 10, 30),
-          ubicacion: "",
-          es_privado: false,
         },
       ],
       ["eq", "id", "ev1"],
+      ["select", "id"],
     ]);
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Evento actualizado" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("elimina el evento abierto", async () => {
+  it("elimina el evento abierto tras confirmarlo", async () => {
     renderConQuery(<Calendario />);
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
     await userEvent.click(enRejilla);
 
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Eliminar" }));
+    const confirmacion = screen.getByRole("alertdialog", { name: "¿Eliminar este evento?" });
+    expect(escrituras("delete")).toHaveLength(0);
 
-    expect(escrituras("delete")[0]).toEqual([["delete"], ["eq", "id", "ev1"]]);
+    await userEvent.click(within(confirmacion).getByRole("button", { name: "Eliminar" }));
+
+    expect(escrituras("delete")[0]).toEqual([["delete"], ["eq", "id", "ev1"], ["select", "id"]]);
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Evento eliminado" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
@@ -320,11 +329,64 @@ describe("Calendario", () => {
     await userEvent.click(enRejilla);
 
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Eliminar" }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" }));
 
     expect(toast).toHaveBeenCalledWith(
       expect.objectContaining({ description: "No se pudo eliminar el evento", variant: "destructive" })
     );
+    // La confirmación sigue abierta para reintentar, y el evento detrás
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByText("Editar Evento")).toBeInTheDocument();
+  });
+
+  it("los eventos de otra persona se ven pero no se pueden editar ni borrar", async () => {
+    eventos = [evento({ creador_id: "emp9" })];
+    renderConQuery(<Calendario />);
+    const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
+    await userEvent.click(enRejilla);
+
+    const dialogo = screen.getByRole("dialog", { name: "Detalle del evento" });
+    expect(within(dialogo).getByText(/Solo quien creó el evento/)).toBeInTheDocument();
+    expect(within(dialogo).getByLabelText("Título del evento")).toBeDisabled();
+    expect(within(dialogo).queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
+    expect(within(dialogo).queryByRole("button", { name: "Guardar Cambios" })).not.toBeInTheDocument();
+  });
+
+  it("si la base de datos no actualiza ninguna fila no dice que se ha guardado", async () => {
+    filasAfectadas = 0;
+    renderConQuery(<Calendario />);
+    const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
+    await userEvent.click(enRejilla);
+
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Guardar Cambios" }));
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ description: "No se pudo actualizar el evento", variant: "destructive" })
+    );
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Evento actualizado" }));
     expect(screen.getByRole("dialog", { name: "Editar Evento" })).toBeInTheDocument();
+  });
+
+  it("un evento que acaba a medianoche no aparece en el día siguiente", async () => {
+    eventos = [evento({ titulo: "Cena de empresa", fecha_inicio: iso(2026, 9, 7, 21), fecha_fin: iso(2026, 9, 8) })];
+    renderConQuery(<Calendario />);
+    await screen.findAllByText("Cena de empresa");
+
+    await userEvent.click(screen.getByRole("radio", { name: "Vista diaria" }));
+    expect(screen.getAllByText("Cena de empresa").length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(screen.getByText("Jueves, 8 de octubre 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Cena de empresa")).not.toBeInTheDocument();
+  });
+
+  it("en la vista de año cuenta un evento en todos los meses que ocupa", async () => {
+    eventos = [evento({ titulo: "Auditoría", fecha_inicio: iso(2026, 9, 28, 9), fecha_fin: iso(2026, 10, 3, 18) })];
+    renderConQuery(<Calendario />);
+    await userEvent.click(screen.getByRole("radio", { name: "Vista anual" }));
+
+    expect(await screen.findByRole("button", { name: /Octubre\s*1 evento/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Noviembre\s*1 evento/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Diciembre$/ })).toBeInTheDocument();
   });
 
   it("avisa si no se pueden cargar los eventos", async () => {

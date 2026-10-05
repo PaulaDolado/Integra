@@ -60,7 +60,7 @@ const describirCorreccion = (c: Correccion) => {
     case "alta":
       return `Añadida ${tipo} de ${h(c.fecha_hora_nueva)}`;
     case "modificacion":
-      return `Cambiada ${tipo}: ${h(c.fecha_hora_anterior)} → ${format(new Date(c.fecha_hora_nueva ?? ""), "HH:mm")}`;
+      return `Cambiada ${tipo}: ${h(c.fecha_hora_anterior)} → ${c.fecha_hora_nueva ? format(new Date(c.fecha_hora_nueva), "HH:mm") : "—"}`;
     default:
       return `Anulada ${tipo} de ${h(c.fecha_hora_anterior)}`;
   }
@@ -129,7 +129,7 @@ export default function GestionFichajes() {
     enabled: puedeVer,
   });
   // Correcciones que afectan a fichajes del periodo
-  const { data: correcciones = [] } = useQuery({
+  const { data: correcciones = [], error: errorCorrecciones } = useQuery({
     queryKey: [...CLAVE, "correcciones", desdeIso, hastaIso],
     queryFn: async (): Promise<Correccion[]> =>
       comprobar(
@@ -144,7 +144,7 @@ export default function GestionFichajes() {
     enabled: puedeVer && rangoValido,
     placeholderData: keepPreviousData,
   });
-  const { data: autores = SIN_AUTORES } = useQuery({
+  const { data: autores = SIN_AUTORES, error: errorAutores } = useQuery({
     queryKey: [...CLAVE, "autores"],
     queryFn: async () => comprobar(await supabase.rpc("autores_correcciones_fichajes")) ?? [],
     enabled: puedeVer,
@@ -159,6 +159,8 @@ export default function GestionFichajes() {
     consultaPlantilla.error ?? consultaFichajes.error ?? consultaHoy.error,
     "No se pudieron cargar los fichajes"
   );
+  // Sin ellas la tabla sigue siendo útil, pero hay que saber que falta información
+  useAvisarError(errorCorrecciones ?? errorAutores, "No se pudieron cargar las correcciones de los fichajes");
 
   // Altas, modificaciones y anulaciones
   useInvalidarEnCambios(puedeVer ? "gestion-fichajes-changes" : null, [{ table: "fichajes" }], [CLAVE]);

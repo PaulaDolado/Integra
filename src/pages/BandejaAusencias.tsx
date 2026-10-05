@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarDays, Check, Inbox, Loader2, Lock, Paperclip, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +40,9 @@ const FILTROS: { value: Filtro; label: string }[] = [
 
 const CLAVE = ["bandeja-ausencias"];
 
-const formatFecha = (fecha: string) => format(new Date(fecha), "d MMM yyyy", { locale: es });
+// Fechas sin hora (AAAA-MM-DD): parseISO las lee en hora local; new Date() las
+// leería en UTC y al oeste de Greenwich saldrían un día antes
+const formatFecha = (fecha: string) => format(parseISO(fecha), "d MMM yyyy", { locale: es });
 
 export default function BandejaAusencias() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
@@ -64,7 +66,10 @@ export default function BandejaAusencias() {
   useInvalidarEnCambios(puedeAprobar ? "bandeja-ausencias-changes" : null, [{ table: "solicitudes_vacacion" }], [CLAVE]);
 
   const abrirJustificante = async (path: string) => {
-    const { data, error } = await supabase.storage.from("justificantes").createSignedUrl(path, 60);
+    const { data, error } = await supabase.storage
+      .from("justificantes")
+      .createSignedUrl(path, 60)
+      .catch((error: unknown) => ({ data: null, error }));
     if (error || !data) {
       toast({ title: "Error", description: "No se pudo abrir el justificante", variant: "destructive" });
       return;

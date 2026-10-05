@@ -242,7 +242,7 @@ describe("Solicitud de ausencia", () => {
     await enviar(dialogo);
     expect(toast).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        description: "La fecha de fin debe ser posterior a la fecha de inicio",
+        description: "La fecha de fin no puede ser anterior a la fecha de inicio",
         variant: "destructive",
       })
     );
@@ -290,6 +290,52 @@ describe("Solicitud de ausencia", () => {
 
     await waitFor(() => expect(insert).toHaveBeenCalledWith(expect.objectContaining({ justificante_path: null })));
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un justificante de un tipo no admitido aunque se salte el filtro del selector", async () => {
+    renderConQuery(<Vacaciones />);
+    const dialogo = await abrirFormulario();
+
+    const input = within(dialogo).getByLabelText(/Importa el justificante/) as HTMLInputElement;
+    // fireEvent no aplica `accept`, como cuando se elige «Todos los archivos»
+    fireEvent.change(input, { target: { files: [new File(["x"], "programa.EXE", { type: "application/octet-stream" })] } });
+
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Tipo de archivo no admitido", variant: "destructive" })
+    );
+
+    await elegir(within(dialogo).getByLabelText("Tipo de ausencia"), "Vacaciones");
+    ponerFechas(dialogo, "2026-11-02", "2026-11-06");
+    await enviar(dialogo);
+
+    await waitFor(() => expect(insert).toHaveBeenCalledWith(expect.objectContaining({ justificante_path: null })));
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("acepta extensiones admitidas en mayúsculas", async () => {
+    renderConQuery(<Vacaciones />);
+    const dialogo = await abrirFormulario();
+
+    const input = within(dialogo).getByLabelText(/Importa el justificante/) as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "PARTE.PDF", { type: "application/pdf" })] } });
+
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("no envía sin fechas aunque el navegador no lo impida", async () => {
+    renderConQuery(<Vacaciones />);
+    const dialogo = await abrirFormulario();
+    await elegir(within(dialogo).getByLabelText("Tipo de ausencia"), "Vacaciones");
+
+    // Se envía el formulario directamente, sin la validación `required` del navegador
+    fireEvent.submit(within(dialogo).getByRole("button", { name: "Enviar Solicitud" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Indica las fechas de inicio y de fin", variant: "destructive" })
+      )
+    );
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("si falla el alta borra el justificante subido, avisa y deja el diálogo abierto", async () => {
@@ -345,5 +391,20 @@ describe("Solicitud de ausencia", () => {
 
     expect(createSignedUrl).toHaveBeenCalledWith("u1/parte.pdf", 60);
     expect(abrir).toHaveBeenCalledWith("https://firmado.test/parte.pdf", "_blank", "noopener,noreferrer");
+  });
+
+  it("si falla la conexión al pedir el enlace del justificante avisa", async () => {
+    createSignedUrl.mockRejectedValue(new TypeError("Failed to fetch"));
+    const abrir = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderConQuery(<Vacaciones />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Ver justificante" }));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "No se pudo abrir el justificante", variant: "destructive" })
+      )
+    );
+    expect(abrir).not.toHaveBeenCalled();
   });
 });
