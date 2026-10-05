@@ -20,6 +20,8 @@
 
 Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: fichajes, ausencias, cambios de turno, tareas, calendario, tickets, tablón de anuncios, chat interno y gestor de contraseñas. RRHH, Dirección, Finanzas y Tecnología tienen además sus propias pantallas de gestión.
 
+🔗 **Sitio en vivo:** https://pauladolado.github.io/Integra
+
 ## Índice
 
 - [Stack](#stack)
