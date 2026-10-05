@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { comprobar } from "@/lib/query-client";
 import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { Link, useNavigate } from "react-router";
-import { getArea } from "@/components/noticias/areas";
+import { NOTA_FORMULARIO, getArea } from "@/components/noticias/areas";
 
 export function NewsWidget() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export function NewsWidget() {
       comprobar(
         await supabase
           .from("anuncios")
-          .select("id, titulo, contenido, fecha_publicacion, autor_id, area")
+          .select("id, titulo, contenido, fecha_publicacion, autor_id, area, tipo")
           // Solo las que siguen en el tablón
           .or(`fecha_fin.is.null,fecha_fin.gt.${new Date().toISOString()}`)
           .order("fecha_publicacion", { ascending: false })
@@ -63,6 +63,11 @@ export function NewsWidget() {
                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getArea(item.area).etiqueta}`}>
                     {getArea(item.area).label}
                   </span>
+                  {item.tipo === "formulario" && (
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${NOTA_FORMULARIO.etiqueta}`}>
+                      Formulario
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {new Date(item.fecha_publicacion).toLocaleDateString("es-ES")}
                   </span>

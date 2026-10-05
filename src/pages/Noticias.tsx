@@ -23,7 +23,7 @@ import { type Comunicado, ComunicadoDialog } from "@/components/noticias/Comunic
 import { usePermisos } from "@/hooks/usePermisos";
 import { addMonths, format, isSameMonth, startOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
-import { type AreaComunicado, AREAS, getArea } from "@/components/noticias/areas";
+import { type AreaComunicado, AREAS, getArea, estiloNota } from "@/components/noticias/areas";
 
 type Anuncio = Comunicado;
 
@@ -182,7 +182,7 @@ export default function Noticias() {
         ) : (
           <div className="columns-1 gap-6 sm:columns-2 lg:columns-3 2xl:columns-4">
             {visibles.map((noticia) => {
-              const area = getArea(noticia.area);
+              const area = estiloNota(noticia.area, noticia.tipo);
               return (
                 <button
                   type="button"
