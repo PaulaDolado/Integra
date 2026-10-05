@@ -204,19 +204,33 @@ Detalles técnicos:
 
 ## Monitorización de errores
 
-Los errores de producción se pueden enviar a [Sentry](https://sentry.io). **Está apagado por defecto**: sin `VITE_SENTRY_DSN`, la app no descarga Sentry ni envía nada a ningún sitio. En desarrollo y en los tests tampoco se activa, aunque haya DSN.
+Los errores de producción se envían a [Sentry](https://sentry.io), un servicio que los recoge en un panel: qué ha fallado, en qué pantalla, cuántas veces y en qué versión publicada. Así nos enteramos de los fallos sin que nadie tenga que avisar.
 
-Para activarlo:
+**Estado: activado en la web publicada desde el 5 de octubre de 2026**, con los datos en la región de la UE (`ingest.de.sentry.io`) y el plan gratuito (5.000 errores al mes). Sin `VITE_SENTRY_DSN` está apagado: la app no descarga Sentry ni envía nada a ningún sitio. En desarrollo y en los tests nunca se activa, aunque haya DSN.
 
-1. En Sentry, crea un proyecto de tipo **React**. Si puedes, elige la región de la UE.
-2. En **Settings → Security & Privacy** del proyecto, activa **Prevent Storing of IP Addresses** y deja activado **Data Scrubber**.
-3. Copia el DSN (**Settings → Client Keys (DSN)**).
-4. En GitHub, **Settings → Secrets and variables → Actions**, crea el secreto `VITE_SENTRY_DSN` con ese valor.
-5. Vuelve a publicar (push a `main` o **Run workflow**). El build añade el host de Sentry a la CSP y cada error lleva como versión (`release`) el commit publicado.
+### Configuración
+
+1. En Sentry, crea una organización con la región de datos **European Union (EU)**. No se puede cambiar después.
+2. Crea un proyecto de tipo **React** y elige solo **Error monitoring**. No hace falta Logging, Session Replay, Tracing ni Application Metrics: Integra no los usa, y Session Replay grabaría pantallas con datos personales.
+3. **No sigas la guía de instalación que propone Sentry** (`npm install` y `Sentry.init`). Ya está en el código, con las opciones de privacidad; un `Sentry.init` propio se las saltaría. Solo hace falta el DSN.
+4. En **Settings → Security & Privacy** del proyecto, activa **Prevent Storing of IP Addresses** y deja activados **Data Scrubber** y **Use Default Scrubbers**.
+5. Copia el DSN (**Settings → Client Keys (DSN)**).
+6. En GitHub, **Settings → Secrets and variables → Actions**, crea el secreto `VITE_SENTRY_DSN` con ese valor. También se puede crear desde la terminal: `gh secret set VITE_SENTRY_DSN --repo PaulaDolado/Integra`.
+7. Vuelve a publicar (push a `main` o **Run workflow** en «Publicar en GitHub Pages»). El build añade el host de Sentry a la CSP y cada error lleva como versión (`release`) el commit publicado.
+
+El DSN no es una contraseña (acaba en el JavaScript publicado y solo sirve para enviar errores a este proyecto), pero se guarda como secreto, igual que las demás variables del despliegue.
 
 Para apagarlo, borra el secreto y vuelve a publicar.
 
-Cómo funciona (`src/lib/monitorizacion.ts`):
+### Comprobar que funciona
+
+- En la web publicada, la CSP (`<meta http-equiv="Content-Security-Policy">`) debe incluir el host `…ingest.de.sentry.io` en `connect-src`, y en la pestaña Red del navegador debe cargarse `assets/sentry-*.js`.
+- Para enviar un error de prueba, abre la consola del navegador en la web publicada y ejecuta `setTimeout(() => { throw new Error("Prueba de Sentry") })`. Debe aparecer en **Issues** en unos segundos, sin usuario ni IP. Después márcalo como **Resolved**.
+- Para recibir un correo con cada error nuevo: **Alerts → Create Alert → Issues**, con la condición «A new issue is created».
+
+### Cómo funciona
+
+El código está en `src/lib/monitorizacion.ts`.
 
 - Sentry se descarga aparte (`import()`), después del primer render y solo si está activado. Sin DSN, el código inicial apenas crece unos cientos de bytes.
 - Se envían los errores al pintar una pantalla (`ErrorBoundary`), los fallos de las consultas y mutaciones de TanStack Query, y los errores y promesas rechazadas que nadie captura. Los avisos al usuario no cambian.
