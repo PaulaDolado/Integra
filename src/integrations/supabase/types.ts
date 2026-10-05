@@ -88,6 +88,47 @@ export type Database = {
           },
         ]
       }
+      avisos: {
+        Row: {
+          created_at: string
+          cuerpo: string
+          empleado_id: string
+          enlace: string | null
+          id: string
+          leido_en: string | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          cuerpo?: string
+          empleado_id: string
+          enlace?: string | null
+          id?: string
+          leido_en?: string | null
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          cuerpo?: string
+          empleado_id?: string
+          enlace?: string | null
+          id?: string
+          leido_en?: string | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boveda_claves: {
         Row: {
           created_at: string
@@ -1302,6 +1343,10 @@ export type Database = {
           p_activo: boolean
         }
         Returns: string
+      }
+      marcar_avisos_leidos: {
+        Args: { p_ids?: string[] }
+        Returns: number
       }
       marcar_conversacion_leida: {
         Args: { conv_id: string }

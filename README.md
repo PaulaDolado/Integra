@@ -32,6 +32,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Seguridad](#seguridad)
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
+- [Avisos en la app](#avisos-en-la-app)
 - [Tests](#tests)
 - [Tests end-to-end](#tests-end-to-end)
 - [Estructura del proyecto](#estructura-del-proyecto)
@@ -205,6 +206,7 @@ Tablas principales:
 | `anuncios` | Tablón de anuncios |
 | `contactos_emergencia`, `datos_pago`, `accesos_datos_pago` | Datos personales y registro de consultas del IBAN |
 | `notificaciones` | Cola de avisos para Teams y Google Chat, con su estado de envío |
+| `avisos` | Avisos de la campana de la cabecera, uno por persona |
 | `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
@@ -277,6 +279,36 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/notificar \
 ```
 
 Para ver qué se ha enviado y qué ha fallado, consulta la tabla `notificaciones` en el panel de Supabase (columnas `estado` y `error`).
+
+## Avisos en la app
+
+La campana de la cabecera muestra los últimos 30 avisos de cada persona y cuántos tiene sin leer. Los avisos nuevos llegan al momento por Realtime y, con la app abierta, también salen en un toast. Al pulsar uno se marca como leído y se abre la pantalla correspondiente.
+
+| Evento | A quién |
+| --- | --- |
+| Ausencia aprobada o rechazada | Quien la pidió |
+| Propuesta de intercambio de turno, o su cancelación | El compañero |
+| El compañero acepta o rechaza el intercambio | Quien lo pidió |
+| Cambio de turno aprobado o rechazado | Quien lo pidió y, si es un intercambio, el compañero |
+| Respuesta o solución en un ticket | Quien lo abrió, si escribe otra persona |
+| Respuesta o solución en un ticket asignado | El técnico asignado, si escribe otra persona |
+| Ticket asignado | El técnico |
+| Cambio de estado de un ticket (en curso, en espera, cerrado…) | Quien lo abrió |
+| El solicitante aprueba la solución | El técnico asignado |
+| Comunicado nuevo en el tablón | Toda la plantilla activa con acceso a la app, salvo quien lo publica |
+
+Cómo funciona:
+
+- Unos triggers de la base de datos crean los avisos en la tabla `avisos`. Son independientes de los de Teams y Google Chat: no hace falta configurar webhooks.
+- Cada persona solo ve sus avisos y solo puede marcarlos como leídos (`marcar_avisos_leidos`). Nadie puede crearlos ni borrarlos desde la app.
+- Nadie recibe aviso de lo que ha hecho él mismo, ni quien está de baja.
+- Un fallo de los avisos nunca impide aprobar la ausencia, responder el ticket, etc.
+- Como en Teams, no se incluyen ni el tipo ni el motivo de una ausencia.
+- Un comunicado crea una fila por persona. Con unos cientos de empleados no es un problema.
+
+Para activarlo, **aplica la migración** `20261006100000_avisos.sql` (después de `20261002120000_notificaciones_chat.sql`, de la que usa algunas funciones). También añade la tabla a Realtime.
+
+Limpieza: `pg_cron` ejecuta `limpiar_avisos()` cada noche. Borra los avisos leídos hace más de 90 días y cualquier aviso de más de un año. Si `pg_cron` no está activado, la migración no falla, pero hay que ejecutar `SELECT public.limpiar_avisos();` a mano de vez en cuando.
 
 ## Tests
 
