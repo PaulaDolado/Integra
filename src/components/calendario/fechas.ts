@@ -225,3 +225,63 @@ export const layoutDayEvents = (dayEvents: Event[], day: Date): PositionedEvent[
 
   return result;
 };
+
+// Tiempo libre ---------------------------------------------------------------------
+
+// Jornada laboral en la que se buscan huecos libres (de lunes a viernes)
+export const JORNADA = { inicio: 8, fin: 18 };
+// Por debajo de esto no merece la pena mostrar un hueco
+export const MIN_HUECO_MIN = 30;
+
+export interface Hueco {
+  inicio: Date;
+  fin: Date;
+}
+
+// ¿Este evento ocupa mi tiempo? Los míos sí, y los privados de otros también:
+// solo los veo si participo. Los públicos de otros los ve toda la empresa
+// aunque no vaya, así que no cuentan.
+export const ocupaMiTiempo = (event: Event, miId: string | null) =>
+  event.creador_id === miId || event.es_privado;
+
+// Huecos libres de un día dentro de la jornada, sin los eventos que me ocupan.
+// Los días pasados, los fines de semana y lo que ya ha pasado de hoy no tienen huecos.
+export const huecosLibres = (events: Event[], day: Date, miId: string | null, ahora = new Date()): Hueco[] => {
+  const diaSemana = day.getDay();
+  if (diaSemana === 0 || diaSemana === 6) return [];
+
+  const jornadaInicio = new Date(startOfDay(day).getTime() + JORNADA.inicio * 3_600_000);
+  const jornadaFin = new Date(startOfDay(day).getTime() + JORNADA.fin * 3_600_000);
+  // Desde ahora, redondeado al cuarto de hora siguiente
+  const cuarto = 15 * 60_000;
+  const desdeAhora = new Date(Math.ceil(ahora.getTime() / cuarto) * cuarto);
+  let cursor = new Date(Math.max(jornadaInicio.getTime(), desdeAhora.getTime()));
+  if (cursor >= jornadaFin) return [];
+
+  const ocupados = events
+    .filter((e) => ocupaMiTiempo(e, miId) && solapa(e, jornadaInicio, jornadaFin))
+    .map((e) => ({ inicio: new Date(e.fecha_inicio), fin: new Date(e.fecha_fin) }))
+    .sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
+
+  const huecos: Hueco[] = [];
+  const añadir = (inicio: Date, fin: Date) => {
+    if (fin.getTime() - inicio.getTime() >= MIN_HUECO_MIN * 60_000) huecos.push({ inicio, fin });
+  };
+  for (const { inicio, fin } of ocupados) {
+    if (inicio > cursor) añadir(cursor, new Date(Math.min(inicio.getTime(), jornadaFin.getTime())));
+    if (fin > cursor) cursor = fin;
+    if (cursor >= jornadaFin) return huecos;
+  }
+  añadir(cursor, jornadaFin);
+  return huecos;
+};
+
+// «2 h 30 min», «45 min», «3 h»
+export const duracion = (minutos: number) => {
+  const h = Math.floor(minutos / 60);
+  const m = Math.round(minutos % 60);
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+};
+
+export const minutosDe = (hueco: Hueco) => (hueco.fin.getTime() - hueco.inicio.getTime()) / 60_000;

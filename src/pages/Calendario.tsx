@@ -1,10 +1,22 @@
 import { useState, useEffect, useRef } from "react";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, CalendarSearch, CalendarSync } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
-import { HOUR_HEIGHT, SCROLL_TO_HOUR, desplazarFecha, getDaysToDisplay, getViewTitle, type ViewType } from "@/components/calendario/fechas";
+import {
+  HOUR_HEIGHT,
+  JORNADA,
+  SCROLL_TO_HOUR,
+  desplazarFecha,
+  duracion,
+  getDaysToDisplay,
+  getViewTitle,
+  huecosLibres,
+  minutosDe,
+  type ViewType,
+} from "@/components/calendario/fechas";
 import { useEventos } from "@/components/calendario/useEventos";
 import { useEditorEvento } from "@/components/calendario/useEditorEvento";
 import { RejillaHoraria } from "@/components/calendario/RejillaHoraria";
@@ -21,6 +33,8 @@ export default function Calendario() {
   const { toast } = useToast();
   const { events, upcomingEvents, loadingUpcoming } = useEventos(viewType, currentDate);
   const editor = useEditorEvento();
+  const { profile } = useEmployeeProfile();
+  const [tiempoLibre, setTiempoLibre] = useState(false);
 
   // Mantiene al día la línea de la hora actual
   useEffect(() => {
@@ -53,6 +67,16 @@ export default function Calendario() {
   };
 
   const daysToDisplay = getDaysToDisplay(viewType, currentDate);
+  const vistaHoraria = viewType === 'daily' || viewType === 'weekly';
+
+  // El tiempo libre se ve en la rejilla horaria: desde el mes o el año se pasa a la semana
+  const alternarTiempoLibre = () => {
+    if (!tiempoLibre && !vistaHoraria) setViewType('weekly');
+    setTiempoLibre(!tiempoLibre);
+  };
+  const huecosDe = (day: Date) => huecosLibres(events, day, profile?.id ?? null, now);
+  const huecosVisibles = tiempoLibre && vistaHoraria ? daysToDisplay.flatMap(huecosDe) : [];
+  const minutosLibres = huecosVisibles.reduce((total, hueco) => total + minutosDe(hueco), 0);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -69,9 +93,14 @@ export default function Calendario() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => handleComingSoon("Mostrar tiempo libre")}>
+          <Button
+            variant={tiempoLibre ? "secondary" : "outline"}
+            className="gap-2"
+            onClick={alternarTiempoLibre}
+            aria-pressed={tiempoLibre}
+          >
             <CalendarSearch className="w-4 h-4" />
-            Mostrar tiempo libre
+            {tiempoLibre ? "Ocultar tiempo libre" : "Mostrar tiempo libre"}
           </Button>
           <Button variant="outline" className="gap-2" onClick={() => handleComingSoon("La integración con Google Calendar")}>
             <CalendarSync className="w-4 h-4" />
@@ -120,7 +149,14 @@ export default function Calendario() {
             </ToggleGroup>
           </CardHeader>
           <CardContent>
-            {(viewType === 'daily' || viewType === 'weekly') && (
+            {tiempoLibre && vistaHoraria && (
+              <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
+                {huecosVisibles.length === 0
+                  ? `No te queda tiempo libre ${viewType === 'daily' ? 'este día' : 'esta semana'} en la jornada (de ${JORNADA.inicio}:00 a ${JORNADA.fin}:00).`
+                  : `${duracion(minutosLibres)} libres en ${huecosVisibles.length} ${huecosVisibles.length === 1 ? 'hueco' : 'huecos'}, de ${JORNADA.inicio}:00 a ${JORNADA.fin}:00. Pulsa uno para crear un evento.`}
+              </p>
+            )}
+            {vistaHoraria && (
               <RejillaHoraria
                 days={daysToDisplay}
                 events={events}
@@ -129,6 +165,7 @@ export default function Calendario() {
                 onCrear={editor.openCreateEvent}
                 onEditar={editor.handleEditEvent}
                 onAbrirDia={openDay}
+                huecosDe={tiempoLibre ? huecosDe : undefined}
               />
             )}
             {viewType === 'monthly' && (

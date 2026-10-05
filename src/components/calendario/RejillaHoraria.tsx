@@ -3,7 +3,18 @@ import { MapPin, Lock } from "lucide-react";
 import { format, addHours, isToday, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { HOUR_HEIGHT, etiquetaCrearEvento, eventosDelDia, hours, layoutDayEvents, nombreDelDia, type Event } from "./fechas";
+import {
+  HOUR_HEIGHT,
+  duracion,
+  etiquetaCrearEvento,
+  eventosDelDia,
+  hours,
+  layoutDayEvents,
+  minutosDe,
+  nombreDelDia,
+  type Event,
+  type Hueco,
+} from "./fechas";
 
 interface RejillaHorariaProps {
   days: Date[];
@@ -13,10 +24,12 @@ interface RejillaHorariaProps {
   onCrear: (inicio: Date) => void;
   onEditar: (event: Event) => void;
   onAbrirDia: (day: Date) => void;
+  // Con «Mostrar tiempo libre» activado: los huecos libres de cada día
+  huecosDe?: (day: Date) => Hueco[];
 }
 
 // Rejilla horaria compartida por las vistas de día y semana
-export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEditar, onAbrirDia }: RejillaHorariaProps) {
+export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEditar, onAbrirDia, huecosDe }: RejillaHorariaProps) {
   const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
 
   return (
@@ -100,6 +113,25 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
                       title="Crear evento"
                       aria-label={etiquetaCrearEvento(inicio)}
                     />
+                  );
+                })}
+
+                {huecosDe?.(day).map((hueco) => {
+                  const top = ((hueco.inicio.getTime() - startOfDay(day).getTime()) / 3_600_000) * HOUR_HEIGHT;
+                  const height = (minutosDe(hueco) / 60) * HOUR_HEIGHT;
+                  const tiempo = duracion(minutosDe(hueco));
+                  return (
+                    <button
+                      type="button"
+                      key={hueco.inicio.toISOString()}
+                      onClick={() => onCrear(hueco.inicio)}
+                      className="absolute inset-x-0.5 z-[5] rounded-md border border-dashed border-success/50 bg-success/10 px-2 py-1 text-left text-[11px] text-success transition-colors hover:bg-success/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      style={{ top, height }}
+                      aria-label={`Tiempo libre de ${format(hueco.inicio, "HH:mm")} a ${format(hueco.fin, "HH:mm")} (${tiempo}). Crear evento`}
+                    >
+                      <span className="font-medium">Libre</span>
+                      {height >= 36 && <span className="opacity-80"> · {tiempo}</span>}
+                    </button>
                   );
                 })}
 
