@@ -10,6 +10,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Módulos](#módulos)
 - [Permisos por departamento](#permisos-por-departamento)
 - [Seguridad](#seguridad)
+- [Instalar en el móvil](#instalar-en-el-móvil)
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Tests](#tests)
@@ -88,6 +89,7 @@ El usuario demo es administrador (`empleados.es_admin`), así que ve todas las p
 | `npm run test:humo` | Prueba de humo de solo lectura contra la web publicada (necesita `HUMO_URL`) |
 | `npm run lint` | Ejecuta ESLint |
 | `npm run typecheck` | Comprueba los tipos de TypeScript (modo estricto) |
+| `npm run iconos` | Vuelve a generar los iconos PNG de la app instalable a partir de `public/favicon.svg` |
 
 ## Módulos
 
@@ -151,10 +153,30 @@ Un empleado con `es_admin = true` tiene todos los permisos.
   - El IBAN llega enmascarado. Para verlo entero hay que pedirlo con `ver_iban()`, que registra quién lo consultó en `accesos_datos_pago`.
 - **Gestor de contraseñas cifrado de extremo a extremo.** La bóveda se cifra en el navegador: la contraseña maestra se convierte en una clave AES-GCM de 256 bits con PBKDF2-SHA256 (600.000 iteraciones) y nunca sale del navegador. La base de datos solo guarda texto cifrado, así que ni un administrador ni Supabase pueden leer las contraseñas. Por eso la contraseña maestra no se puede recuperar: si se olvida, solo queda vaciar la bóveda. La bóveda se bloquea al salir de la página y tras 5 minutos sin actividad, y las contraseñas copiadas se borran del portapapeles a los 30 segundos.
 - **Doble factor.** Si un usuario lo activa, una política restrictiva en cada tabla (`public.cumple_doble_factor()`) le bloquea los datos hasta que lo verifique.
-- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
+- **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase. El service worker y el manifiesto de la app instalable también tienen que ser propios (`worker-src` y `manifest-src`). En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.
+- **Sin datos personales en caché.** El service worker de la app instalable solo guarda los archivos del build. Ver [Instalar en el móvil](#instalar-en-el-móvil).
 - **Anti-clickjacking.** `src/main.tsx` impide que la app se muestre dentro de un iframe de otra web.
 - **Adjuntos.** Solo se admiten imágenes PNG, JPG, WEBP o GIF de hasta 5 MB. Van a buckets privados y se sirven con URLs firmadas de 1 hora.
 - **Dependencias.** Dependabot abre cada lunes una PR con las versiones menores y los parches, otra por cada versión mayor y otra para las acciones de GitHub. Los parches de seguridad llegan al momento. Todas pasan por el CI antes de poder fusionarse. `npm audit --omit=dev` debe salir limpio, y el CI lo comprueba en cada PR. Las herramientas que solo se usan al compilar van en `devDependencies`. React Router se actualizó a la versión 7 por los avisos GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg. Dependabot no propone versiones mayores de `@types/node`: los tipos siguen a la versión de Node más antigua que admite el proyecto.
+
+## Instalar en el móvil
+
+Integra se puede instalar como una app (PWA), con su icono en la pantalla de inicio y a pantalla completa, sin la barra del navegador. Está pensado sobre todo para fichar. El acceso directo **Fichar** del icono abre directamente `/fichajes`.
+
+- **Android (Chrome):** abre la web, pulsa el menú **⋮** y elige **Instalar aplicación** (o **Añadir a pantalla de inicio**).
+- **iPhone y iPad (Safari):** abre la web, pulsa **Compartir** y elige **Añadir a pantalla de inicio**. En iOS solo se puede instalar desde Safari.
+
+La sesión se inicia igual que en el navegador.
+
+**Qué se guarda en el móvil.** El service worker solo guarda la «carcasa» de la app: el JavaScript, el CSS, el HTML, las fuentes y los iconos del build. Así arranca rápido y las rutas funcionan al recargar. **No guarda ningún dato personal.** Las peticiones a Supabase (datos, sesión, archivos y tiempo real) y a cualquier otro dominio van siempre a la red, nunca a la caché. Sin conexión la app se abre, pero no muestra datos ni permite fichar.
+
+**Actualizaciones.** Cuando se publica una versión nueva, aparece el aviso «Hay una versión nueva de Integra» con el botón **Actualizar**. La app no se recarga sola, para no interrumpir un fichaje o un formulario a medias. Con la app abierta, cada hora se comprueba si hay versión nueva.
+
+Detalles técnicos:
+
+- Se genera con `vite-plugin-pwa` (configuración en `vite.config.ts`). El registro y el aviso de versión nueva están en `src/lib/pwa.ts`. Solo se registra en el build de producción, así que ni `npm run dev` ni los tests usan el service worker.
+- El manifiesto y el service worker respetan la ruta base (`/Integra/` en GitHub Pages).
+- Los iconos (`public/pwa-*.png`, `public/maskable-icon-512x512.png` y `public/apple-touch-icon.png`) salen de `public/favicon.svg`. Si cambia el logotipo, ejecuta `npm run iconos` y sube los PNG.
 
 ## Base de datos
 
@@ -359,7 +381,7 @@ HUMO_URL=https://<usuario>.github.io/<repositorio>/ VITE_SUPABASE_URL=<url-de-pr
 ```
 src/
 ├── App.tsx                  # Rutas
-├── main.tsx                 # Punto de entrada: tema, anti-iframe y render
+├── main.tsx                 # Punto de entrada: tema, anti-iframe, render y service worker
 ├── index.css                # Tokens de diseño (colores, sombras, tema oscuro)
 ├── components/
 │   ├── ProtectedRoute.tsx   # Exige sesión (y doble factor si está activado)
@@ -370,9 +392,11 @@ src/
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…
 ├── integrations/supabase/   # Cliente y tipos
-├── lib/                     # Utilidades, rutas base, tema y cliente de TanStack Query
+├── lib/                     # Utilidades, rutas base, tema, app instalable y cliente de TanStack Query
 ├── pages/                   # Una página por ruta
 └── test/                    # Configuración y ayudantes de los tests
+scripts/
+└── generar-iconos.mjs       # Iconos PNG de la app instalable (npm run iconos)
 supabase/
 ├── functions/notificar/     # Edge Function de los avisos a Teams y Google Chat
 ├── migrations/              # Esquema, políticas RLS y funciones

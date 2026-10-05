@@ -26,4 +26,9 @@ if (isFramed) {
   }
 } else {
   createRoot(document.getElementById("root")!).render(<App />);
+
+  // App instalable: solo en producción, para que el desarrollo no sirva archivos viejos
+  if (import.meta.env.PROD) {
+    void import("@/lib/pwa").then(({ registrarServiceWorker }) => registrarServiceWorker());
+  }
 }
