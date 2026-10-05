@@ -17,6 +17,11 @@ updates:
       menores:
         update-types: [minor, patch]
     # Las versiones mayores llegan en PR separadas: suelen necesitar cambios
+    ignore:
+      # Los tipos de Node siguen a la versión más antigua que admite el
+      # proyecto (engines en package.json), no a la última
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

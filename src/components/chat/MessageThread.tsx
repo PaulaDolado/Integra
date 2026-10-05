@@ -34,8 +34,13 @@ export function MessageThread({ conversation, messages, loading, myId, participa
     }
   }, [messages, conversation?.id]);
 
-  useEffect(() => {
+  // Al cambiar de conversación se vacía el borrador y se pone el foco en él
+  const [conversacionPrevia, setConversacionPrevia] = useState(conversation?.id);
+  if (conversation?.id !== conversacionPrevia) {
+    setConversacionPrevia(conversation?.id);
     setDraft("");
+  }
+  useEffect(() => {
     inputRef.current?.focus();
   }, [conversation?.id]);
 

@@ -36,7 +36,9 @@ export default function Comunicacion() {
 
   // La suscripción en tiempo real necesita la conversación abierta sin re-suscribirse
   const selectedIdRef = useRef<string | null>(null);
-  selectedIdRef.current = selectedId;
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const conversationsKey = useMemo(() => ["conversaciones", myId], [myId]);
 

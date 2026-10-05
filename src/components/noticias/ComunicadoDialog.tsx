@@ -58,13 +58,17 @@ export function ComunicadoDialog({ open, comunicado, areas, empleadoId, onClose,
   const [saving, setSaving] = useState(false);
   const areaPorDefecto = areas[0];
 
-  useEffect(() => {
-    if (!open) return;
-    setTitulo(comunicado?.titulo ?? "");
-    setContenido(comunicado?.contenido ?? "");
-    setFecha(format(comunicado ? new Date(comunicado.fecha_publicacion) : new Date(), "yyyy-MM-dd"));
-    setArea(comunicado ? (comunicado.area as AreaComunicado) : areaPorDefecto);
-  }, [open, comunicado, areaPorDefecto]);
+  // Al abrirse (o al cambiar el comunicado) el formulario parte del comunicado
+  const [previo, setPrevio] = useState<{ open: boolean; comunicado: typeof comunicado }>({ open: false, comunicado: null });
+  if (open !== previo.open || comunicado !== previo.comunicado) {
+    setPrevio({ open, comunicado });
+    if (open) {
+      setTitulo(comunicado?.titulo ?? "");
+      setContenido(comunicado?.contenido ?? "");
+      setFecha(format(comunicado ? new Date(comunicado.fecha_publicacion) : new Date(), "yyyy-MM-dd"));
+      setArea(comunicado ? (comunicado.area as AreaComunicado) : areaPorDefecto);
+    }
+  }
 
   const save = async () => {
     if (!titulo.trim() || !contenido.trim()) {

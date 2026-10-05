@@ -30,9 +30,11 @@ export function Generador({ onUsar, onCopiar }: GeneradorProps) {
   const [opciones, setOpciones] = useState<OpcionesGenerador>(OPCIONES_POR_DEFECTO);
   const [contrasena, setContrasena] = useState(() => generarContrasena(OPCIONES_POR_DEFECTO));
 
-  useEffect(() => {
-    setContrasena(generarContrasena(opciones));
-  }, [opciones]);
+  // Cada cambio de opciones genera una contraseña nueva con ellas
+  const cambiarOpciones = (nuevas: OpcionesGenerador) => {
+    setOpciones(nuevas);
+    setContrasena(generarContrasena(nuevas));
+  };
 
   const activos = TIPOS.filter((t) => opciones[t.clave]).length;
 
@@ -72,7 +74,7 @@ export function Generador({ onUsar, onCopiar }: GeneradorProps) {
           max={LONGITUD_MAXIMA}
           step={1}
           value={[opciones.longitud]}
-          onValueChange={([longitud]) => setOpciones((o) => ({ ...o, longitud }))}
+          onValueChange={([longitud]) => cambiarOpciones({ ...opciones, longitud })}
           aria-label="Longitud"
         />
       </div>
@@ -88,7 +90,7 @@ export function Generador({ onUsar, onCopiar }: GeneradorProps) {
               checked={opciones[t.clave]}
               // Siempre tiene que quedar al menos un tipo de carácter
               disabled={opciones[t.clave] && activos === 1}
-              onCheckedChange={(v) => setOpciones((o) => ({ ...o, [t.clave]: v }))}
+              onCheckedChange={(v) => cambiarOpciones({ ...opciones, [t.clave]: v })}
             />
           </div>
         ))}
