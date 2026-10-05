@@ -7,7 +7,7 @@ import { useInvalidarEnCambios } from "@/hooks/useInvalidarEnCambios";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, Newspaper, Pencil, Pin, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, ExternalLink, Newspaper, Pencil, Pin, Plus, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +50,8 @@ export default function Noticias() {
   // Áreas en las que el departamento del usuario puede publicar (vacío = solo lectura)
   const misAreas = (Object.keys(AREAS) as AreaComunicado[]).filter((area) => tiene(`comunicados.${area}`));
 
+  const esMesActual = isSameMonth(mes, new Date());
+
   const { data: noticias = [], isPending: loading } = useQuery({
     queryKey: ["anuncios", mes.toISOString()],
     queryFn: async () =>
@@ -57,8 +59,9 @@ export default function Noticias() {
         await supabase
           .from("anuncios")
           .select("*")
-          .gte("fecha_publicacion", mes.toISOString())
+          // Notas publicadas hasta final de mes que siguen vigentes en él (en el mes actual, ahora)
           .lt("fecha_publicacion", addMonths(mes, 1).toISOString())
+          .or(`fecha_fin.is.null,fecha_fin.gt.${(esMesActual ? new Date() : mes).toISOString()}`)
           .in("area", ["rrhh", "marketing"])
           .order("fecha_publicacion", { ascending: false })
       ) ?? [],
@@ -93,7 +96,6 @@ export default function Noticias() {
   const visibles = filtro === "todas" ? noticias : noticias.filter((n) => n.area === filtro);
   const contar = (area: AreaComunicado) => noticias.filter((n) => n.area === area).length;
   const nombreMes = format(mes, "MMMM yyyy", { locale: es });
-  const esMesActual = isSameMonth(mes, new Date());
 
   return (
     <div className="p-6 space-y-6">
@@ -104,7 +106,7 @@ export default function Noticias() {
             Tablón de anuncios
           </h1>
           <p className="text-muted-foreground">
-            Comunicados de Recursos Humanos y Marketing del mes.
+            Comunicados y formularios de Recursos Humanos y Marketing.
           </p>
         </div>
 
@@ -198,11 +200,18 @@ export default function Noticias() {
                       {area.label}
                     </span>
                     <span className="text-xs opacity-70">
+                      {!noticia.fecha_fin && "Fijo · "}
                       {format(new Date(noticia.fecha_publicacion), "d MMM", { locale: es })}
                     </span>
                   </div>
                   <h3 className="mb-2 font-semibold leading-snug">{noticia.titulo}</h3>
                   <p className="line-clamp-6 whitespace-pre-line text-sm opacity-90">{noticia.contenido}</p>
+                  {noticia.tipo === "formulario" && (
+                    <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold underline underline-offset-2">
+                      <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                      Formulario para rellenar
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -221,12 +230,25 @@ export default function Noticias() {
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(abierta.fecha_publicacion), "d 'de' MMMM yyyy", { locale: es })}
+                    {" · "}
+                    {abierta.fecha_fin
+                      ? `en el tablón hasta el ${format(new Date(abierta.fecha_fin), "d 'de' MMMM", { locale: es })}`
+                      : "fijo"}
                   </span>
                 </div>
                 <DialogTitle>{abierta.titulo}</DialogTitle>
                 <DialogDescription className="sr-only">Comunicado completo</DialogDescription>
               </DialogHeader>
               <p className="whitespace-pre-line text-sm leading-relaxed">{abierta.contenido}</p>
+              {abierta.tipo === "formulario" && abierta.enlace && (
+                <Button asChild className="w-fit gap-2">
+                  <a href={abierta.enlace} target="_blank" rel="noopener noreferrer">
+                    <ClipboardList className="w-4 h-4" />
+                    Rellenar formulario
+                    <ExternalLink className="w-3.5 h-3.5" aria-hidden />
+                  </a>
+                </Button>
+              )}
               {puedeGestionar(abierta) && (
                 <div className="flex justify-end gap-2 border-t pt-4">
                   <Button

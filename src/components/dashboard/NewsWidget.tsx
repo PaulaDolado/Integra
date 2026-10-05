@@ -17,6 +17,8 @@ export function NewsWidget() {
         await supabase
           .from("anuncios")
           .select("id, titulo, contenido, fecha_publicacion, autor_id, area")
+          // Solo las que siguen en el tablón
+          .or(`fecha_fin.is.null,fecha_fin.gt.${new Date().toISOString()}`)
           .order("fecha_publicacion", { ascending: false })
           .limit(3)
       ) ?? [],
