@@ -190,7 +190,7 @@ export default function Login() {
                   maxLength={6}
                   placeholder="123456"
                   value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value.replace(/D/g, ""))}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
                   required
                   autoFocus
                 />
