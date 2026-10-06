@@ -22,3 +22,19 @@ export const AREAS: Record<
 
 export const getArea = (area: string | null | undefined) =>
   AREAS[(area as AreaComunicado) in AREAS ? (area as AreaComunicado) : "rrhh"];
+
+// Los formularios van en una nota morada, sean del área que sean: así se
+// distinguen de un vistazo de los comunicados. La etiqueta sigue siendo la del área.
+export const NOTA_FORMULARIO = {
+  nota: "bg-violet-100 text-violet-950 dark:bg-violet-900/40 dark:text-violet-50",
+  chincheta: "text-violet-600 dark:text-violet-400",
+  etiqueta: "bg-violet-200/80 text-violet-900 dark:bg-violet-800/60 dark:text-violet-100",
+};
+
+// Colores de la nota en el tablón: los del área, o morados si es un formulario
+export const estiloNota = (area: string | null | undefined, tipo: string | null | undefined) => {
+  const estilo = getArea(area);
+  return tipo === "formulario"
+    ? { ...estilo, nota: NOTA_FORMULARIO.nota, chincheta: NOTA_FORMULARIO.chincheta }
+    : estilo;
+};
