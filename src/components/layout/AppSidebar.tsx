@@ -18,8 +18,10 @@ import {
   HeartPulse,
   Landmark,
   KeyRound,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
+import { useState } from "react";
 import { NavLink, matchPath, useLocation } from "react-router";
 import { usePermisos, type Permiso } from "@/hooks/usePermisos";
 import {
@@ -29,6 +31,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -103,12 +106,40 @@ function apartadosVisibles(items: NavGestion[], tiene: (permiso: Permiso) => boo
   });
 }
 
+// Submenús que el usuario ha plegado. Se recuerdan solo en este navegador.
+const CLAVE_PLEGADOS = "menu-lateral:plegados";
+
+function leerPlegados(): string[] {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_PLEGADOS) ?? "[]");
+    return Array.isArray(guardado) ? guardado : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarPlegado(url: string, plegado: boolean) {
+  const resto = leerPlegados().filter((u) => u !== url);
+  try {
+    localStorage.setItem(CLAVE_PLEGADOS, JSON.stringify(plegado ? [...resto, url] : resto));
+  } catch {
+    // Sin almacenamiento disponible: el submenú queda plegado solo en esta sesión
+  }
+}
+
 // El estado activo se pasa a SidebarMenuButton: con asChild, un className en
 // forma de función del NavLink se convertiría en texto y no funcionaría
 function NavItem({ item, isCollapsed, hijos = [] }: { item: NavEntry; isCollapsed: boolean; hijos?: NavEntry[] }) {
   const { pathname } = useLocation();
   const activo = (url: string) => !!matchPath({ path: url, end: false }, pathname);
-  const isActive = activo(item.url);
+  const [plegado, setPlegado] = useState(() => hijos.length > 0 && leerPlegados().includes(item.url));
+  // Con el submenú plegado, el padre se marca si la página actual es uno de sus hijos
+  const isActive = activo(item.url) || (plegado && hijos.some((h) => activo(h.url)));
+
+  const alternar = () => {
+    guardarPlegado(item.url, !plegado);
+    setPlegado(!plegado);
+  };
 
   return (
     <SidebarMenuItem>
@@ -124,6 +155,16 @@ function NavItem({ item, isCollapsed, hijos = [] }: { item: NavEntry; isCollapse
         </NavLink>
       </SidebarMenuButton>
       {hijos.length > 0 && (
+        <SidebarMenuAction
+          onClick={alternar}
+          aria-expanded={!plegado}
+          aria-label={`${plegado ? "Mostrar" : "Ocultar"} los apartados de ${item.title}`}
+          title={plegado ? "Mostrar" : "Ocultar"}
+        >
+          <ChevronDown className={`transition-transform duration-150 motion-reduce:transition-none ${plegado ? "-rotate-90" : ""}`} />
+        </SidebarMenuAction>
+      )}
+      {hijos.length > 0 && !plegado && (
         <SidebarMenuSub>
           {hijos.map((hijo) => (
             <SidebarMenuSubItem key={hijo.url}>
