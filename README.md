@@ -35,6 +35,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Avisos en la app](#avisos-en-la-app)
 - [Calendario y Google Calendar](#calendario-y-google-calendar)
+- [Notas colaborativas](#notas-colaborativas)
 - [Tests](#tests)
 - [Accesibilidad](#accesibilidad)
 - [Tests end-to-end](#tests-end-to-end)
@@ -171,7 +172,8 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 | `/cambio-turno` | Solicitar un cambio de turno, con o sin intercambio con un compañero |
 | `/contrasenas` | Gestor de contraseñas personal: bóveda cifrada con una contraseña maestra, generador, favoritas y aviso de contraseñas débiles o repetidas |
 | `/perfil`, `/configuracion` | Perfil, inicio de sesión (doble factor y Google), confidencialidad e información de pago |
-| `/documentos`, `/cursos` | En desarrollo |
+| `/documentos`, `/documentos/:id` | Gestión documental: notas colaborativas en tiempo real. Ver [Notas colaborativas](#notas-colaborativas) |
+| `/cursos` | En desarrollo |
 
 ### Pantallas de gestión
 
@@ -311,6 +313,7 @@ Tablas principales:
 | `notificaciones` | Cola de avisos para Teams y Google Chat, con su estado de envío |
 | `avisos` | Avisos de la campana de la cabecera, uno por persona |
 | `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
+| `notas`, `nota_colaboradores`, `nota_cambios` | Notas colaborativas: datos de cada nota, con quién se comparte y sus cambios Yjs (imágenes en el bucket `notas`) |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
 
@@ -484,6 +487,27 @@ Puesta en marcha:
    supabase functions deploy google-calendar
    ```
 
+## Notas colaborativas
+
+La Gestión Documental son notas que varias personas pueden escribir a la vez.
+
+- **Lista (`/documentos`).** Cada nota se ve como una hoja en miniatura. «Página en blanco» crea una nota y abre el editor. Se puede filtrar entre las propias y las compartidas, y buscar por título, texto o propietario.
+- **Editor (`/documentos/:id`).** La hoja puede ser **en blanco, punteada o de rayas**. La barra tiene deshacer y rehacer, títulos, negrita, cursiva, subrayado, tachado, código, subíndice y superíndice, color y resaltado, alineación, listas (con viñetas, numeradas y de tareas), citas, bloques de código, separadores, **enlaces** (Ctrl+K), **imágenes** (botón, pegar o arrastrar), **ecuaciones** en LaTeX (con vista previa y plantillas; atajo `$$x^2$$` en la línea y `$$$x^2$$$` en su propia línea), **marcadores** y tablas. Los marcadores y los títulos salen en el panel lateral para saltar a ellos, y un enlace puede llevar a un marcador.
+- **Colaboración.** Los cambios llegan al momento, con el cursor y el nombre de cada persona, y la cabecera muestra quién más tiene la nota abierta. Se guarda sola; la cabecera dice si está guardada, guardándose o sin conexión (lo pendiente se guarda al volver).
+- **Compartir.** Solo quien crea la nota la comparte, con permiso de **edición** o de **solo lectura**, y puede cambiarlo o quitarlo. Quien la recibe tiene un aviso en la campana y puede dejar de colaborar. Solo el propietario la elimina, con sus imágenes.
+
+Cómo funciona:
+
+- El contenido es un documento [Yjs](https://yjs.dev) (un CRDT): los cambios de varias personas se combinan sin conflictos y en cualquier orden. El editor es [Tiptap](https://tiptap.dev) y las ecuaciones se pintan con KaTeX. Todo va empaquetado con la app (en un archivo aparte que solo se descarga al abrir una nota), así que la CSP no cambia.
+- No hace falta un servidor propio. Cada editor guarda sus cambios cada medio segundo con `guardar_cambios_nota()`, que añade una fila a `nota_cambios`. Realtime (`postgres_changes`, que respeta RLS) avisa a los demás, que piden los cambios nuevos a la tabla. Al reconectar se piden los que se hayan perdido.
+- Al abrir una nota con 100 cambios sueltos o más, un editor los junta en `notas.estado` con `compactar_nota()`, que comprueba que nadie lo ha hecho a la vez y que no se pierde ningún cambio.
+- Los cursores van por un **canal privado** de Realtime (`nota:<id>`): unas políticas en `realtime.messages` solo dejan entrar a quien ve la nota.
+- **Permisos en la base de datos.** Las tablas solo se leen con RLS (quien ve la nota) y todo cambio pasa por funciones `SECURITY DEFINER` que comprueban el rol y el doble factor. Un lector no puede guardar cambios ni subir imágenes.
+- **Imágenes.** Bucket privado `notas` (carpeta = id de la nota), PNG, JPG, WEBP o GIF de hasta 5 MB, con URLs firmadas de 1 hora. La nota solo guarda la ruta, así que no se incrustan imágenes de otras webs. Quitar una imagen de la nota no la borra del bucket (se puede deshacer); se borran todas al eliminar la nota.
+- **Enlaces.** Solo `http`, `https`, `mailto`, `tel` o un marcador de la nota. Se abren en otra pestaña con `noopener`; mientras se edita, con Ctrl+clic.
+
+Puesta en marcha: aplica la migración `20261010100000_notas_colaborativas.sql` (después de la de avisos). Crea las tablas, el bucket, las publicaciones de Realtime y las políticas del canal privado; no hace falta configurar nada más.
+
 ## Tests
 
 ```sh
@@ -513,6 +537,10 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `supabase/functions/google-calendar/google.test.ts` | El OAuth con Google pide solo lectura y usa PKCE, la vuelta solo va a la propia app, los tokens se cifran y los eventos de Google (con hora, de todo el día y «Disponible») se convierten bien |
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 | `components/layout/AppLayout.test.tsx` | El enlace «Saltar al contenido» es lo primero que se enfoca y lleva al `<main>` |
+| `components/documentos/sincronizacion.test.ts` | Las notas se sincronizan entre dos personas, las pulsaciones seguidas van en un solo guardado, quien solo lee nunca guarda, se recuperan los cambios perdidos al reconectar o guardados fuera de orden, la compactación no pierde nada y los cursores llegan y se quitan al salir |
+| `components/documentos/contenido.test.ts` | Los enlaces de las notas solo admiten web, correo, teléfono o marcadores (nunca `javascript:`), el extracto, el índice de marcadores y títulos, los filtros y las imágenes admitidas |
+| `pages/Documentos.test.tsx` | La lista de notas, crear una página en blanco, los filtros y qué acciones tiene cada nota según el rol |
+| `pages/NotaDetalle.test.tsx` | Quien edita ve la barra y elige el fondo de la hoja; quien solo lee no puede escribir; una nota que ya no está compartida contigo no se abre |
 
 Los tests nunca se conectan a Supabase: cada uno simula el cliente con `vi.mock` (hay un ayudante en `src/test/supabase-mock.ts`). Las políticas RLS no se prueban aquí, porque necesitan una base de datos real.
 
@@ -620,7 +648,7 @@ src/
 │   ├── ProtectedRoute.tsx   # Exige sesión (y doble factor si está activado)
 │   ├── layout/              # Layout, menú lateral y cabecera
 │   ├── dashboard/           # Widgets del panel principal
-│   ├── ausencias/ chat/ configuracion/ contrasenas/ fichajes/ noticias/ tareas/ tickets/ turnos/
+│   ├── ausencias/ chat/ configuracion/ contrasenas/ documentos/ fichajes/ noticias/ tareas/ tickets/ turnos/
 │   └── ui/                  # Componentes de shadcn/ui
 ├── contexts/                # Sesión (AuthContext) y presencia del chat
 ├── hooks/                   # Permisos, perfil, fichaje actual, toasts…

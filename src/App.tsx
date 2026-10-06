@@ -17,6 +17,8 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Calendario = lazy(() => import("./pages/Calendario"));
 const Tareas = lazy(() => import("./pages/Tareas"));
 const Comunicacion = lazy(() => import("./pages/Comunicacion"));
+const Documentos = lazy(() => import("./pages/Documentos"));
+const NotaDetalle = lazy(() => import("./pages/NotaDetalle"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const TicketDetalle = lazy(() => import("./pages/TicketDetalle"));
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -94,7 +96,8 @@ const App = () => (
                 <Route path="/comunicacion" element={<Comunicacion />} />
                 <Route path="/tickets" element={<Tickets />} />
                 <Route path="/tickets/:id" element={<TicketDetalle />} />
-                <Route path="/documentos" element={<EnDesarrollo titulo="Gestión Documental" />} />
+                <Route path="/documentos" element={<Documentos />} />
+                <Route path="/documentos/:id" element={<NotaDetalle />} />
                 <Route path="/noticias" element={<Noticias />} />
                 <Route path="/organigrama" element={<Organigrama />} />
                 <Route path="/perfil" element={<Perfil />} />

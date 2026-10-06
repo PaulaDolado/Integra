@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { ArrowLeftRight, Bell, CalendarDays, CheckCheck, Megaphone, Ticket, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Bell, CalendarDays, CheckCheck, FileText, Megaphone, Ticket, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ const ICONOS: Record<string, LucideIcon> = {
   turno: ArrowLeftRight,
   ticket: Ticket,
   comunicado: Megaphone,
+  nota: FileText,
 };
 
 const etiquetaCampana = (sinLeer: number) => (sinLeer > 0 ? `Avisos, ${sinLeer} sin leer` : "Avisos");
