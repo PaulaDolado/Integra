@@ -1,0 +1,37 @@
+/* Hoja de las notas: fondo en blanco, punteado o rayas. Lo usan el editor y
+   las miniaturas de la lista. */
+
+.papel-nota {
+  --nota-linea: 28px;
+  --nota-margen: clamp(1.25rem, 6vw, 4.5rem);
+  --nota-trazo: hsl(var(--border));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+.papel-punteado {
+  background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.35) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  background-position: 11px 11px;
+}
+
+/* Las rayas coinciden con la altura de línea del texto normal */
+.papel-rayas {
+  background-image:
+    linear-gradient(to right, transparent calc(var(--nota-margen) - 0.75rem), hsl(0 84% 60% / 0.25) calc(var(--nota-margen) - 0.75rem), hsl(0 84% 60% / 0.25) calc(var(--nota-margen) - 0.75rem + 1px), transparent calc(var(--nota-margen) - 0.75rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--nota-linea) - 1px), var(--nota-trazo) calc(var(--nota-linea) - 1px), var(--nota-trazo) var(--nota-linea));
+  background-position: 0 0, 0 calc(var(--nota-margen) - 4px);
+}
+
+/* Miniatura de la lista: la misma hoja en pequeño */
+.papel-nota.papel-miniatura {
+  --nota-linea: 12px;
+  --nota-margen: 1rem;
+}
+.papel-miniatura.papel-punteado {
+  background-size: 12px 12px;
+  background-position: 6px 6px;
+}
+.papel-miniatura.papel-rayas {
+  background-position: 0 0, 0 calc(var(--nota-margen) + 2px);
+}

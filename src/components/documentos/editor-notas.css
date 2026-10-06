@@ -1,0 +1,271 @@
+/* Contenido de las notas en el editor. Solo se descarga con el editor. */
+
+.contenido-nota {
+  min-height: 1056px; /* Una hoja A4 de alto a 96 ppp */
+  padding: var(--nota-margen);
+  font-size: 1rem;
+  line-height: var(--nota-linea);
+  outline: none;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-variant-ligatures: none;
+}
+
+@media (max-width: 640px) {
+  .contenido-nota {
+    min-height: 70vh;
+  }
+}
+
+.contenido-nota > * + * {
+  margin-top: 0;
+}
+
+.contenido-nota p {
+  margin: 0;
+}
+
+.contenido-nota h1,
+.contenido-nota h2,
+.contenido-nota h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.contenido-nota h1 {
+  font-size: 1.875rem;
+  line-height: calc(var(--nota-linea) * 2);
+}
+.contenido-nota h2 {
+  font-size: 1.5rem;
+  line-height: calc(var(--nota-linea) * 1.5);
+}
+.contenido-nota h3 {
+  font-size: 1.2rem;
+  line-height: var(--nota-linea);
+}
+
+.contenido-nota ul,
+.contenido-nota ol {
+  padding-left: 1.5rem;
+  margin: 0;
+}
+.contenido-nota ul {
+  list-style: disc;
+}
+.contenido-nota ol {
+  list-style: decimal;
+}
+.contenido-nota li > p {
+  margin: 0;
+}
+
+.contenido-nota ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.contenido-nota ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.contenido-nota ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  user-select: none;
+  height: var(--nota-linea);
+  display: flex;
+  align-items: center;
+}
+.contenido-nota ul[data-type="taskList"] li > label input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: hsl(var(--primary));
+  cursor: pointer;
+}
+.contenido-nota ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.contenido-nota ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: hsl(var(--muted-foreground));
+  text-decoration: line-through;
+}
+
+.contenido-nota blockquote {
+  border-left: 3px solid hsl(var(--primary) / 0.6);
+  padding-left: 1rem;
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.contenido-nota code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+}
+.contenido-nota pre {
+  background: hsl(224 20% 11%);
+  color: hsl(220 14% 92%);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.contenido-nota pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.contenido-nota hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: calc(var(--nota-linea) / 2 - 0.5px) 0;
+}
+.contenido-nota hr.ProseMirror-selectednode {
+  border-top-color: hsl(var(--primary));
+}
+
+.contenido-nota a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.contenido-nota mark {
+  border-radius: 0.15rem;
+  padding: 0 0.1rem;
+  color: inherit;
+}
+
+/* Tablas */
+.contenido-nota .tableWrapper {
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.contenido-nota table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  background: hsl(var(--card));
+}
+.contenido-nota td,
+.contenido-nota th {
+  border: 1px solid hsl(var(--border));
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 4rem;
+}
+.contenido-nota th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+  text-align: left;
+}
+.contenido-nota .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--primary) / 0.12);
+  pointer-events: none;
+}
+
+/* Ecuaciones */
+.contenido-nota [data-type="inline-math"],
+.contenido-nota [data-type="block-math"] {
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+.contenido-nota [data-type="block-math"] {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.contenido-nota[contenteditable="true"] [data-type="inline-math"]:hover,
+.contenido-nota[contenteditable="true"] [data-type="block-math"]:hover {
+  background: hsl(var(--accent));
+}
+.contenido-nota .ProseMirror-selectednode[data-type="inline-math"],
+.contenido-nota .ProseMirror-selectednode[data-type="block-math"] {
+  outline: 2px solid hsl(var(--primary));
+}
+
+/* Marcadores */
+.contenido-nota .marcador-nota {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0 0.15rem;
+  padding: 0 0.4rem 0 0.3rem;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  vertical-align: 0.1em;
+  scroll-margin: 6rem;
+  user-select: none;
+}
+.contenido-nota .marcador-nota::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.7rem;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+.contenido-nota .marcador-nota.ProseMirror-selectednode {
+  outline: 2px solid hsl(var(--primary));
+}
+
+/* Nodos seleccionados e imágenes */
+.contenido-nota .imagen-nota {
+  line-height: normal;
+}
+
+/* Texto de ejemplo con la nota vacía */
+.contenido-nota p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Cursores de las demás personas */
+.cursor-colaborador {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+.cursor-colaborador-nombre {
+  position: absolute;
+  top: -1.35em;
+  left: -2px;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.25rem 0.25rem 0.25rem 0;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+}
+
+@media print {
+  .papel-nota {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

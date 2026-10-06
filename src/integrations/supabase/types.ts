@@ -713,6 +713,109 @@ export type Database = {
           },
         ]
       }
+      nota_cambios: {
+        Row: {
+          autor_id: string | null
+          created_at: string
+          datos: string
+          id: number
+          nota_id: string
+          sesion: string
+        }
+        Insert: {
+          autor_id?: string | null
+          created_at?: string
+          datos: string
+          id?: never
+          nota_id: string
+          sesion: string
+        }
+        Update: {
+          autor_id?: string | null
+          created_at?: string
+          datos?: string
+          id?: never
+          nota_id?: string
+          sesion?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nota_cambios_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "notas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nota_colaboradores: {
+        Row: {
+          created_at: string
+          empleado_id: string
+          nota_id: string
+          rol: string
+        }
+        Insert: {
+          created_at?: string
+          empleado_id: string
+          nota_id: string
+          rol: string
+        }
+        Update: {
+          created_at?: string
+          empleado_id?: string
+          nota_id?: string
+          rol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nota_colaboradores_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "notas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notas: {
+        Row: {
+          actualizado_por: string | null
+          created_at: string
+          estado: string
+          estado_hasta: number
+          extracto: string
+          formato: string
+          id: string
+          propietario_id: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          actualizado_por?: string | null
+          created_at?: string
+          estado?: string
+          estado_hasta?: number
+          extracto?: string
+          formato?: string
+          id?: string
+          propietario_id: string
+          titulo?: string
+          updated_at?: string
+        }
+        Update: {
+          actualizado_por?: string | null
+          created_at?: string
+          estado?: string
+          estado_hasta?: number
+          extracto?: string
+          formato?: string
+          id?: string
+          propietario_id?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       permisos: {
         Row: {
           codigo: string
@@ -1464,6 +1567,77 @@ export type Database = {
       }
       valorar_solucion: {
         Args: { p_ticket: string; p_aprobar: boolean; p_comentario?: string }
+        Returns: undefined
+      }
+      rol_en_nota: {
+        Args: { p_nota: string }
+        Returns: string | null
+      }
+      mis_notas: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          titulo: string
+          formato: string
+          extracto: string
+          mi_rol: string
+          propietario_id: string
+          propietario_nombre: string
+          colaboradores: number
+          actualizado_por_nombre: string | null
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      abrir_nota: {
+        Args: { p_nota: string }
+        Returns: {
+          id: string
+          titulo: string
+          formato: string
+          propietario_id: string
+          estado: string
+          estado_hasta: number
+          mi_rol: string
+        }[]
+      }
+      crear_nota: {
+        Args: { p_titulo?: string; p_formato?: string }
+        Returns: string
+      }
+      actualizar_nota: {
+        Args: { p_nota: string; p_titulo?: string; p_formato?: string }
+        Returns: undefined
+      }
+      guardar_cambios_nota: {
+        Args: { p_nota: string; p_datos: string; p_sesion: string; p_extracto?: string }
+        Returns: number
+      }
+      compactar_nota: {
+        Args: { p_nota: string; p_estado: string; p_base: number; p_hasta: number; p_cuantos: number }
+        Returns: boolean
+      }
+      colaboradores_nota: {
+        Args: { p_nota: string }
+        Returns: {
+          empleado_id: string
+          nombre: string
+          primer_apellido: string
+          cargo: string | null
+          departamento: string | null
+          rol: string
+        }[]
+      }
+      compartir_nota: {
+        Args: { p_nota: string; p_empleado: string; p_rol: string }
+        Returns: undefined
+      }
+      quitar_colaborador_nota: {
+        Args: { p_nota: string; p_empleado: string }
+        Returns: undefined
+      }
+      eliminar_nota: {
+        Args: { p_nota: string }
         Returns: undefined
       }
       mis_conversaciones: {
