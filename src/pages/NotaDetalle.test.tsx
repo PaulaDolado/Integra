@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { simularRpc } from "@/test/supabase-mock";
 import { renderConQuery } from "@/test/render";
 import { expectSinViolaciones } from "@/test/accesibilidad";
@@ -13,6 +14,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: vi.fn(), rpc: vi.fn(), channel: vi.fn(), removeChannel: vi.fn(), storage: { from: vi.fn() } },
 }));
 vi.mock("@/hooks/useEmployeeProfile", () => ({ useEmployeeProfile: vi.fn() }));
+vi.mock("@/hooks/useMiEmpleadoId", () => ({ useMiEmpleadoId: vi.fn() }));
 vi.mock("@/hooks/useInvalidarEnCambios", () => ({ useInvalidarEnCambios: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn(), useToast: () => ({ toast: vi.fn() }) }));
 
@@ -69,7 +71,23 @@ describe("Editor de notas", () => {
     vi.mocked(useEmployeeProfile).mockReturnValue({
       profile: { id: "e-ana", nombre: "Ana", primer_apellido: "López" },
       loading: false,
+      getDisplayName: () => "Ana López",
     } as unknown as ReturnType<typeof useEmployeeProfile>);
+    vi.mocked(useMiEmpleadoId).mockReturnValue({ empleadoId: "e-ana", loading: false });
+  });
+
+  it("abre el editor aunque no llegue el perfil del empleado", async () => {
+    simularServidor("propietario");
+    vi.mocked(useEmployeeProfile).mockReturnValue({
+      profile: null,
+      loading: false,
+      getDisplayName: () => "demo",
+    } as unknown as ReturnType<typeof useEmployeeProfile>);
+    vi.mocked(useMiEmpleadoId).mockReturnValue({ empleadoId: null, loading: false });
+    pintar();
+
+    const contenido = await screen.findByRole("textbox", { name: "Contenido de la nota" });
+    expect(contenido).toHaveAttribute("contenteditable", "true");
   });
 
   it("quien puede editar ve la barra de formato y elige el fondo de la hoja", async () => {

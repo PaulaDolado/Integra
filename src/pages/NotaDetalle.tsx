@@ -37,6 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAvisarError } from "@/hooks/useAvisarError";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { useMiEmpleadoId } from "@/hooks/useMiEmpleadoId";
 import { cn } from "@/lib/utils";
 import { EditorNota } from "@/components/documentos/EditorNota";
 import { DialogoCompartir } from "@/components/documentos/DialogoCompartir";
@@ -61,7 +62,8 @@ export default function NotaDetalle() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { profile } = useEmployeeProfile();
+  const { profile, getDisplayName } = useEmployeeProfile();
+  const { empleadoId } = useMiEmpleadoId();
 
   const { data: meta, isLoading: cargandoMeta, error: errorMeta } = useMetaNota(id);
   useAvisarError(errorMeta, "No se pudo abrir la nota");
@@ -121,7 +123,7 @@ export default function NotaDetalle() {
     setProcesando(true);
     try {
       if (confirmar === "eliminar") await eliminarNota(id);
-      else if (profile?.id) await salirDeNota(id, profile.id);
+      else if (empleadoId) await salirDeNota(id, empleadoId);
       queryClient.invalidateQueries({ queryKey: ["notas", "lista"] });
       toast({ title: confirmar === "eliminar" ? "Nota eliminada" : "Ya no colaboras en la nota" });
       navigate("/documentos");
@@ -156,9 +158,10 @@ export default function NotaDetalle() {
   const esPropietario = rol === "propietario";
   const nombreMostrado = tituloNota(titulo);
   const Estado = ESTADOS[estado];
-  const usuario = profile
-    ? { id: profile.id, name: `${profile.nombre} ${profile.primer_apellido}`, color: colorDePersona(profile.id) }
-    : null;
+  // Nombre y color del cursor. Nunca bloquea el editor: si el perfil no llega,
+  // se usa el nombre de la cuenta
+  const idPersona = empleadoId ?? profile?.id ?? "anonimo";
+  const usuario = { id: idPersona, name: getDisplayName(), color: colorDePersona(idPersona) };
 
   return (
     <div className="flex min-h-full flex-col">
@@ -270,7 +273,7 @@ export default function NotaDetalle() {
         </DropdownMenu>
       </header>
 
-      {sesion && usuario && editable !== undefined ? (
+      {sesion && editable !== undefined ? (
         <EditorNota
           notaId={id}
           sesion={sesion}
