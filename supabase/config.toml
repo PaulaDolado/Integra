@@ -4,3 +4,8 @@ project_id = "pqxghndxexdsonnkoacu"
 # x-integra-secreto en lugar de con el JWT de un usuario
 [functions.notificar]
 verify_jwt = false
+
+# La pide Google Calendar (u otro calendario) sin iniciar sesión: el token secreto
+# de cada persona, en la URL, hace de llave
+[functions.calendario-ics]
+verify_jwt = false

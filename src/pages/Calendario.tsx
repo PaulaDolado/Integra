@@ -4,7 +4,6 @@ import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, CalendarSear
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useToast } from "@/hooks/use-toast";
 import {
   HOUR_HEIGHT,
   JORNADA,
@@ -24,17 +23,18 @@ import { VistaMes } from "@/components/calendario/VistaMes";
 import { VistaAnio } from "@/components/calendario/VistaAnio";
 import { PanelLateral } from "@/components/calendario/PanelLateral";
 import { DialogosEvento } from "@/components/calendario/DialogosEvento";
+import { SuscripcionCalendario } from "@/components/calendario/SuscripcionCalendario";
 
 export default function Calendario() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>('weekly');
   const [now, setNow] = useState(new Date());
   const timeGridRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
   const { events, upcomingEvents, loadingUpcoming } = useEventos(viewType, currentDate);
   const editor = useEditorEvento();
   const { profile } = useEmployeeProfile();
   const [tiempoLibre, setTiempoLibre] = useState(false);
+  const [suscripcion, setSuscripcion] = useState(false);
 
   // Mantiene al día la línea de la hora actual
   useEffect(() => {
@@ -49,12 +49,6 @@ export default function Calendario() {
     }
   }, [viewType]);
 
-  const handleComingSoon = (feature: string) => {
-    toast({
-      title: "Próximamente",
-      description: `${feature} estará disponible en una próxima versión.`,
-    });
-  };
 
   const openDay = (day: Date) => {
     setCurrentDate(day);
@@ -102,7 +96,7 @@ export default function Calendario() {
             <CalendarSearch className="w-4 h-4" />
             {tiempoLibre ? "Ocultar tiempo libre" : "Mostrar tiempo libre"}
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => handleComingSoon("La integración con Google Calendar")}>
+          <Button variant="outline" className="gap-2" onClick={() => setSuscripcion(true)}>
             <CalendarSync className="w-4 h-4" />
             Google Calendar
           </Button>
@@ -194,6 +188,7 @@ export default function Calendario() {
       </div>
 
       <DialogosEvento editor={editor} />
+      <SuscripcionCalendario open={suscripcion} onOpenChange={setSuscripcion} />
     </div>
   );
 }

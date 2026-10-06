@@ -33,6 +33,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Avisos en la app](#avisos-en-la-app)
+- [Calendario en Google Calendar](#calendario-en-google-calendar)
 - [Tests](#tests)
 - [Accesibilidad](#accesibilidad)
 - [Tests end-to-end](#tests-end-to-end)
@@ -375,6 +376,35 @@ Para activarlo, **aplica la migración** `20261006100000_avisos.sql` (después d
 
 Limpieza: `pg_cron` ejecuta `limpiar_avisos()` cada noche. Borra los avisos leídos hace más de 90 días y cualquier aviso de más de un año. Si `pg_cron` no está activado, la migración no falla, pero hay que ejecutar `SELECT public.limpiar_avisos();` a mano de vez en cuando.
 
+## Calendario en Google Calendar
+
+Cada persona puede ver su calendario de Integra en Google Calendar (o en Outlook o Apple Calendar) con un enlace privado. En **Calendario → Google Calendar** está su enlace, con un botón para copiarlo y los pasos: en Google Calendar, junto a **Otros calendarios**, **+ → Desde URL**, pegar el enlace y **Añadir calendario**.
+
+- **Qué eventos salen:** los mismos que la persona ve en Integra (los públicos, los suyos y aquellos en los que participa), desde hace dos meses hasta dentro de un año.
+- **Solo va de Integra a Google.** Los cambios hechos en Google no vuelven, y Google vuelve a pedir el enlace cada pocas horas (no es inmediato).
+- **El enlace es la llave.** Quien lo tenga ve esos eventos, también los privados, así que no se comparte. **Generar un enlace nuevo** invalida el anterior: Google mostrará un error con el viejo y hay que añadir el nuevo. Si el empleado deja de estar activo, su enlace deja de funcionar.
+
+Cómo funciona:
+
+- La migración `20261007100000_calendario_suscripcion.sql` crea la tabla `calendario_enlaces` (un token de 64 caracteres por empleado, sin acceso directo desde la app), las funciones `mi_token_calendario()` y `regenerar_token_calendario()` (exigen el doble factor si está activado) y `eventos_suscripcion_calendario(token)`, que solo puede llamar la clave de servicio.
+- La Edge Function `calendario-ics` (`supabase/functions/calendario-ics/`) recibe el token, pide los eventos y los devuelve en formato iCalendar (`.ics`). Google la llama sin iniciar sesión, por eso tiene `verify_jwt = false` en `supabase/config.toml`. Un token que no existe recibe un 404.
+- Si está definido el secreto `APP_URL` (el mismo de los avisos de Teams y Google Chat), cada evento enlaza a la pantalla del Calendario.
+
+Puesta en marcha:
+
+1. Aplica la migración `20261007100000_calendario_suscripcion.sql`.
+2. Despliega la función:
+
+   ```sh
+   supabase functions deploy calendario-ics
+   ```
+
+3. Comprueba que responde: con un token inventado debe devolver 404.
+
+   ```sh
+   curl -i "https://<project-ref>.supabase.co/functions/v1/calendario-ics?token=$(printf 'a%.0s' {1..64})"
+   ```
+
 ## Tests
 
 ```sh
@@ -400,6 +430,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `pages/Organigrama.test.tsx` | Solo usa la función `organigrama`, nunca la tabla `empleados`, y no muestra correos ni teléfonos |
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
 | `supabase/functions/notificar/mensajes.test.ts` | Cada aviso va al webhook que le toca, con el formato de Teams o de Google Chat, y el texto de los usuarios no puede mencionar a todo un espacio |
+| `supabase/functions/calendario-ics/ics.test.ts` | El calendario `.ics` del enlace de Google Calendar es válido: fechas en UTC, textos escapados, líneas partidas a 75 bytes sin romper caracteres y solo tokens bien formados |
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 | `components/layout/AppLayout.test.tsx` | El enlace «Saltar al contenido» es lo primero que se enfoca y lleva al `<main>` |
 
@@ -521,6 +552,7 @@ scripts/
 └── generar-iconos.mjs       # Iconos PNG de la app instalable (npm run iconos)
 supabase/
 ├── functions/notificar/     # Edge Function de los avisos a Teams y Google Chat
+├── functions/calendario-ics/ # Edge Function del enlace para Google Calendar
 ├── migrations/              # Esquema, políticas RLS y funciones
 └── seed-demo.sql            # Perfil del usuario demo
 ```
