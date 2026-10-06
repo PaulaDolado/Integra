@@ -1356,6 +1356,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      mi_token_calendario: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       mis_permisos: {
         Args: Record<PropertyKey, never>
         Returns: string[]
@@ -1387,6 +1391,10 @@ export type Database = {
       personas_tickets: {
         Args: Record<PropertyKey, never>
         Returns: { id: string; nombre: string }[]
+      }
+      regenerar_token_calendario: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       responder_intercambio_turno: {
         Args: { p_solicitud: string; p_aceptar: boolean; p_comentario?: string }
