@@ -35,11 +35,12 @@ export function aBase64(bytes: Uint8Array): string {
   return btoa(binario);
 }
 
-export function deBase64(texto: string): Uint8Array {
+// Con ArrayBuffer (no SharedArrayBuffer): es lo que admite la Web Crypto
+export function deBase64(texto: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(texto), (c) => c.charCodeAt(0));
 }
 
-export async function derivarClave(maestra: string, sal: Uint8Array, iteraciones: number): Promise<CryptoKey> {
+export async function derivarClave(maestra: string, sal: Uint8Array<ArrayBuffer>, iteraciones: number): Promise<CryptoKey> {
   const material = await crypto.subtle.importKey("raw", codificador.encode(maestra), "PBKDF2", false, ["deriveKey"]);
   // La clave no es exportable: no se puede sacar de la memoria del navegador
   return crypto.subtle.deriveKey(
