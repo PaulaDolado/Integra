@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { User, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { appUrl } from "@/lib/app-url";
 
@@ -147,7 +147,7 @@ export default function Login() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-4 bg-linear-to-br from-primary/5 to-secondary/5 p-4">
       <Card className="w-full max-w-md bg-card/80 backdrop-blur-xs shadow-lg">
         <CardHeader className="space-y-6 pb-8">
           {/* Company Logo */}
@@ -354,6 +354,13 @@ export default function Login() {
           )}
         </CardContent>
       </Card>
+      {/* Qué es la app y su política de privacidad, visibles sin iniciar sesión (Google lo pide) */}
+      <p className="max-w-md text-center text-xs text-muted-foreground">
+        Integra es el portal del empleado: fichajes, ausencias, turnos, tareas, calendario y comunicados.{" "}
+        <Link to="/privacidad" className="text-primary hover:underline">
+          Política de privacidad
+        </Link>
+      </p>
     </main>
   );
 }

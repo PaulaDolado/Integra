@@ -1,14 +1,19 @@
 // Edge Function «google-calendar»: conecta la cuenta de Google de cada persona
 // (OAuth, solo lectura) y le devuelve sus eventos de Google Calendar.
 //
-//   POST { accion: "iniciar", volver }       → { url } de Google para dar permiso
-//   GET  /google-calendar/callback           ← Google vuelve aquí con el código
-//   POST { accion: "eventos", desde, hasta } → { conectado, eventos }
-//   POST { accion: "desconectar" }           → revoca el permiso y borra los tokens
+//   POST { accion: "iniciar", volver }             → { url } de Google para dar permiso
+//   POST { accion: "completar", code, state, error } → { resultado }
+//   POST { accion: "eventos", desde, hasta }       → { conectado, eventos }
+//   POST { accion: "desconectar" }                 → revoca el permiso y borra los tokens
 //
-// Las peticiones POST llevan el JWT de la sesión de Integra (lo comprueba la
-// propia función: verify_jwt está desactivado porque Google llama a /callback
-// sin sesión). Los tokens de Google se guardan cifrados con GOOGLE_TOKENS_CLAVE.
+// Google no vuelve aquí, sino a la propia web (/google-callback, el «volver» de
+// «iniciar»): así la pantalla de permisos muestra el dominio de Integra y no el
+// de Supabase, y Google puede verificar la marca. Esa página manda el código a
+// «completar», que hace el intercambio con el client secret y PKCE.
+//
+// Todas las peticiones llevan el JWT de la sesión de Integra y la propia función
+// lo comprueba (verify_jwt está desactivado para poder responder al preflight
+// de CORS). Los tokens de Google se guardan cifrados con GOOGLE_TOKENS_CLAVE.
 //
 // Secretos: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_TOKENS_CLAVE y APP_URL.
 
@@ -21,7 +26,6 @@ import {
   claveTokens,
   codeChallenge,
   codeVerifier,
-  conResultado,
   descifrarToken,
   emailDelIdToken,
   hexAleatorio,
@@ -36,7 +40,6 @@ const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
 const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 const CLAVE_TOKENS = Deno.env.get("GOOGLE_TOKENS_CLAVE") ?? "";
 const APP_URL = Deno.env.get("APP_URL") || undefined;
-const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/google-calendar/callback`;
 // Como mucho este rango por petición (la app pide el rango visible, como mucho un año)
 const MAX_RANGO_DIAS = 400;
 
@@ -52,8 +55,6 @@ const CORS = {
 
 const json = (datos: unknown, status = 200) =>
   new Response(JSON.stringify(datos), { status, headers: { ...CORS, "Content-Type": "application/json" } });
-
-const redirigir = (url: string) => new Response(null, { status: 302, headers: { Location: url } });
 
 let clave: Promise<CryptoKey> | null = null;
 const laClave = () => (clave ??= claveTokens(CLAVE_TOKENS));
@@ -86,39 +87,42 @@ async function pedirTokens(parametros: Record<string, string>) {
   return { ok: res.ok, datos };
 }
 
-// Google vuelve aquí tras pedir permiso ------------------------------------------------
-async function callback(url: URL): Promise<Response> {
-  const estado = url.searchParams.get("state") ?? "";
-  if (!/^[0-9a-f]{64}$/.test(estado)) return new Response("Petición no válida", { status: 400 });
+// La página /google-callback de Integra manda aquí lo que le ha dado Google ----------
+async function completar(
+  empleado: string,
+  p: { code?: unknown; state?: unknown; error?: unknown }
+): Promise<Response> {
+  const estado = typeof p.state === "string" ? p.state : "";
+  if (!/^[0-9a-f]{64}$/.test(estado)) return json({ resultado: "error" }, 400);
 
-  // El estado se usa una sola vez
+  // El estado se usa una sola vez, y solo lo puede completar quien lo empezó
   const { data: peticion } = await servicio
     .from("google_oauth_estados")
     .delete()
     .eq("estado", estado)
-    .select("empleado_id, code_verifier, volver, expira")
+    .eq("empleado_id", empleado)
+    .select("code_verifier, volver, expira")
     .maybeSingle();
-  if (!peticion || new Date(peticion.expira) < new Date()) {
-    return new Response("La petición ha caducado. Vuelve a Integra e inténtalo de nuevo.", { status: 400 });
-  }
+  if (!peticion || new Date(peticion.expira) < new Date()) return json({ resultado: "caducado" });
 
   // La persona canceló en la pantalla de Google
-  if (url.searchParams.get("error")) return redirigir(conResultado(peticion.volver, "cancelado"));
+  if (p.error) return json({ resultado: "cancelado" });
 
   const { ok, datos } = await pedirTokens({
     grant_type: "authorization_code",
-    code: url.searchParams.get("code") ?? "",
-    redirect_uri: REDIRECT_URI,
+    code: typeof p.code === "string" ? p.code : "",
+    // La misma página a la que volvió Google: si no coincide, Google no da los tokens
+    redirect_uri: peticion.volver,
     code_verifier: peticion.code_verifier,
   });
   if (!ok || !datos.refresh_token) {
     console.error("Google no ha dado tokens:", datos.error ?? "sin refresh_token");
-    return redirigir(conResultado(peticion.volver, "error"));
+    return json({ resultado: "error" });
   }
 
   const k = await laClave();
   const { error } = await servicio.from("google_calendar_conexiones").upsert({
-    empleado_id: peticion.empleado_id,
+    empleado_id: empleado,
     email: emailDelIdToken(datos.id_token),
     refresh_token_cifrado: await cifrarToken(k, datos.refresh_token),
     access_token_cifrado: await cifrarToken(k, datos.access_token),
@@ -127,9 +131,9 @@ async function callback(url: URL): Promise<Response> {
   });
   if (error) {
     console.error("No se pudo guardar la conexión:", error.message);
-    return redirigir(conResultado(peticion.volver, "error"));
+    return json({ resultado: "error" });
   }
-  return redirigir(conResultado(peticion.volver, "conectado"));
+  return json({ resultado: "conectado" });
 }
 
 // Un access token válido: el guardado, o uno nuevo con el refresh token.
@@ -231,9 +235,6 @@ async function desconectar(empleado: string): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-
-  if (req.method === "GET" && url.pathname.endsWith("/callback")) return callback(url);
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
   if (!CLIENT_ID || !CLIENT_SECRET || !CLAVE_TOKENS) {
@@ -257,9 +258,11 @@ Deno.serve(async (req) => {
           .insert({ estado, empleado_id: empleado, code_verifier: verifier, volver: peticion.volver });
         if (error) throw new Error(error.message);
         return json({
-          url: urlAutorizacion({ clientId: CLIENT_ID, redirectUri: REDIRECT_URI, estado, challenge: await codeChallenge(verifier) }),
+          url: urlAutorizacion({ clientId: CLIENT_ID, redirectUri: peticion.volver, estado, challenge: await codeChallenge(verifier) }),
         });
       }
+      case "completar":
+        return completar(empleado, peticion);
       case "eventos":
         return eventos(empleado, peticion.desde, peticion.hasta);
       case "desconectar":

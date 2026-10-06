@@ -33,6 +33,8 @@ const GestionEmpleados = lazy(() => import("./pages/GestionEmpleados"));
 const GestionFichajes = lazy(() => import("./pages/GestionFichajes"));
 const GestionContactosEmergencia = lazy(() => import("./pages/GestionContactosEmergencia"));
 const GestionDatosPago = lazy(() => import("./pages/GestionDatosPago"));
+const GoogleCallback = lazy(() => import("./pages/GoogleCallback"));
+const Privacidad = lazy(() => import("./pages/Privacidad"));
 const Login = lazy(() => import("./pages/Login"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -80,11 +82,14 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Pública: la enlaza la pantalla de permisos de Google */}
+              <Route path="/privacidad" element={<Privacidad />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
               <Route element={<ZonaPrivada />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/calendario" element={<Calendario />} />
+                <Route path="/google-callback" element={<GoogleCallback />} />
                 <Route path="/tareas" element={<Tareas />} />
                 <Route path="/comunicacion" element={<Comunicacion />} />
                 <Route path="/tickets" element={<Tickets />} />

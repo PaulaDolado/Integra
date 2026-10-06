@@ -35,6 +35,7 @@ import { useGoogleCalendar } from "@/components/calendario/useGoogleCalendar";
 const RESULTADOS_GOOGLE: Record<string, { title: string; description?: string; variant?: "destructive" }> = {
   conectado: { title: "Google Calendar conectado", description: "Tus eventos de Google ya salen en azul en el calendario." },
   cancelado: { title: "No se ha conectado Google Calendar", description: "Has cancelado el permiso en Google." },
+  caducado: { title: "No se ha conectado Google Calendar", description: "La petición ha caducado. Vuelve a intentarlo.", variant: "destructive" },
   error: { title: "Error", description: "No se pudo conectar Google Calendar. Inténtalo de nuevo.", variant: "destructive" },
 };
 
