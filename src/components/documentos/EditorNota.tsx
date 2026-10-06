@@ -120,6 +120,11 @@ export function EditorNota({ notaId, sesion, editable, formato, usuario, mostrar
     [sesion.doc]
   );
 
+  // El nombre puede llegar después (cuando carga el perfil): se actualiza el cursor
+  useEffect(() => {
+    editor.commands.updateUser({ id: usuario.id, name: usuario.name, color: usuario.color });
+  }, [editor, usuario.id, usuario.name, usuario.color]);
+
   // El permiso puede cambiar sin rehacer el editor
   useEffect(() => {
     if (editor.isEditable !== editable) editor.setEditable(editable);
