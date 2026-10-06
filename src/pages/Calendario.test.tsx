@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { renderConQuery } from "@/test/render";
+import { MemoryRouter } from "react-router";
 import { expectSinViolaciones } from "@/test/accesibilidad";
 import Calendario from "./Calendario";
 
 const toast = vi.hoisted(() => vi.fn());
 
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn() } }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), functions: { invoke: vi.fn() } } }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("@/hooks/useEmployeeProfile", () => ({ useEmployeeProfile: vi.fn() }));
 vi.mock("@/hooks/useInvalidarEnCambios", () => ({ useInvalidarEnCambios: vi.fn() }));
@@ -86,6 +87,17 @@ function tabla() {
   return builder;
 }
 
+// Sin Google Calendar conectado salvo que el test diga otra cosa
+let conexionGoogle: { email: string | null; conectado_en: string }[];
+let eventosGoogle: Record<string, unknown>[];
+
+const pintar = (ruta = "/calendario") =>
+  renderConQuery(
+    <MemoryRouter initialEntries={[ruta]}>
+      <Calendario />
+    </MemoryRouter>
+  );
+
 // Consultas del rango visible (las que no son de "próximos" ni escrituras)
 const consultasDeRango = () =>
   consultas.filter((c) => c.some(([m]) => m === "lte") && !c.some(([m]) => m === "limit"));
@@ -105,6 +117,14 @@ describe("Calendario", { timeout: 30_000 }, () => {
     errorEscritura = null;
     filasAfectadas = 1;
     vi.mocked(supabase.from).mockImplementation(tabla as never);
+    conexionGoogle = [];
+    eventosGoogle = [];
+    vi.mocked(supabase.rpc).mockImplementation((async (nombre: string) =>
+      nombre === "mi_conexion_google_calendar" ? { data: conexionGoogle, error: null } : { data: null, error: { message: nombre } }) as never);
+    vi.mocked(supabase.functions.invoke).mockImplementation((async () => ({
+      data: { conectado: true, email: "laura@empresa.test", eventos: eventosGoogle },
+      error: null,
+    })) as never);
     vi.mocked(useAuth).mockReturnValue({ user: { id: "u1" } } as ReturnType<typeof useAuth>);
     vi.mocked(useEmployeeProfile).mockReturnValue({ profile: { id: "emp1" } } as ReturnType<typeof useEmployeeProfile>);
   });
@@ -114,7 +134,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("abre en la semana actual, pide de lunes a domingo y muestra los eventos", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
 
     expect(screen.getByText("5 oct – 11 oct 2026")).toBeInTheDocument();
     expect(await screen.findAllByText("Reunión de equipo")).toHaveLength(2); // rejilla y próximos
@@ -138,7 +158,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("navega entre semanas y vuelve a hoy, pidiendo el nuevo rango", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
 
     await userEvent.click(screen.getByRole("button", { name: "Siguiente" }));
@@ -156,7 +176,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("cambia entre las vistas de día, mes y año", async () => {
     eventos = [evento({}), evento({ id: "ev2", titulo: "Formación", fecha_inicio: iso(2026, 9, 20, 9), fecha_fin: iso(2026, 9, 20, 11) })];
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
 
     await userEvent.click(screen.getByRole("radio", { name: "Vista diaria" }));
@@ -188,7 +208,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
     eventos = ["A", "B", "C", "D"].map((letra, i) =>
       evento({ id: `m${i}`, titulo: `Visita ${letra}`, fecha_inicio: iso(2026, 9, 14, 9 + i), fecha_fin: iso(2026, 9, 14, 10 + i) })
     );
-    renderConQuery(<Calendario />);
+    pintar();
     await userEvent.click(screen.getByRole("radio", { name: "Vista mensual" }));
 
     expect(await screen.findByText("Visita C")).toBeInTheDocument();
@@ -200,7 +220,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("crea un evento con los datos del formulario y el creador del perfil", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
 
     await userEvent.click(screen.getByRole("button", { name: /Nuevo Evento/ }));
@@ -237,7 +257,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("al pulsar un hueco de la rejilla propone esa hora", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
 
     // Jueves (cuarta columna) a las 15:00
@@ -248,7 +268,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("no crea el evento si el fin no es posterior al inicio", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await userEvent.click(screen.getByRole("button", { name: /Nuevo Evento/ }));
     const dialogo = screen.getByRole("dialog", { name: "Crear Nuevo Evento" });
 
@@ -263,7 +283,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("sin perfil de empleado avisa y no crea nada", async () => {
     vi.mocked(useEmployeeProfile).mockReturnValue({ profile: null } as ReturnType<typeof useEmployeeProfile>);
-    renderConQuery(<Calendario />);
+    pintar();
     await userEvent.click(screen.getByRole("button", { name: /Nuevo Evento/ }));
     const dialogo = screen.getByRole("dialog", { name: "Crear Nuevo Evento" });
 
@@ -277,7 +297,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("edita un evento existente y guarda solo los campos editables", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
 
     await userEvent.click(enRejilla);
@@ -310,7 +330,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("elimina el evento abierto tras confirmarlo", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
     await userEvent.click(enRejilla);
 
@@ -327,7 +347,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("si falla la eliminación avisa y deja el diálogo abierto", async () => {
     errorEscritura = { message: "permiso denegado" };
-    renderConQuery(<Calendario />);
+    pintar();
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
     await userEvent.click(enRejilla);
 
@@ -344,7 +364,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("los eventos de otra persona se ven pero no se pueden editar ni borrar", async () => {
     eventos = [evento({ creador_id: "emp9" })];
-    renderConQuery(<Calendario />);
+    pintar();
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
     await userEvent.click(enRejilla);
 
@@ -357,7 +377,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("si la base de datos no actualiza ninguna fila no dice que se ha guardado", async () => {
     filasAfectadas = 0;
-    renderConQuery(<Calendario />);
+    pintar();
     const [enRejilla] = await screen.findAllByRole("button", { name: /Reunión de equipo/ });
     await userEvent.click(enRejilla);
 
@@ -372,7 +392,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("un evento que acaba a medianoche no aparece en el día siguiente", async () => {
     eventos = [evento({ titulo: "Cena de empresa", fecha_inicio: iso(2026, 9, 7, 21), fecha_fin: iso(2026, 9, 8) })];
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Cena de empresa");
 
     await userEvent.click(screen.getByRole("radio", { name: "Vista diaria" }));
@@ -384,7 +404,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   it("en la vista de año cuenta un evento en todos los meses que ocupa", async () => {
     eventos = [evento({ titulo: "Auditoría", fecha_inicio: iso(2026, 9, 28, 9), fecha_fin: iso(2026, 10, 3, 18) })];
-    renderConQuery(<Calendario />);
+    pintar();
     await userEvent.click(screen.getByRole("radio", { name: "Vista anual" }));
 
     expect(await screen.findByRole("button", { name: /Octubre\s*1 evento/ })).toBeInTheDocument();
@@ -393,7 +413,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("muestra el tiempo libre de la semana y crea un evento en un hueco", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
 
     const boton = screen.getByRole("button", { name: "Mostrar tiempo libre" });
@@ -417,7 +437,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
   });
 
   it("al pedir el tiempo libre desde la vista de mes pasa a la semana, y se puede ocultar", async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
     await userEvent.click(screen.getByRole("radio", { name: "Vista mensual" }));
 
@@ -429,10 +449,84 @@ describe("Calendario", { timeout: 30_000 }, () => {
     expect(screen.queryByRole("button", { name: /^Tiempo libre de/ })).not.toBeInTheDocument();
   });
 
+  it("sin Google Calendar conectado no pide sus eventos", async () => {
+    pintar();
+    await screen.findAllByText("Reunión de equipo");
+    await waitFor(() => expect(supabase.rpc).toHaveBeenCalledWith("mi_conexion_google_calendar"));
+    expect(supabase.functions.invoke).not.toHaveBeenCalled();
+  });
+
+  it("con Google Calendar conectado muestra sus eventos, en solo lectura y ocupando tiempo", async () => {
+    conexionGoogle = [{ email: "laura@empresa.test", conectado_en: "2026-10-01T10:00:00Z" }];
+    eventosGoogle = [
+      {
+        id: "g1",
+        titulo: "Cita médica",
+        descripcion: "Traer la tarjeta",
+        ubicacion: "Centro de salud",
+        fecha_inicio: iso(2026, 9, 8, 12),
+        fecha_fin: iso(2026, 9, 8, 13),
+        todo_el_dia: false,
+        ocupado: true,
+        enlace: "https://www.google.com/calendar/event?eid=g1",
+      },
+      {
+        id: "g2",
+        titulo: "Puente",
+        descripcion: null,
+        ubicacion: null,
+        fecha_inicio: iso(2026, 9, 9),
+        fecha_fin: iso(2026, 9, 10),
+        todo_el_dia: true,
+        ocupado: false,
+        enlace: null,
+      },
+    ];
+    pintar();
+
+    // Se piden los de Google del rango visible (la semana)
+    expect(await screen.findByRole("button", { name: /Cita médica/ })).toBeInTheDocument();
+    expect(supabase.functions.invoke).toHaveBeenCalledWith("google-calendar", {
+      body: { accion: "eventos", desde: iso(2026, 9, 5), hasta: new Date(2026, 9, 11, 23, 59, 59, 999).toISOString() },
+    });
+    // Los de todo el día van en su propia fila
+    expect(screen.getByText("Todo el día")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Puente" })).toBeInTheDocument();
+
+    // Al pulsarlo se ve el detalle, no el editor
+    await userEvent.click(screen.getByRole("button", { name: /Cita médica/ }));
+    const detalle = screen.getByRole("dialog", { name: "Cita médica" });
+    expect(within(detalle).getByText(/Evento de tu Google Calendar/)).toBeInTheDocument();
+    expect(within(detalle).getByText("Centro de salud")).toBeInTheDocument();
+    expect(within(detalle).getByRole("link", { name: /Abrir en Google Calendar/ })).toHaveAttribute(
+      "href",
+      "https://www.google.com/calendar/event?eid=g1"
+    );
+    expect(screen.queryByRole("dialog", { name: "Editar Evento" })).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    // La cita ocupa tiempo; el puente («Disponible» en Google) no
+    await userEvent.click(screen.getByRole("button", { name: "Mostrar tiempo libre" }));
+    const huecos = screen.getAllByRole("button", { name: /^Tiempo libre de/ }).map((h) => h.getAttribute("aria-label"));
+    expect(huecos).toEqual([
+      "Tiempo libre de 10:30 a 18:00 (7 h 30 min). Crear evento",
+      "Tiempo libre de 08:00 a 12:00 (4 h). Crear evento",
+      "Tiempo libre de 13:00 a 18:00 (5 h). Crear evento",
+      "Tiempo libre de 08:00 a 18:00 (10 h). Crear evento",
+    ]);
+  });
+
+  it("al volver de Google avisa del resultado", async () => {
+    pintar("/calendario?google=conectado");
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Google Calendar conectado" }))
+    );
+  });
+
   it("avisa si no se pueden cargar los eventos", async () => {
     errorLectura = { message: "sin conexión" };
     vi.spyOn(console, "error").mockImplementation(() => {});
-    renderConQuery(<Calendario />);
+    pintar();
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
@@ -443,7 +537,7 @@ describe("Calendario", { timeout: 30_000 }, () => {
 
   // axe recorre los 168 huecos de la semana y los 42 días del mes: tarda más de lo normal
   it("no tiene problemas de accesibilidad", { timeout: 60_000 }, async () => {
-    renderConQuery(<Calendario />);
+    pintar();
     await screen.findAllByText("Reunión de equipo");
     await expectSinViolaciones();
 

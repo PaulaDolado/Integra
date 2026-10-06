@@ -1,6 +1,6 @@
 import { format, addHours, isSameMonth, isToday, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { MONTH_EVENTS_VISIBLE, etiquetaCrearEvento, eventosDelDia, nombreDelDia, weekDays, type Event } from "./fechas";
+import { MONTH_EVENTS_VISIBLE, clasesEvento, etiquetaCrearEvento, eventosDelDia, nombreDelDia, weekDays, type Event } from "./fechas";
 
 interface VistaMesProps {
   days: Date[];
@@ -65,12 +65,14 @@ export function VistaMes({ days, currentDate, events, onCrear, onEditar, onAbrir
                   <button
                     type="button"
                     key={event.id}
-                    className="pointer-events-auto w-full flex items-center gap-1 text-left text-[11px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground hover:brightness-95 transition truncate"
+                    className={cn("pointer-events-auto w-full flex items-center gap-1 text-left text-[11px] px-1.5 py-0.5 rounded hover:brightness-95 transition truncate", clasesEvento(event))}
                     onClick={() => onEditar(event)}
                   >
-                    <span className="hidden sm:inline font-medium shrink-0">
-                      {format(new Date(event.fecha_inicio), 'HH:mm')}
-                    </span>
+                    {!event.todo_el_dia && (
+                      <span className="hidden sm:inline font-medium shrink-0">
+                        {format(new Date(event.fecha_inicio), 'HH:mm')}
+                      </span>
+                    )}
                     <span className="truncate">{event.titulo}</span>
                   </button>
                 ))}

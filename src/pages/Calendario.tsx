@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
+import { useToast } from "@/hooks/use-toast";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, CalendarSearch, CalendarSync } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +13,11 @@ import {
   desplazarFecha,
   duracion,
   getDaysToDisplay,
+  getViewRange,
   getViewTitle,
   huecosLibres,
   minutosDe,
+  type Event,
   type ViewType,
 } from "@/components/calendario/fechas";
 import { useEventos } from "@/components/calendario/useEventos";
@@ -24,6 +28,15 @@ import { VistaAnio } from "@/components/calendario/VistaAnio";
 import { PanelLateral } from "@/components/calendario/PanelLateral";
 import { DialogosEvento } from "@/components/calendario/DialogosEvento";
 import { SuscripcionCalendario } from "@/components/calendario/SuscripcionCalendario";
+import { DetalleEventoGoogle } from "@/components/calendario/DetalleEventoGoogle";
+import { useGoogleCalendar } from "@/components/calendario/useGoogleCalendar";
+
+// Lo que dice Google al volver de dar (o no) permiso
+const RESULTADOS_GOOGLE: Record<string, { title: string; description?: string; variant?: "destructive" }> = {
+  conectado: { title: "Google Calendar conectado", description: "Tus eventos de Google ya salen en azul en el calendario." },
+  cancelado: { title: "No se ha conectado Google Calendar", description: "Has cancelado el permiso en Google." },
+  error: { title: "Error", description: "No se pudo conectar Google Calendar. Inténtalo de nuevo.", variant: "destructive" },
+};
 
 export default function Calendario() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -35,6 +48,29 @@ export default function Calendario() {
   const { profile } = useEmployeeProfile();
   const [tiempoLibre, setTiempoLibre] = useState(false);
   const [suscripcion, setSuscripcion] = useState(false);
+  const [eventoGoogle, setEventoGoogle] = useState<Event | null>(null);
+  const { toast } = useToast();
+  const [parametros, setParametros] = useSearchParams();
+  const { start: rangoInicio, end: rangoFin } = getViewRange(viewType, currentDate);
+  const google = useGoogleCalendar(rangoInicio, rangoFin);
+  // Los de Integra y, si está conectado, los de Google
+  const todos = google.eventos.length > 0 ? [...events, ...google.eventos] : events;
+  const abrirEvento = (event: Event) => (event.origen === "google" ? setEventoGoogle(event) : editor.handleEditEvent(event));
+
+  // Al volver de Google (?google=conectado|cancelado|error): se avisa y se limpia la URL
+  const resultadoGoogle = parametros.get("google");
+  useEffect(() => {
+    if (!resultadoGoogle) return;
+    const aviso = RESULTADOS_GOOGLE[resultadoGoogle];
+    if (aviso) toast(aviso);
+    setParametros(
+      (actuales) => {
+        actuales.delete("google");
+        return actuales;
+      },
+      { replace: true }
+    );
+  }, [resultadoGoogle, setParametros, toast]);
 
   // Mantiene al día la línea de la hora actual
   useEffect(() => {
@@ -68,7 +104,7 @@ export default function Calendario() {
     if (!tiempoLibre && !vistaHoraria) setViewType('weekly');
     setTiempoLibre(!tiempoLibre);
   };
-  const huecosDe = (day: Date) => huecosLibres(events, day, profile?.id ?? null, now);
+  const huecosDe = (day: Date) => huecosLibres(todos, day, profile?.id ?? null, now);
   const huecosVisibles = tiempoLibre && vistaHoraria ? daysToDisplay.flatMap(huecosDe) : [];
   const minutosLibres = huecosVisibles.reduce((total, hueco) => total + minutosDe(hueco), 0);
 
@@ -153,11 +189,11 @@ export default function Calendario() {
             {vistaHoraria && (
               <RejillaHoraria
                 days={daysToDisplay}
-                events={events}
+                events={todos}
                 now={now}
                 contenedorRef={timeGridRef}
                 onCrear={editor.openCreateEvent}
-                onEditar={editor.handleEditEvent}
+                onEditar={abrirEvento}
                 onAbrirDia={openDay}
                 huecosDe={tiempoLibre ? huecosDe : undefined}
               />
@@ -166,14 +202,14 @@ export default function Calendario() {
               <VistaMes
                 days={daysToDisplay}
                 currentDate={currentDate}
-                events={events}
+                events={todos}
                 onCrear={editor.openCreateEvent}
-                onEditar={editor.handleEditEvent}
+                onEditar={abrirEvento}
                 onAbrirDia={openDay}
               />
             )}
             {viewType === 'yearly' && (
-              <VistaAnio months={daysToDisplay} events={events} onAbrirMes={openMonth} onAbrirDia={openDay} />
+              <VistaAnio months={daysToDisplay} events={todos} onAbrirMes={openMonth} onAbrirDia={openDay} />
             )}
           </CardContent>
         </Card>
@@ -188,7 +224,8 @@ export default function Calendario() {
       </div>
 
       <DialogosEvento editor={editor} />
-      <SuscripcionCalendario open={suscripcion} onOpenChange={setSuscripcion} />
+      <SuscripcionCalendario open={suscripcion} onOpenChange={setSuscripcion} google={google} />
+      <DetalleEventoGoogle event={eventoGoogle} onClose={() => setEventoGoogle(null)} />
     </div>
   );
 }

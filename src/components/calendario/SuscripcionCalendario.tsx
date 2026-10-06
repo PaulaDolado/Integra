@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Check, Copy, ExternalLink, Link2, Loader2, RefreshCw, TriangleAlert, Unlink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { comprobar } from "@/lib/query-client";
 import { useToast } from "@/hooks/use-toast";
@@ -35,16 +37,52 @@ const urlSuscripcion = (token: string) =>
 interface SuscripcionCalendarioProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Conexión para ver Google Calendar dentro de Integra (si no se pasa, no se muestra)
+  google?: {
+    conexion: { email: string | null; conectado_en: string } | null;
+    conectar: () => Promise<void>;
+    desconectar: () => Promise<void>;
+  };
 }
 
 // Enlace privado para ver el calendario de Integra en Google Calendar (u otro).
 // Solo va de Integra a Google, y Google lo actualiza cada pocas horas.
-export function SuscripcionCalendario({ open, onOpenChange }: SuscripcionCalendarioProps) {
+export function SuscripcionCalendario({ open, onOpenChange, google }: SuscripcionCalendarioProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [copiado, setCopiado] = useState(false);
   const [confirmarNuevo, setConfirmarNuevo] = useState(false);
   const [regenerando, setRegenerando] = useState(false);
+  const [conectando, setConectando] = useState(false);
+  const [confirmarDesconectar, setConfirmarDesconectar] = useState(false);
+  const [desconectando, setDesconectando] = useState(false);
+
+  const conectarGoogle = async () => {
+    if (!google) return;
+    setConectando(true);
+    try {
+      await google.conectar(); // lleva a Google: si va bien, la página cambia
+    } catch (e) {
+      console.error("Error al conectar Google Calendar:", e);
+      toast({ title: "Error", description: "No se pudo conectar con Google Calendar", variant: "destructive" });
+      setConectando(false);
+    }
+  };
+
+  const desconectarGoogle = async () => {
+    if (!google) return;
+    setDesconectando(true);
+    try {
+      await google.desconectar();
+      setConfirmarDesconectar(false);
+      toast({ title: "Google Calendar desconectado", description: "Tus eventos de Google ya no se ven en Integra." });
+    } catch (e) {
+      console.error("Error al desconectar Google Calendar:", e);
+      toast({ title: "Error", description: "No se pudo desconectar Google Calendar", variant: "destructive" });
+    } finally {
+      setDesconectando(false);
+    }
+  };
 
   const { data: token, isPending, error } = useQuery({
     queryKey: CLAVE,
@@ -85,12 +123,47 @@ export function SuscripcionCalendario({ open, onOpenChange }: SuscripcionCalenda
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Ver el calendario en Google Calendar</DialogTitle>
-            <DialogDescription>
-              Añade tu calendario de Integra a Google Calendar con este enlace privado. Verás los mismos eventos que
-              aquí, y Google los actualiza solo cada pocas horas. Los cambios que hagas en Google no vuelven a Integra.
-            </DialogDescription>
+            <DialogTitle>Google Calendar</DialogTitle>
+            <DialogDescription>Tus eventos de Google en Integra y los de Integra en Google.</DialogDescription>
           </DialogHeader>
+
+          {google && (
+            <section aria-labelledby="google-en-integra" className="space-y-3 border-b pb-5">
+              <h3 id="google-en-integra" className="font-medium">
+                Ver Google Calendar en Integra
+              </h3>
+              {google.conexion ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Conectado{google.conexion.email && <> con <strong className="text-foreground">{google.conexion.email}</strong></>} desde
+                    el {format(new Date(google.conexion.conectado_en), "d 'de' MMMM", { locale: es })}. Tus eventos de Google salen
+                    en azul en el calendario, solo para ti y en solo lectura.
+                  </p>
+                  <Button type="button" variant="outline" className="gap-2" onClick={() => setConfirmarDesconectar(true)}>
+                    <Unlink className="h-4 w-4" />
+                    Desconectar
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Conecta tu cuenta de Google para ver aquí tus eventos de Google Calendar. Integra solo podrá leerlos: no
+                    puede crear, cambiar ni borrar nada en Google.
+                  </p>
+                  <Button type="button" className="gap-2" onClick={conectarGoogle} disabled={conectando}>
+                    {conectando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                    Conectar Google Calendar
+                  </Button>
+                </>
+              )}
+            </section>
+          )}
+
+          <h3 className="font-medium">Ver Integra en Google Calendar</h3>
+          <p className="-mt-2 text-sm text-muted-foreground">
+            Añade tu calendario de Integra a Google Calendar con este enlace privado. Verás los mismos eventos que aquí, y
+            Google los actualiza solo cada pocas horas.
+          </p>
 
           {isPending ? (
             <div className="flex justify-center py-6">
@@ -153,6 +226,31 @@ export function SuscripcionCalendario({ open, onOpenChange }: SuscripcionCalenda
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmarDesconectar} onOpenChange={setConfirmarDesconectar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desconectar Google Calendar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tus eventos de Google dejarán de verse en Integra y se retirará el permiso en tu cuenta de Google. Puedes
+              volver a conectarlo cuando quieras.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={desconectando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void desconectarGoogle();
+              }}
+              disabled={desconectando}
+            >
+              {desconectando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Desconectar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmarNuevo} onOpenChange={setConfirmarNuevo}>
         <AlertDialogContent>

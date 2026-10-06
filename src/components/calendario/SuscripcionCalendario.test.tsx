@@ -77,8 +77,46 @@ describe("Suscripción al calendario", () => {
     expect(screen.queryByLabelText("Tu enlace privado")).not.toBeInTheDocument();
   });
 
+  it("sin Google conectado ofrece conectarlo", async () => {
+    const google = { conexion: null, conectar: vi.fn(async () => undefined), desconectar: vi.fn() };
+    renderConQuery(<SuscripcionCalendario open onOpenChange={vi.fn()} google={google} />);
+
+    expect(screen.getByText(/Integra solo podrá leerlos/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Conectar Google Calendar" }));
+    expect(google.conectar).toHaveBeenCalled();
+  });
+
+  it("si no se puede empezar la conexión lo dice", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const google = { conexion: null, conectar: vi.fn(async () => Promise.reject(new Error("503"))), desconectar: vi.fn() };
+    renderConQuery(<SuscripcionCalendario open onOpenChange={vi.fn()} google={google} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Conectar Google Calendar" }));
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ description: "No se pudo conectar con Google Calendar", variant: "destructive" }));
+    expect(screen.getByRole("button", { name: "Conectar Google Calendar" })).toBeEnabled();
+  });
+
+  it("con Google conectado muestra la cuenta y desconecta tras confirmarlo", async () => {
+    const google = {
+      conexion: { email: "laura@empresa.test", conectado_en: "2026-10-01T10:00:00Z" },
+      conectar: vi.fn(),
+      desconectar: vi.fn(async () => undefined),
+    };
+    renderConQuery(<SuscripcionCalendario open onOpenChange={vi.fn()} google={google} />);
+
+    expect(screen.getByText("laura@empresa.test")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Desconectar" }));
+    const confirmacion = screen.getByRole("alertdialog", { name: "¿Desconectar Google Calendar?" });
+    expect(google.desconectar).not.toHaveBeenCalled();
+
+    await userEvent.click(within(confirmacion).getByRole("button", { name: "Desconectar" }));
+    expect(google.desconectar).toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Google Calendar desconectado" }));
+  });
+
   it("no tiene problemas de accesibilidad", async () => {
-    abrir();
+    const google = { conexion: null, conectar: vi.fn(), desconectar: vi.fn() };
+    renderConQuery(<SuscripcionCalendario open onOpenChange={vi.fn()} google={google} />);
     await screen.findByLabelText("Tu enlace privado");
     await expectSinViolaciones();
   });

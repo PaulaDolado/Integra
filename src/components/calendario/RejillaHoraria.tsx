@@ -5,6 +5,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   HOUR_HEIGHT,
+  clasesEvento,
   duracion,
   etiquetaCrearEvento,
   eventosDelDia,
@@ -31,6 +32,9 @@ interface RejillaHorariaProps {
 // Rejilla horaria compartida por las vistas de día y semana
 export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEditar, onAbrirDia, huecosDe }: RejillaHorariaProps) {
   const nowTop = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT;
+  // Los de todo el día (de Google) van en una fila aparte, no en la rejilla de horas
+  const todoElDia = days.map((day) => eventosDelDia(events, day).filter((e) => e.todo_el_dia));
+  const hayTodoElDia = todoElDia.some((lista) => lista.length > 0);
 
   return (
     <div
@@ -38,44 +42,66 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
       className="border rounded-lg overflow-auto max-h-[calc(100vh-18rem)] min-h-[420px]"
     >
       <div className={cn(days.length > 1 && "min-w-[640px]")}>
-        {/* Cabecera de días */}
-        <div className="flex border-b bg-card sticky top-0 z-20">
-          <div className="w-14 shrink-0 border-r" />
-          {days.map((day) => {
-            const isDayToday = isToday(day);
-            const contenido = (
-              <>
-                <span className="text-xs font-medium uppercase text-muted-foreground">
-                  {format(day, 'EEE', { locale: es })}
-                </span>
-                <span
-                  className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold",
-                    isDayToday ? "bg-primary text-primary-foreground" : "text-foreground"
-                  )}
+        {/* Cabecera de días (y fila de «todo el día»), fija al desplazarse */}
+        <div className="sticky top-0 z-20 bg-card">
+          <div className="flex border-b">
+            <div className="w-14 shrink-0 border-r" />
+            {days.map((day) => {
+              const isDayToday = isToday(day);
+              const contenido = (
+                <>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">
+                    {format(day, 'EEE', { locale: es })}
+                  </span>
+                  <span
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold",
+                      isDayToday ? "bg-primary text-primary-foreground" : "text-foreground"
+                    )}
+                  >
+                    {format(day, 'd')}
+                  </span>
+                </>
+              );
+              const clases = "flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-r last:border-r-0";
+              // En la vista de un solo día la cabecera no hace nada: no es un botón
+              return days.length > 1 ? (
+                <button
+                  type="button"
+                  key={day.toISOString()}
+                  onClick={() => onAbrirDia(day)}
+                  aria-label={`Ver el ${nombreDelDia(day)}`}
+                  className={cn(clases, "hover:bg-muted/50 transition-colors cursor-pointer")}
                 >
-                  {format(day, 'd')}
-                </span>
-              </>
-            );
-            const clases = "flex-1 min-w-0 flex items-center justify-center gap-2 py-2 border-r last:border-r-0";
-            // En la vista de un solo día la cabecera no hace nada: no es un botón
-            return days.length > 1 ? (
-              <button
-                type="button"
-                key={day.toISOString()}
-                onClick={() => onAbrirDia(day)}
-                aria-label={`Ver el ${nombreDelDia(day)}`}
-                className={cn(clases, "hover:bg-muted/50 transition-colors cursor-pointer")}
-              >
-                {contenido}
-              </button>
-            ) : (
-              <div key={day.toISOString()} className={clases}>
-                {contenido}
-              </div>
-            );
-          })}
+                  {contenido}
+                </button>
+              ) : (
+                <div key={day.toISOString()} className={clases}>
+                  {contenido}
+                </div>
+              );
+            })}
+          </div>
+
+          {hayTodoElDia && (
+            <div className="flex border-b">
+              <div className="w-14 shrink-0 border-r px-1 py-1 text-[10px] leading-tight text-muted-foreground">Todo el día</div>
+              {days.map((day, i) => (
+                <div key={day.toISOString()} className="flex-1 min-w-0 space-y-0.5 border-r p-0.5 last:border-r-0">
+                  {todoElDia[i].map((event) => (
+                    <button
+                      type="button"
+                      key={event.id}
+                      onClick={() => onEditar(event)}
+                      className={cn("block w-full truncate rounded border-l-[3px] px-1.5 py-0.5 text-left text-[11px] font-medium", clasesEvento(event))}
+                    >
+                      {event.titulo}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Rejilla */}
@@ -94,7 +120,7 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
 
           {days.map((day) => {
             const isDayToday = isToday(day);
-            const positioned = layoutDayEvents(eventosDelDia(events, day), day);
+            const positioned = layoutDayEvents(eventosDelDia(events, day).filter((e) => !e.todo_el_dia), day);
 
             return (
               <div
@@ -151,7 +177,7 @@ export function RejillaHoraria({ days, events, now, contenedorRef, onCrear, onEd
                       <button
                         type="button"
                         onClick={() => onEditar(event)}
-                        className="w-full h-full text-left rounded-md border-l-[3px] border-primary bg-accent text-accent-foreground px-2 py-1 overflow-hidden shadow-sm hover:brightness-95 transition"
+                        className={cn("w-full h-full text-left rounded-md border-l-[3px] px-2 py-1 overflow-hidden shadow-sm hover:brightness-95 transition", clasesEvento(event))}
                       >
                         <div className={cn("flex items-center gap-1 font-medium truncate", compact ? "text-[11px]" : "text-xs")}>
                           {event.es_privado && (
