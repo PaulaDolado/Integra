@@ -26,6 +26,8 @@ async function cargarPerfil(userId: string): Promise<EmployeeProfile | null> {
   const data = comprobar(
     await supabase
       .from('empleados')
+      // El departamento se indica por su clave: departamentos también apunta a
+      // empleados (el jefe) y, sin ella, la API rechaza la consulta por ambigua
       .select(`
         id,
         nombre,
@@ -34,7 +36,7 @@ async function cargarPerfil(userId: string): Promise<EmployeeProfile | null> {
         correo_electronico,
         numero_telefono,
         cargo:cargos(nombre),
-        departamento:departamentos(nombre)
+        departamento:departamentos!empleados_departamento_id_fkey(nombre)
       `)
       .eq('user_id', userId)
       .maybeSingle()
