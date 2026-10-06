@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Phone } from "lucide-react";
+import { Pencil, Plus, Trash2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -186,6 +186,9 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nombre: "", relacion: "", telefono: "" });
+  // Contacto que se está corrigiendo (null = ninguno) y sus datos en el formulario
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [edicion, setEdicion] = useState({ nombre: "", relacion: "", telefono: "" });
 
   const clave = ["contactos-emergencia", empleado.id];
   const { data: contactos = [], isPending: loading } = useQuery({
@@ -198,7 +201,39 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
 
   const cancel = () => {
     setForm({ nombre: "", relacion: "", telefono: "" });
+    setEditandoId(null);
     setEditing(false);
+  };
+
+  const startEditContacto = (contacto: ContactoEmergencia) => {
+    setEditandoId(contacto.id);
+    setEdicion({ nombre: contacto.nombre, relacion: contacto.relacion ?? "", telefono: contacto.telefono });
+  };
+
+  const update = async () => {
+    if (!edicion.nombre.trim() || !edicion.telefono.trim()) {
+      toast.error("El nombre y el teléfono son obligatorios");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("contactos_emergencia")
+      .update({
+        nombre: edicion.nombre.trim(),
+        relacion: edicion.relacion.trim() || null,
+        telefono: edicion.telefono.trim(),
+      })
+      .eq("id", editandoId!);
+    setSaving(false);
+
+    if (error) {
+      console.error("Error updating emergency contact:", error);
+      toast.error("No se pudo guardar el contacto");
+      return;
+    }
+    toast.success("Contacto de emergencia actualizado");
+    setEditandoId(null);
+    queryClient.invalidateQueries({ queryKey: clave });
   };
 
   const add = async () => {
@@ -243,31 +278,66 @@ function ContactosEmergencia({ empleado }: ConfigTabProps) {
           <p className="text-sm text-muted-foreground">No se ha indicado ningún contacto de emergencia.</p>
         ) : (
           <ul className="divide-y divide-border">
-            {contactos.map((contacto) => (
-              <li key={contacto.id} className="flex items-center justify-between gap-4 py-3 first:pt-0">
-                <div>
-                  <p className="font-medium">
-                    {contacto.nombre}
-                    {contacto.relacion && (
-                      <span className="text-muted-foreground font-normal"> · {contacto.relacion}</span>
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    {contacto.telefono}
-                  </p>
-                </div>
-                {editing && (
-                  <Button variant="ghost" size="icon" onClick={() => remove(contacto.id)} aria-label={`Eliminar a ${contacto.nombre}`}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </li>
-            ))}
+            {contactos.map((contacto) =>
+              editandoId === contacto.id ? (
+                <li key={contacto.id} className="space-y-4 py-3 first:pt-0">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Field id="editar_contacto_nombre" label="Nombre *" value={edicion.nombre} onChange={(v) => setEdicion({ ...edicion, nombre: v })} />
+                    <Field id="editar_contacto_relacion" label="Relación" placeholder="Pareja, madre..." value={edicion.relacion} onChange={(v) => setEdicion({ ...edicion, relacion: v })} />
+                    <Field id="editar_contacto_telefono" label="Teléfono *" type="tel" value={edicion.telefono} onChange={(v) => setEdicion({ ...edicion, telefono: v })} />
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <Button type="button" variant="outline" onClick={() => setEditandoId(null)} disabled={saving}>
+                      Cancelar
+                    </Button>
+                    <Button type="button" onClick={update} disabled={saving}>
+                      {saving ? "Guardando..." : "Guardar"}
+                    </Button>
+                  </div>
+                </li>
+              ) : (
+                <li key={contacto.id} className="flex items-center justify-between gap-4 py-3 first:pt-0">
+                  <div>
+                    <p className="font-medium">
+                      {contacto.nombre}
+                      {contacto.relacion && (
+                        <span className="text-muted-foreground font-normal"> · {contacto.relacion}</span>
+                      )}
+                    </p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {contacto.telefono}
+                    </p>
+                  </div>
+                  {editing && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => startEditContacto(contacto)}
+                        disabled={saving || editandoId !== null}
+                        aria-label={`Editar a ${contacto.nombre}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => remove(contacto.id)}
+                        disabled={saving || editandoId !== null}
+                        aria-label={`Eliminar a ${contacto.nombre}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              )
+            )}
           </ul>
         )}
 
-        {editing && (
+        {editing && editandoId === null && (
           <div className="space-y-4 rounded-lg border border-border p-4">
             <p className="text-sm font-medium flex items-center gap-2">
               <Plus className="w-4 h-4" />
