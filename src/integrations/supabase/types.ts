@@ -1329,6 +1329,10 @@ export type Database = {
           es_yo: boolean | null
         }[]
       }
+      guardar_datos_pago: {
+        Args: { p_empleado: string; p_forma_pago: string; p_iban: string }
+        Returns: undefined
+      }
       guardar_empleado: {
         Args: {
           p_id: string | null
