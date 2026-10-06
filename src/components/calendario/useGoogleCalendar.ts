@@ -72,9 +72,11 @@ export function useGoogleCalendar(desde: Date, hasta: Date) {
   });
   useAvisarError(error, "No se pudieron cargar los eventos de Google Calendar");
 
-  // Lleva a Google para dar permiso; al terminar, Google vuelve a /calendario?google=...
+  // Lleva a Google para dar permiso. Google vuelve a /google-callback (en el dominio de
+  // la app, para que su pantalla de permisos no muestre el de Supabase), y de ahí al
+  // Calendario con el resultado
   const conectar = async () => {
-    const { url } = await llamar<{ url: string }>({ accion: "iniciar", volver: appUrl("calendario") });
+    const { url } = await llamar<{ url: string }>({ accion: "iniciar", volver: appUrl("google-callback") });
     window.location.assign(url);
   };
 

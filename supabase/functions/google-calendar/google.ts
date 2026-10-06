@@ -49,8 +49,10 @@ export function urlAutorizacion(p: { clientId: string; redirectUri: string; esta
 
 // Página de vuelta -----------------------------------------------------------------
 
-// Solo se vuelve a la propia app (APP_URL) o, en desarrollo, a localhost.
-// Si no, cualquiera podría usar la función para redirigir a otra web.
+// Google vuelve a la página /google-callback de la propia app (APP_URL) o, en
+// desarrollo, de localhost. Si no, cualquiera podría usar la función para que
+// Google mandara el código a otra web. También tiene que estar registrada en el
+// cliente OAuth de Google, que la vuelve a comprobar.
 export function volverPermitido(volver: string, appUrl: string | undefined): boolean {
   let url: URL;
   try {
@@ -58,17 +60,12 @@ export function volverPermitido(volver: string, appUrl: string | undefined): boo
   } catch {
     return false;
   }
+  if (url.search || url.hash || !url.pathname.endsWith("/google-callback")) return false;
   if (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)) return true;
   if (!appUrl) return false;
-  const app = new URL(appUrl);
-  return url.protocol === "https:" && url.origin === app.origin && url.pathname.startsWith(app.pathname);
+  return url.protocol === "https:" && url.toString() === new URL("google-callback", appUrl).toString();
 }
 
-export function conResultado(volver: string, resultado: "conectado" | "cancelado" | "error") {
-  const url = new URL(volver);
-  url.searchParams.set("google", resultado);
-  return url.toString();
-}
 
 // Cifrado de los tokens (AES-GCM 256) -------------------------------------------------
 

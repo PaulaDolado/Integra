@@ -422,8 +422,8 @@ Cómo funciona:
 
 - La Edge Function `google-calendar` (`supabase/functions/google-calendar/`) hace el OAuth con Google (flujo de código con PKCE y `state` de un solo uso, válido 10 minutos), guarda los tokens y pide los eventos a la API de Google Calendar. El *client secret* solo lo conoce la función.
 - Los tokens de Google se guardan **cifrados** (AES-GCM) con una clave que solo tiene la función (`GOOGLE_TOKENS_CLAVE`), en la tabla `google_calendar_conexiones`, que la app no puede leer. La app solo ve con qué cuenta está conectada (`mi_conexion_google_calendar()`).
-- Las peticiones de la app llevan la sesión de Integra y la función comprueba la persona y el doble factor. Google vuelve a `/functions/v1/google-calendar/callback` sin sesión, por eso la función tiene `verify_jwt = false`.
-- La vuelta solo puede ir a la propia app (`APP_URL`) o a `localhost`, para que nadie use la función para redirigir a otra web.
+- Google vuelve a la página `/google-callback` **de la propia web**, no a Supabase: así la pantalla de permisos de Google muestra el dominio de Integra y Google puede verificar la marca. Esa página manda el código a la función, que hace el intercambio.
+- Todas las peticiones llevan la sesión de Integra y la función comprueba la persona y el doble factor (tiene `verify_jwt = false` para poder responder al *preflight* de CORS). La vuelta solo puede ser `/google-callback` de la propia app (`APP_URL`) o de `localhost`.
 
 Puesta en marcha:
 
@@ -431,7 +431,8 @@ Puesta en marcha:
    - **APIs y servicios → Biblioteca:** activa **Google Calendar API**.
    - **Google Auth Platform → Público:** si la empresa usa Google Workspace, elige **Interno**. Así no hace falta que Google verifique la app. Con **Externo** en modo *Testing*, solo pueden conectarse los usuarios de prueba y Google caduca el permiso a los 7 días; para publicarla, Google pide verificar la app porque el permiso de calendario es sensible.
    - **Google Auth Platform → Acceso a datos:** añade el permiso `https://www.googleapis.com/auth/calendar.events.readonly`.
-   - **Google Auth Platform → Clientes:** en el cliente web (puede ser el mismo del inicio de sesión con Google), añade a **URI de redireccionamiento autorizados** `https://<project-ref>.supabase.co/functions/v1/google-calendar/callback`.
+   - **Google Auth Platform → Clientes:** en el cliente web, añade a **URI de redireccionamiento autorizados** `https://<usuario>.github.io/<repositorio>/google-callback` (y, para desarrollo, `http://localhost:8080/google-callback`).
+   - **Google Auth Platform → Marca:** nombre «Integra», logo, correo de asistencia, página principal (`https://<usuario>.github.io/<repositorio>/`), política de privacidad (`…/privacidad`) y, en **Dominios autorizados**, `<usuario>.github.io`. Para que la pantalla de permisos muestre «Integra» en vez del dominio, Google tiene que verificar la marca: antes hay que demostrar en Google Search Console que el dominio es tuyo.
 2. **Secretos de la función** (el ID y el secreto del cliente web, y una clave nueva para cifrar los tokens):
 
    ```sh

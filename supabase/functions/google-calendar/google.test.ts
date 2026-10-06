@@ -4,7 +4,6 @@ import {
   cifrarToken,
   claveTokens,
   codeChallenge,
-  conResultado,
   descifrarToken,
   emailDelIdToken,
   normalizarEvento,
@@ -37,18 +36,16 @@ describe("URL de autorización", () => {
 });
 
 describe("página de vuelta", () => {
-  it("solo permite volver a la propia app o a localhost", () => {
-    expect(volverPermitido(`${APP}calendario`, APP)).toBe(true);
-    expect(volverPermitido("http://localhost:8080/calendario", APP)).toBe(true);
-    expect(volverPermitido("https://pauladolado.github.io/otra-web/", APP)).toBe(false);
-    expect(volverPermitido("https://malicioso.example/Integra/", APP)).toBe(false);
-    expect(volverPermitido("http://pauladolado.github.io/Integra/", APP)).toBe(false);
+  it("solo permite /google-callback de la propia app o de localhost", () => {
+    expect(volverPermitido(`${APP}google-callback`, APP)).toBe(true);
+    expect(volverPermitido("http://localhost:8080/google-callback", APP)).toBe(true);
+    expect(volverPermitido(`${APP}calendario`, APP)).toBe(false);
+    expect(volverPermitido(`${APP}google-callback?x=1`, APP)).toBe(false);
+    expect(volverPermitido("https://pauladolado.github.io/otra-web/google-callback", APP)).toBe(false);
+    expect(volverPermitido("https://malicioso.example/Integra/google-callback", APP)).toBe(false);
+    expect(volverPermitido("http://pauladolado.github.io/Integra/google-callback", APP)).toBe(false);
     expect(volverPermitido("javascript:alert(1)", APP)).toBe(false);
-    expect(volverPermitido(`${APP}calendario`, undefined)).toBe(false);
-  });
-
-  it("añade el resultado sin perder la ruta", () => {
-    expect(conResultado(`${APP}calendario`, "conectado")).toBe(`${APP}calendario?google=conectado`);
+    expect(volverPermitido(`${APP}google-callback`, undefined)).toBe(false);
   });
 });
 
