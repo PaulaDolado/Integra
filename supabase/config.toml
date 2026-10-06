@@ -9,3 +9,8 @@ verify_jwt = false
 # de cada persona, en la URL, hace de llave
 [functions.calendario-ics]
 verify_jwt = false
+
+# Google vuelve a /google-calendar/callback sin sesión de Integra; las demás
+# peticiones llevan el JWT y la propia función lo comprueba
+[functions.google-calendar]
+verify_jwt = false

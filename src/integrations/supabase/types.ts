@@ -1352,6 +1352,10 @@ export type Database = {
         Args: { conv_id: string }
         Returns: undefined
       }
+      mi_conexion_google_calendar: {
+        Args: Record<PropertyKey, never>
+        Returns: { email: string | null; conectado_en: string }[]
+      }
       mi_empleado_id: {
         Args: Record<PropertyKey, never>
         Returns: string

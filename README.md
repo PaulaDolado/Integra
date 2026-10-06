@@ -33,7 +33,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 - [Base de datos](#base-de-datos)
 - [Avisos en Teams y Google Chat](#avisos-en-teams-y-google-chat)
 - [Avisos en la app](#avisos-en-la-app)
-- [Calendario en Google Calendar](#calendario-en-google-calendar)
+- [Calendario y Google Calendar](#calendario-y-google-calendar)
 - [Tests](#tests)
 - [Accesibilidad](#accesibilidad)
 - [Tests end-to-end](#tests-end-to-end)
@@ -376,7 +376,11 @@ Para activarlo, **aplica la migración** `20261006100000_avisos.sql` (después d
 
 Limpieza: `pg_cron` ejecuta `limpiar_avisos()` cada noche. Borra los avisos leídos hace más de 90 días y cualquier aviso de más de un año. Si `pg_cron` no está activado, la migración no falla, pero hay que ejecutar `SELECT public.limpiar_avisos();` a mano de vez en cuando.
 
-## Calendario en Google Calendar
+## Calendario y Google Calendar
+
+Funciona en los dos sentidos, por separado: ver Integra en Google (con un enlace) y ver Google en Integra (conectando la cuenta). Las dos cosas están en **Calendario → Google Calendar**.
+
+### Ver Integra en Google Calendar
 
 Cada persona puede ver su calendario de Integra en Google Calendar (o en Outlook o Apple Calendar) con un enlace privado. En **Calendario → Google Calendar** está su enlace, con un botón para copiarlo y los pasos: en Google Calendar, junto a **Otros calendarios**, **+ → Desde URL**, pegar el enlace y **Añadir calendario**.
 
@@ -405,6 +409,43 @@ Puesta en marcha:
    curl -i "https://<project-ref>.supabase.co/functions/v1/calendario-ics?token=$(printf 'a%.0s' {1..64})"
    ```
 
+### Ver Google Calendar en Integra
+
+Cada persona puede conectar su cuenta de Google y ver sus eventos de Google Calendar en el Calendario de Integra, en azul y solo para ella.
+
+- **Solo lectura.** El permiso que se pide es `calendar.events.readonly`: Integra no puede crear, cambiar ni borrar nada en Google. Al pulsar un evento de Google se ve su detalle y un enlace para abrirlo en Google.
+- **Calendario principal.** Se leen los eventos del calendario principal de la cuenta, del rango que se está viendo. Se vuelven a pedir cada 5 minutos como mucho.
+- **Tiempo libre.** Los eventos de Google ocupan tiempo, salvo los que en Google están como «Disponible».
+- **Desconectar** borra los tokens y retira el permiso en la cuenta de Google. Si se retira desde Google, Integra lo detecta y deja de mostrar los eventos.
+
+Cómo funciona:
+
+- La Edge Function `google-calendar` (`supabase/functions/google-calendar/`) hace el OAuth con Google (flujo de código con PKCE y `state` de un solo uso, válido 10 minutos), guarda los tokens y pide los eventos a la API de Google Calendar. El *client secret* solo lo conoce la función.
+- Los tokens de Google se guardan **cifrados** (AES-GCM) con una clave que solo tiene la función (`GOOGLE_TOKENS_CLAVE`), en la tabla `google_calendar_conexiones`, que la app no puede leer. La app solo ve con qué cuenta está conectada (`mi_conexion_google_calendar()`).
+- Las peticiones de la app llevan la sesión de Integra y la función comprueba la persona y el doble factor. Google vuelve a `/functions/v1/google-calendar/callback` sin sesión, por eso la función tiene `verify_jwt = false`.
+- La vuelta solo puede ir a la propia app (`APP_URL`) o a `localhost`, para que nadie use la función para redirigir a otra web.
+
+Puesta en marcha:
+
+1. **Google Cloud**, en el proyecto del cliente OAuth:
+   - **APIs y servicios → Biblioteca:** activa **Google Calendar API**.
+   - **Google Auth Platform → Público:** si la empresa usa Google Workspace, elige **Interno**. Así no hace falta que Google verifique la app. Con **Externo** en modo *Testing*, solo pueden conectarse los usuarios de prueba y Google caduca el permiso a los 7 días; para publicarla, Google pide verificar la app porque el permiso de calendario es sensible.
+   - **Google Auth Platform → Acceso a datos:** añade el permiso `https://www.googleapis.com/auth/calendar.events.readonly`.
+   - **Google Auth Platform → Clientes:** en el cliente web (puede ser el mismo del inicio de sesión con Google), añade a **URI de redireccionamiento autorizados** `https://<project-ref>.supabase.co/functions/v1/google-calendar/callback`.
+2. **Secretos de la función** (el ID y el secreto del cliente web, y una clave nueva para cifrar los tokens):
+
+   ```sh
+   supabase secrets set GOOGLE_CLIENT_ID=<id> GOOGLE_CLIENT_SECRET=<secreto>      GOOGLE_TOKENS_CLAVE=$(openssl rand -base64 32) APP_URL=https://<usuario>.github.io/<repositorio>/
+   ```
+
+   Si se cambia `GOOGLE_TOKENS_CLAVE`, los tokens guardados dejan de poder leerse y cada persona tiene que volver a conectar.
+3. Aplica la migración `20261008100000_google_calendar.sql`.
+4. Despliega la función:
+
+   ```sh
+   supabase functions deploy google-calendar
+   ```
+
 ## Tests
 
 ```sh
@@ -431,6 +472,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `pages/GestionDatosPago.test.tsx` | IBAN enmascarado; el completo solo se pide al pulsar «Mostrar» |
 | `supabase/functions/notificar/mensajes.test.ts` | Cada aviso va al webhook que le toca, con el formato de Teams o de Google Chat, y el texto de los usuarios no puede mencionar a todo un espacio |
 | `supabase/functions/calendario-ics/ics.test.ts` | El calendario `.ics` del enlace de Google Calendar es válido: fechas en UTC, textos escapados, líneas partidas a 75 bytes sin romper caracteres y solo tokens bien formados |
+| `supabase/functions/google-calendar/google.test.ts` | El OAuth con Google pide solo lectura y usa PKCE, la vuelta solo va a la propia app, los tokens se cifran y los eventos de Google (con hora, de todo el día y «Disponible») se convierten bien |
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 | `components/layout/AppLayout.test.tsx` | El enlace «Saltar al contenido» es lo primero que se enfoca y lleva al `<main>` |
 
@@ -553,6 +595,7 @@ scripts/
 supabase/
 ├── functions/notificar/     # Edge Function de los avisos a Teams y Google Chat
 ├── functions/calendario-ics/ # Edge Function del enlace para Google Calendar
+├── functions/google-calendar/ # Edge Function para ver Google Calendar en Integra (OAuth)
 ├── migrations/              # Esquema, políticas RLS y funciones
 └── seed-demo.sql            # Perfil del usuario demo
 ```

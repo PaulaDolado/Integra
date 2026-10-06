@@ -10,7 +10,21 @@ export interface Event {
   ubicacion: string | null;
   es_privado: boolean;
   creador_id: string;
+  // Eventos de Google Calendar de la persona: solo lectura, con su enlace a Google
+  origen?: "google";
+  enlace?: string | null;
+  todo_el_dia?: boolean;
+  // false si en Google está como «Disponible»
+  ocupado?: boolean;
 }
+
+export const esDeGoogle = (event: Event) => event.origen === "google";
+
+// Colores de cada evento: los de Integra con el color de la app, los de Google en azul
+export const clasesEvento = (event: Event) =>
+  esDeGoogle(event)
+    ? "border-sky-500 bg-sky-50 text-sky-950 dark:bg-sky-950/60 dark:text-sky-100"
+    : "border-primary bg-accent text-accent-foreground";
 
 export interface EventFormData {
   titulo: string;
@@ -242,7 +256,7 @@ export interface Hueco {
 // solo los veo si participo. Los públicos de otros los ve toda la empresa
 // aunque no vaya, así que no cuentan.
 export const ocupaMiTiempo = (event: Event, miId: string | null) =>
-  event.creador_id === miId || event.es_privado;
+  esDeGoogle(event) ? event.ocupado !== false : event.creador_id === miId || event.es_privado;
 
 // Huecos libres de un día dentro de la jornada, sin los eventos que me ocupan.
 // Los días pasados, los fines de semana y lo que ya ha pasado de hoy no tienen huecos.
