@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { Mathematics } from "@tiptap/extension-mathematics";
-import { TextStyle, Color } from "@tiptap/extension-text-style";
+import { TextStyle, Color, FontFamily, FontSize } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
@@ -17,6 +17,7 @@ import type * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
 import { VistaImagen } from "./VistaImagen";
 import { CAMPO_CONTENIDO, enlaceSeguro, nuevoIdMarcador } from "./contenido";
+import { Columna, Columnas, IndiceNota, SaltoPagina } from "./maquetacion";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -174,6 +175,8 @@ export function crearExtensiones({ doc, awareness, usuario, onEcuacion }: Opcion
     CharacterCount,
     TextStyle,
     Color,
+    FontFamily,
+    FontSize,
     Highlight.configure({ multicolor: true }),
     TextAlign.configure({ types: ["heading", "paragraph"] }),
     Subscript,
@@ -191,5 +194,9 @@ export function crearExtensiones({ doc, awareness, usuario, onEcuacion }: Opcion
     }),
     ImagenNota,
     Marcador,
+    SaltoPagina,
+    Columnas,
+    Columna,
+    IndiceNota,
   ];
 }

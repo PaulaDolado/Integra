@@ -493,6 +493,11 @@ La Gestión Documental son notas que varias personas pueden escribir a la vez.
 
 - **Lista (`/documentos`).** Cada nota se ve como una hoja en miniatura. «Página en blanco» crea una nota y abre el editor. Se puede filtrar entre las propias y las compartidas, y buscar por título, texto o propietario.
 - **Editor (`/documentos/:id`).** La hoja puede ser **en blanco, punteada o de rayas**. La barra tiene deshacer y rehacer, títulos, negrita, cursiva, subrayado, tachado, código, subíndice y superíndice, color y resaltado, alineación, listas (con viñetas, numeradas y de tareas), citas, bloques de código, separadores, **enlaces** (Ctrl+K), **imágenes** (botón, pegar o arrastrar), **ecuaciones** en LaTeX (con vista previa y plantillas; atajo `$$x^2$$` en la línea y `$$$x^2$$$` en su propia línea), **marcadores** y tablas. Los marcadores y los títulos salen en el panel lateral para saltar a ellos, y un enlace puede llevar a un marcador.
+- **Formato y maquetación.**
+  - **Fuente y tamaño:** selectores en la barra. Solo fuentes del sistema (Arial, Verdana, Georgia, Times New Roman…), así que no se descarga nada y la CSP no cambia.
+  - **Columnas de texto:** de 2 a 4, con «Añadir columna» y «Quitar esta columna». Al quitar una, su texto pasa a la de al lado; con una sola, el bloque se deshace. En el móvil se apilan.
+  - **Saltos de página** (Ctrl+Intro) y **«Numerar páginas»**, que muestra «Página N» al pie de cada página. El ajuste se guarda en el propio documento Yjs, así que lo ven igual todas las personas de la nota.
+  - **Plantillas:** **portada** (título, subtítulo, autor y fecha, y salto de página), **índice** automático (se rehace con los títulos de la nota, lleva a cada uno al pulsarlo y, con la numeración activa, indica su página) o las dos juntas.
 - **Colaboración.** Los cambios llegan al momento, con el cursor y el nombre de cada persona, y la cabecera muestra quién más tiene la nota abierta. Se guarda sola; la cabecera dice si está guardada, guardándose o sin conexión (lo pendiente se guarda al volver).
 - **Compartir.** Solo quien crea la nota la comparte, con permiso de **edición** o de **solo lectura**, y puede cambiarlo o quitarlo. Quien la recibe tiene un aviso en la campana y puede dejar de colaborar. Solo el propietario la elimina, con sus imágenes.
 
@@ -538,6 +543,7 @@ Los tests usan Vitest con jsdom y Testing Library. Están junto al código que p
 | `pages/Contrasenas.test.tsx` | Al servidor nunca llegan la contraseña maestra ni las entradas en claro; bloquear oculta las contraseñas |
 | `components/layout/AppLayout.test.tsx` | El enlace «Saltar al contenido» es lo primero que se enfoca y lleva al `<main>` |
 | `components/documentos/sincronizacion.test.ts` | Las notas se sincronizan entre dos personas, las pulsaciones seguidas van en un solo guardado, quien solo lee nunca guarda, se recuperan los cambios perdidos al reconectar o guardados fuera de orden, la compactación no pierde nada y los cursores llegan y se quitan al salir |
+| `components/documentos/maquetacion.test.ts` | Columnas (insertar, añadir, quitar sin perder texto, de 2 a 4), saltos y números de página, plantillas de portada e índice, fuente y tamaño, y que «Numerar páginas» llega a quien colabora |
 | `components/documentos/contenido.test.ts` | Los enlaces de las notas solo admiten web, correo, teléfono o marcadores (nunca `javascript:`), el extracto, el índice de marcadores y títulos, los filtros y las imágenes admitidas |
 | `pages/Documentos.test.tsx` | La lista de notas, crear una página en blanco, los filtros y qué acciones tiene cada nota según el rol |
 | `pages/NotaDetalle.test.tsx` | Quien edita ve la barra y elige el fondo de la hoja; quien solo lee no puede escribir; una nota que ya no está compartida contigo no se abre |

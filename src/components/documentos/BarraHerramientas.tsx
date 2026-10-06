@@ -8,6 +8,8 @@ import {
   Bold,
   Bookmark,
   Code,
+  Columns3,
+  FileText,
   Highlighter,
   ImagePlus,
   Italic,
@@ -33,12 +35,31 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { MAX_COLUMNAS } from "./maquetacion";
+
+// Fuentes del sistema: no se descarga nada (la CSP solo admite fuentes propias)
+const FUENTES = [
+  { clave: "predeterminada", nombre: "Predeterminada", valor: null },
+  { clave: "arial", nombre: "Arial", valor: "Arial, Helvetica, sans-serif" },
+  { clave: "verdana", nombre: "Verdana", valor: "Verdana, Geneva, sans-serif" },
+  { clave: "trebuchet", nombre: "Trebuchet", valor: '"Trebuchet MS", sans-serif' },
+  { clave: "georgia", nombre: "Georgia", valor: "Georgia, serif" },
+  { clave: "times", nombre: "Times New Roman", valor: '"Times New Roman", Times, serif' },
+  { clave: "courier", nombre: "Courier New", valor: '"Courier New", Courier, monospace' },
+];
+
+const TAMANOS = ["10", "12", "14", "16", "18", "20", "24", "28", "32", "40", "48"];
+const TAMANO_NORMAL = "16";
+
+export type Plantilla = "portada" | "indice" | "portada-indice";
 
 const COLORES_TEXTO = [
   { nombre: "Automático", valor: null },
@@ -157,9 +178,40 @@ interface BarraHerramientasProps {
   onImagen: () => void;
   onEcuacion: () => void;
   onMarcador: () => void;
+  onPlantilla: (plantilla: Plantilla) => void;
+  numerarPaginas: boolean;
+  onNumerarPaginas: (numerar: boolean) => void;
 }
 
-export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMarcador }: BarraHerramientasProps) {
+// Botón que abre un menú, con el mismo aspecto que los de la barra
+function BotonMenu({ icono: Icono, etiqueta, activo }: { icono: LucideIcon; etiqueta: string; activo?: boolean }) {
+  return (
+    <DropdownMenuTrigger asChild>
+      <button
+        type="button"
+        aria-label={etiqueta}
+        title={etiqueta}
+        className={cn(
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          activo && "bg-accent text-accent-foreground"
+        )}
+      >
+        <Icono className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </DropdownMenuTrigger>
+  );
+}
+
+export function BarraHerramientas({
+  editor,
+  onEnlace,
+  onImagen,
+  onEcuacion,
+  onMarcador,
+  onPlantilla,
+  numerarPaginas,
+  onNumerarPaginas,
+}: BarraHerramientasProps) {
   // Solo se vuelve a pintar cuando cambia algo de lo que muestra
   const e = useEditorState({
     editor,
@@ -191,6 +243,10 @@ export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMa
       cita: ed.isActive("blockquote"),
       bloqueCodigo: ed.isActive("codeBlock"),
       enTabla: ed.isActive("table"),
+      enColumnas: ed.isActive("columna"),
+      puedeAnadirColumna: ed.can().anadirColumna(),
+      fuente: (ed.getAttributes("textStyle").fontFamily as string | undefined) ?? null,
+      tamano: String(ed.getAttributes("textStyle").fontSize ?? "").replace(/px$/, "") || TAMANO_NORMAL,
       puedeDeshacer: ed.can().undo(),
       puedeRehacer: ed.can().redo(),
     }),
@@ -201,6 +257,19 @@ export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMa
     if (valor === "p") cadena().setParagraph().run();
     else cadena().toggleHeading({ level: Number(valor) as 1 | 2 | 3 }).run();
   };
+
+  // Una fuente pegada de fuera que no está en la lista se muestra como «Predeterminada»
+  const fuenteActual = FUENTES.find((f) => f.valor === e.fuente)?.clave ?? "predeterminada";
+  const cambiarFuente = (clave: string) => {
+    const valor = FUENTES.find((f) => f.clave === clave)?.valor;
+    if (valor) cadena().setFontFamily(valor).run();
+    else cadena().unsetFontFamily().run();
+  };
+  const cambiarTamano = (tamano: string) => {
+    if (tamano === TAMANO_NORMAL) cadena().unsetFontSize().run();
+    else cadena().setFontSize(`${tamano}px`).run();
+  };
+  const tamanos = TAMANOS.includes(e.tamano) ? TAMANOS : [...TAMANOS, e.tamano].sort((a, b) => Number(a) - Number(b));
 
   return (
     <div
@@ -223,6 +292,30 @@ export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMa
           <SelectItem value="1">Título 1</SelectItem>
           <SelectItem value="2">Título 2</SelectItem>
           <SelectItem value="3">Título 3</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={fuenteActual} onValueChange={cambiarFuente}>
+        <SelectTrigger className="h-8 w-36 border-none text-xs shadow-none hover:bg-muted" aria-label="Fuente">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {FUENTES.map((f) => (
+            <SelectItem key={f.clave} value={f.clave} style={f.valor ? { fontFamily: f.valor } : undefined}>
+              {f.nombre}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={e.tamano} onValueChange={cambiarTamano}>
+        <SelectTrigger className="h-8 w-16 border-none text-xs shadow-none hover:bg-muted" aria-label="Tamaño de la letra">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {tamanos.map((t) => (
+            <SelectItem key={t} value={t}>
+              {t}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Separador />
@@ -271,23 +364,13 @@ export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMa
       <Boton icono={Bookmark} etiqueta="Marcador" onClick={onMarcador} />
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Tabla"
-            title="Tabla"
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              e.enTabla && "bg-accent text-accent-foreground"
-            )}
-          >
-            <IconoTabla className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </DropdownMenuTrigger>
+        <BotonMenu icono={IconoTabla} etiqueta="Tabla" activo={e.enTabla} />
         <DropdownMenuContent align="start">
           {e.enTabla ? (
             <>
+              <DropdownMenuItem onSelect={() => cadena().addRowBefore().run()}>Añadir fila encima</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => cadena().addRowAfter().run()}>Añadir fila debajo</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => cadena().addColumnBefore().run()}>Añadir columna a la izquierda</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => cadena().addColumnAfter().run()}>Añadir columna a la derecha</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => cadena().toggleHeaderRow().run()}>Fila de cabecera</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -302,6 +385,42 @@ export function BarraHerramientas({ editor, onEnlace, onImagen, onEcuacion, onMa
               Insertar tabla 3 × 3
             </DropdownMenuItem>
           )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <BotonMenu icono={Columns3} etiqueta="Columnas" activo={e.enColumnas} />
+        <DropdownMenuContent align="start">
+          {e.enColumnas ? (
+            <>
+              <DropdownMenuItem disabled={!e.puedeAnadirColumna} onSelect={() => cadena().anadirColumna().run()}>
+                Añadir columna{!e.puedeAnadirColumna && ` (máximo ${MAX_COLUMNAS})`}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => cadena().quitarColumna().run()}>Quitar esta columna</DropdownMenuItem>
+            </>
+          ) : (
+            [2, 3, 4].map((n) => (
+              <DropdownMenuItem key={n} onSelect={() => cadena().insertarColumnas(n).run()}>
+                {n} columnas
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <BotonMenu icono={FileText} etiqueta="Página y plantillas" />
+        <DropdownMenuContent align="start">
+          <DropdownMenuLabel>Plantillas</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => onPlantilla("portada")}>Portada</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onPlantilla("indice")}>Índice</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onPlantilla("portada-indice")}>Portada e índice</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Página</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => cadena().insertarSaltoPagina().run()}>Salto de página (Ctrl+Intro)</DropdownMenuItem>
+          <DropdownMenuCheckboxItem checked={numerarPaginas} onCheckedChange={(v) => onNumerarPaginas(v === true)}>
+            Numerar páginas
+          </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
