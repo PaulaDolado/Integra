@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { usePermisos } from "@/hooks/usePermisos";
@@ -52,6 +53,24 @@ describe("AppSidebar", () => {
     const gestion = screen.getByRole("link", { name: "Gestión de Empleados" }).closest("li")!;
     expect(within(gestion).getByRole("link", { name: "Contactos de Emergencia" })).toHaveAttribute("href", "/gestion-contactos");
     expect(within(gestion).getByRole("link", { name: "Datos de Pago" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("pliega los apartados de Gestión de Empleados y lo recuerda", async () => {
+    localStorage.clear();
+    conPermisos("empleados.gestionar", "contactos_emergencia.ver", "datos_pago.editar");
+    const { unmount } = pintar("/gestion-pagos");
+    await userEvent.click(screen.getByRole("button", { name: "Ocultar los apartados de Gestión de Empleados" }));
+
+    expect(screen.queryByRole("link", { name: "Datos de Pago" })).not.toBeInTheDocument();
+    // Plegado, el padre indica que la página actual está dentro
+    expect(screen.getByRole("link", { name: "Gestión de Empleados" })).toHaveAttribute("data-active", "true");
+
+    unmount();
+    pintar("/dashboard");
+    expect(screen.queryByRole("link", { name: "Contactos de Emergencia" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mostrar los apartados de Gestión de Empleados" }));
+    expect(screen.getByRole("link", { name: "Contactos de Emergencia" })).toBeInTheDocument();
+    localStorage.clear();
   });
 
   it("marca como activo el apartado actual, también en sus subrutas", () => {
