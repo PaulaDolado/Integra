@@ -8,13 +8,15 @@ import "./editor-notas.css";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { crearExtensiones, type UsuarioCursor } from "./extensiones";
-import { BarraHerramientas } from "./BarraHerramientas";
+import { BarraHerramientas, type Plantilla } from "./BarraHerramientas";
+import { cambiarAjuste, useAjustesNota } from "./ajustes";
+import { plantillaIndice, plantillaPortada } from "./plantillas";
 import { PanelIndice } from "./PanelIndice";
 import { irAMarcador } from "./navegacion";
 import { DialogoEnlace } from "./DialogoEnlace";
 import { DialogoEcuacion, type TipoEcuacion } from "./DialogoEcuacion";
 import { DialogoMarcador } from "./DialogoMarcador";
-import { enlaceSeguro, indiceDeNota, marcadorDeEnlace } from "./contenido";
+import { contarPaginas, enlaceSeguro, indiceDeNota, marcadorDeEnlace } from "./contenido";
 import { problemaImagen, subirImagenNota } from "./imagenes";
 import { clasePapel, TIPOS_IMAGEN } from "./notas";
 import type { SesionNota } from "./useNotaColaborativa";
@@ -131,6 +133,17 @@ export function EditorNota({ notaId, sesion, editable, formato, usuario, mostrar
   }, [editor, editable]);
 
   const palabras = useEditorState({ editor, selector: ({ editor: ed }) => ed.storage.characterCount.words() as number });
+  const paginas = useEditorState({ editor, selector: ({ editor: ed }) => contarPaginas(ed.state.doc) });
+  const { numerarPaginas } = useAjustesNota(sesion.doc);
+
+  // La portada va siempre al principio; el índice, donde esté el cursor (o
+  // detrás de la portada, si se insertan juntos)
+  const insertarPlantilla = (plantilla: Plantilla) => {
+    const portada = plantillaPortada({ autor: usuario.name });
+    if (plantilla === "portada") editor.chain().focus().insertContentAt(0, portada).run();
+    else if (plantilla === "indice") editor.chain().focus().insertContent(plantillaIndice()).run();
+    else editor.chain().focus().insertContentAt(0, [...portada, ...plantillaIndice()]).run();
+  };
 
   const subir = async (archivos: File[], pos?: number) => {
     if (!editable) return;
@@ -240,6 +253,9 @@ export function EditorNota({ notaId, sesion, editable, formato, usuario, mostrar
             onImagen={() => selectorArchivos.current?.click()}
             onEcuacion={() => setEcuacion({ latex: "", tipo: "inline", pos: null })}
             onMarcador={abrirMarcador}
+            onPlantilla={insertarPlantilla}
+            numerarPaginas={numerarPaginas}
+            onNumerarPaginas={(numerar) => cambiarAjuste(sesion.doc, "numerarPaginas", numerar)}
           />
           <input
             ref={selectorArchivos}
@@ -260,8 +276,11 @@ export function EditorNota({ notaId, sesion, editable, formato, usuario, mostrar
 
       <div className="flex justify-center gap-6 px-3 py-6 sm:px-6">
         <div className="w-full max-w-[816px] min-w-0">
-          <article className={cn(clasePapel(formato), "rounded-sm border border-border shadow-md")}>
+          <article
+            className={cn(clasePapel(formato), numerarPaginas && "numerar-paginas", "rounded-sm border border-border shadow-md")}
+          >
             <EditorContent editor={editor} />
+            {numerarPaginas && <p className="pie-pagina">Página {paginas}</p>}
           </article>
           <p className="mt-3 flex items-center justify-end gap-3 text-xs text-muted-foreground" aria-live="polite">
             {subiendo > 0 && (

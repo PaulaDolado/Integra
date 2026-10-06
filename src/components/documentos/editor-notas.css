@@ -269,3 +269,156 @@
     box-shadow: none !important;
   }
 }
+
+/* Salto de página: el final de una hoja y el principio de la siguiente. Ocupa
+   tres líneas exactas para que las rayas sigan cuadrando después. */
+.contenido-nota .salto-pagina {
+  position: relative;
+  height: calc(var(--nota-linea) * 3);
+  margin: 0 calc(-1 * var(--nota-margen));
+  background: linear-gradient(
+    to bottom,
+    transparent var(--nota-linea),
+    hsl(var(--background)) var(--nota-linea),
+    hsl(var(--background)) calc(var(--nota-linea) * 2),
+    transparent calc(var(--nota-linea) * 2)
+  );
+  cursor: default;
+}
+.contenido-nota .salto-pagina::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--nota-linea);
+  height: var(--nota-linea);
+  border-top: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+  pointer-events: none;
+}
+/* Número de la página que termina en el salto (solo con «Numerar páginas») */
+.numerar-paginas .contenido-nota .salto-pagina::before {
+  content: "Página " attr(data-pagina);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--nota-linea);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: var(--nota-linea);
+  color: hsl(var(--muted-foreground));
+}
+.contenido-nota .salto-pagina.ProseMirror-selectednode::after {
+  border-color: hsl(var(--primary));
+}
+
+.pie-pagina {
+  margin: 0;
+  padding-bottom: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Columnas de texto */
+.contenido-nota .columnas-nota {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.contenido-nota[contenteditable="true"] .columna-nota {
+  outline: 1px dashed hsl(var(--border));
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+@media (max-width: 640px) {
+  .contenido-nota .columnas-nota {
+    grid-auto-flow: row;
+  }
+}
+
+/* Índice automático */
+.contenido-nota .indice-nota {
+  margin: var(--nota-linea) 0;
+  line-height: var(--nota-linea);
+  user-select: none;
+}
+.contenido-nota .indice-nota-titulo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: calc(var(--nota-linea) * 1.5);
+}
+.contenido-nota .indice-nota-vacio {
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+.contenido-nota .indice-nota-lista {
+  list-style: none;
+  padding: 0;
+}
+.contenido-nota .indice-nota-lista button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 0.5rem;
+  text-align: left;
+  border-radius: 0.25rem;
+}
+.contenido-nota .indice-nota-lista button:hover .indice-texto {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+.contenido-nota .indice-nota-lista button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+}
+.contenido-nota .indice-nivel-1 {
+  font-weight: 600;
+}
+.contenido-nota .indice-nivel-2 {
+  padding-left: 1.25rem;
+}
+.contenido-nota .indice-nivel-3 {
+  padding-left: 2.5rem;
+  color: hsl(var(--muted-foreground));
+}
+.contenido-nota .indice-relleno {
+  flex: 1;
+  border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.6);
+  transform: translateY(-0.3em);
+}
+.contenido-nota .indice-texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Los números de página del índice, solo con «Numerar páginas» */
+.contenido-nota .indice-pagina,
+.contenido-nota .indice-relleno {
+  display: none;
+}
+.numerar-paginas .contenido-nota .indice-pagina {
+  display: inline;
+  font-variant-numeric: tabular-nums;
+}
+.numerar-paginas .contenido-nota .indice-relleno {
+  display: block;
+}
+
+@media print {
+  .contenido-nota .salto-pagina {
+    break-after: page;
+    height: 0;
+    margin: 0;
+    background: none;
+  }
+  .contenido-nota .salto-pagina::after,
+  .contenido-nota .salto-pagina::before {
+    display: none;
+  }
+  .contenido-nota .columna-nota {
+    outline: none;
+  }
+}

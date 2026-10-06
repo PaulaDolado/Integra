@@ -60,6 +60,27 @@ export const marcadorDeEnlace = (href: string) => (href.startsWith(PREFIJO_MARCA
 
 export const nuevoIdMarcador = () => crypto.randomUUID().slice(0, 8);
 
+// Páginas: la nota es una hoja continua y las páginas las marcan los saltos de página
+
+// Número de página (desde 1) en el que está una posición del documento
+export function paginaDe(doc: NodoPM, pos: number) {
+  let pagina = 1;
+  doc.nodesBetween(0, Math.min(pos, doc.content.size), (nodo, inicio) => {
+    if (nodo.type.name === "saltoPagina" && inicio < pos) pagina++;
+    return true;
+  });
+  return pagina;
+}
+
+export function contarPaginas(doc: NodoPM) {
+  let paginas = 1;
+  doc.descendants((nodo) => {
+    if (nodo.type.name === "saltoPagina") paginas++;
+    return true;
+  });
+  return paginas;
+}
+
 export interface EntradaIndice {
   tipo: "marcador" | "titulo";
   id: string;
