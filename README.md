@@ -23,6 +23,7 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 ## Índice
 
 - [Stack](#stack)
+- [Arquitectura](#arquitectura)
 - [Puesta en marcha](#puesta-en-marcha)
 - [Scripts](#scripts)
 - [Módulos](#módulos)
@@ -56,6 +57,41 @@ Portal del empleado. Cada persona gestiona su día a día desde un solo sitio: f
 | Backend | Supabase: PostgreSQL, Auth (con doble factor TOTP), Storage, Realtime y Row Level Security |
 | Tests | Vitest 5, Testing Library y jsdom; Playwright para los tests end-to-end |
 | Calidad de código | ESLint 10, typescript-eslint y las reglas del React Compiler (eslint-plugin-react-hooks 7) |
+
+## Arquitectura
+
+El frontend y el backend están separados, pero no hay un servidor propio: el backend es Supabase.
+
+```text
+Navegador (React, web estática en GitHub Pages)
+   │  cliente de Supabase: consultas, RPC, Auth, Storage y Realtime
+   ▼
+Supabase
+   ├── PostgreSQL: tablas, RLS, funciones SQL y triggers   (supabase/migrations/)
+   ├── Edge Functions                                       (supabase/functions/)
+   └── Auth, Storage y Realtime
+          │
+          ▼
+   Servicios externos: Teams, Google Chat, Google Calendar
+```
+
+**Frontend (`src/`).** Una aplicación React que se compila a una web estática. No tiene lógica de servidor: habla con Supabase a través de su cliente (`src/integrations/supabase/client.ts`), con consultas a tablas y llamadas a funciones RPC.
+
+**Backend (`supabase/`).**
+
+- **PostgreSQL** (`supabase/migrations/`). Aquí está casi toda la lógica de servidor:
+  - Tablas con Row Level Security, que decide quién puede leer o modificar cada fila.
+  - Funciones SQL (`SECURITY DEFINER`) para las operaciones sensibles, por ejemplo `guardar_datos_pago()`, `ver_iban()` o `tengo_permiso()`. Comprueban el permiso y el doble factor y dejan registro cuando hace falta.
+  - Triggers, por ejemplo los que encolan los avisos.
+- **Edge Functions** (`supabase/functions/`), para lo que no cabe en SQL o necesita secretos:
+  - `notificar`: envía los avisos a Teams y Google Chat.
+  - `calendario-ics`: sirve el calendario de cada persona en formato `.ics`.
+  - `google-calendar`: hace el OAuth con Google y trae sus eventos.
+- **Auth, Storage y Realtime**, que da Supabase directamente.
+
+**La seguridad la decide la base de datos.** `usePermisos()` solo muestra u oculta opciones en la interfaz. Cada permiso se vuelve a comprobar en PostgreSQL, así que manipular la web no da acceso a datos ajenos.
+
+No hay una API intermedia (Node, Express o similar): el navegador habla directamente con Supabase. Si hace falta lógica que no encaje en SQL, va a una Edge Function nueva.
 
 ## Puesta en marcha
 
