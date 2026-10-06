@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { usePermisos } from "@/hooks/usePermisos";
@@ -44,6 +44,14 @@ describe("AppSidebar", () => {
     pintar();
     expect(screen.getByRole("link", { name: "Datos de Pago" })).toHaveAttribute("href", "/gestion-pagos");
     expect(screen.queryByRole("link", { name: "Contactos de Emergencia" })).not.toBeInTheDocument();
+  });
+
+  it("RRHH ve contactos y datos de pago dentro de Gestión de Empleados", () => {
+    conPermisos("empleados.gestionar", "contactos_emergencia.ver", "contactos_emergencia.editar", "datos_pago.editar");
+    pintar("/gestion-pagos");
+    const gestion = screen.getByRole("link", { name: "Gestión de Empleados" }).closest("li")!;
+    expect(within(gestion).getByRole("link", { name: "Contactos de Emergencia" })).toHaveAttribute("href", "/gestion-contactos");
+    expect(within(gestion).getByRole("link", { name: "Datos de Pago" })).toHaveAttribute("aria-current", "page");
   });
 
   it("marca como activo el apartado actual, también en sus subrutas", () => {

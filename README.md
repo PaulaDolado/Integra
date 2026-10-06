@@ -139,7 +139,7 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 
 ### Pantallas de gestión
 
-Solo aparecen en el menú lateral si el departamento del usuario tiene el permiso correspondiente.
+Solo aparecen en el menú lateral si el departamento del usuario tiene el permiso correspondiente. Contactos de emergencia y Datos de pago cuelgan de Gestión de Empleados. Quien no tiene `empleados.gestionar`, como Finanzas, los ve en el primer nivel.
 
 | Ruta | Módulo | Permiso |
 | --- | --- | --- |
@@ -148,8 +148,8 @@ Solo aparecen en el menú lateral si el departamento del usuario tiene el permis
 | `/gestion-empleados` | Altas, cargo, departamento y estado de los empleados | `empleados.gestionar` |
 | `/gestion-tickets` | Todos los tickets: asignar, cambiar el estado y resolver | `tickets.gestionar` |
 | `/gestion-fichajes` | Fichajes de la plantilla y exportación a CSV. Las correcciones manuales exigen justificación y quedan auditadas | `fichajes.ver_todos` y `fichajes.editar` |
-| `/gestion-contactos` | Contactos de emergencia de la plantilla, en solo lectura | `contactos_emergencia.ver` |
-| `/gestion-pagos` | Datos de pago para la nómina. El IBAN sale enmascarado, y cada consulta completa o exportación queda registrada | `datos_pago.ver` |
+| `/gestion-contactos` | Contactos de emergencia de la plantilla. Con `editar` se añaden, corrigen y borran | `contactos_emergencia.ver` o `contactos_emergencia.editar` |
+| `/gestion-pagos` | Datos de pago para la nómina. El IBAN sale enmascarado, y cada consulta completa, cambio o exportación queda registrada. Con `ver` se consulta el IBAN completo y se exporta; con `editar` solo se cambia | `datos_pago.ver` o `datos_pago.editar` |
 
 ## Permisos por departamento
 
@@ -157,7 +157,7 @@ Los departamentos funcionan como roles. Qué permite cada permiso se define en `
 
 | Departamento | Permisos |
 | --- | --- |
-| Recursos Humanos | `comunicados.rrhh`, `ausencias.aprobar`, `turnos.aprobar`, `empleados.gestionar`, `fichajes.ver_todos`, `fichajes.editar`, `contactos_emergencia.ver` |
+| Recursos Humanos | `comunicados.rrhh`, `ausencias.aprobar`, `turnos.aprobar`, `empleados.gestionar`, `fichajes.ver_todos`, `fichajes.editar`, `contactos_emergencia.ver`, `contactos_emergencia.editar`, `datos_pago.editar` |
 | Dirección General | `ausencias.aprobar`, `turnos.aprobar`, `fichajes.ver_todos`, `fichajes.editar` |
 | Finanzas y Contabilidad | `datos_pago.ver` |
 | Marketing, Comunicación | `comunicados.marketing` |
@@ -174,6 +174,7 @@ Un empleado con `es_admin = true` tiene todos los permisos.
 - **Datos sensibles a través de funciones del servidor.** El organigrama, los contactos de emergencia y los datos de pago se leen con funciones `SECURITY DEFINER`, que devuelven solo los campos necesarios:
   - El organigrama nunca envía el teléfono, el correo ni la dirección.
   - El IBAN llega enmascarado. Para verlo entero hay que pedirlo con `ver_iban()`, que registra quién lo consultó en `accesos_datos_pago`.
+  - El IBAN de otra persona solo se cambia con `guardar_datos_pago()`, que también deja el cambio en `accesos_datos_pago`.
 - **Gestor de contraseñas cifrado de extremo a extremo.** La bóveda se cifra en el navegador: la contraseña maestra se convierte en una clave AES-GCM de 256 bits con PBKDF2-SHA256 (600.000 iteraciones) y nunca sale del navegador. La base de datos solo guarda texto cifrado, así que ni un administrador ni Supabase pueden leer las contraseñas. Por eso la contraseña maestra no se puede recuperar: si se olvida, solo queda vaciar la bóveda. La bóveda se bloquea al salir de la página y tras 5 minutos sin actividad, y las contraseñas copiadas se borran del portapapeles a los 30 segundos.
 - **Doble factor.** Si un usuario lo activa, una política restrictiva en cada tabla (`public.cumple_doble_factor()`) le bloquea los datos hasta que lo verifique.
 - **Content Security Policy.** Se añade en el build con un plugin de Vite (`vite.config.ts`) y solo permite cargar código propio y conectar con Supabase (y con Sentry, solo si la [monitorización de errores](#monitorización-de-errores) está activada). El service worker y el manifiesto de la app instalable también tienen que ser propios (`worker-src` y `manifest-src`). En desarrollo no se aplica, porque el HMR de Vite necesita scripts en línea.

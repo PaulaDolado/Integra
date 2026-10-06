@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, HeartPulse, Loader2, Lock, Phone, Search } from "lucide-react";
+import { AlertTriangle, HeartPulse, Loader2, Lock, Pencil, Phone, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { comprobar } from "@/lib/query-client";
 import { usePermisos } from "@/hooks/usePermisos";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { type Contacto, ContactosEmergenciaDialog } from "@/components/gestion/ContactosEmergenciaDialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +20,7 @@ interface Empleado {
   nombre: string;
   departamento: string | null;
   telefono: string | null;
-  contactos: { id: string; nombre: string; relacion: string | null; telefono: string }[];
+  contactos: Contacto[];
 }
 
 // Enlace tel: para poder llamar directamente desde el móvil
@@ -33,8 +35,11 @@ export default function GestionContactosEmergencia() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  // Empleado cuyos contactos se están editando
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
-  const puedeVer = tiene("contactos_emergencia.ver");
+  const puedeEditar = tiene("contactos_emergencia.editar");
+  const puedeVer = tiene("contactos_emergencia.ver") || puedeEditar;
 
   const { data: filas = [], isLoading: loading } = useQuery({
     queryKey: ["contactos-emergencia-plantilla"],
@@ -99,6 +104,7 @@ export default function GestionContactosEmergencia() {
         </h1>
         <p className="text-muted-foreground mt-1">
           Personas a las que avisar en caso de emergencia. Datos confidenciales: úsalos solo cuando sea necesario.
+          {puedeEditar && " Puedes corregirlos si un empleado te lo pide."}
         </p>
       </div>
 
@@ -132,6 +138,11 @@ export default function GestionContactosEmergencia() {
                     <TableRow className="bg-muted/40 hover:bg-muted/40">
                       <TableHead>Empleado</TableHead>
                       <TableHead>Contactos de emergencia</TableHead>
+                      {puedeEditar && (
+                        <TableHead className="w-12">
+                          <span className="sr-only">Acciones</span>
+                        </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -164,6 +175,19 @@ export default function GestionContactosEmergencia() {
                             </ul>
                           )}
                         </TableCell>
+                        {puedeEditar && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Editar los contactos de ${e.nombre}`}
+                              onClick={() => setEditandoId(e.id)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -173,6 +197,13 @@ export default function GestionContactosEmergencia() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {puedeEditar && (
+        <ContactosEmergenciaDialog
+          empleado={empleados.find((e) => e.id === editandoId) ?? null}
+          onClose={() => setEditandoId(null)}
+        />
+      )}
     </div>
   );
 }

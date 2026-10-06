@@ -7,34 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SettingsSection, InfoGrid, InfoRow, EditActions } from "./SettingsSection";
 import type { ConfigTabProps } from "./types";
+import { formatIban, isValidIban, maskIban, normalizeIban } from "@/lib/iban";
 
 const FORMAS_PAGO: Record<string, string> = {
   transferencia: "Transferencia",
-};
-
-const normalizeIban = (iban: string) => iban.replace(/\s+/g, "").toUpperCase();
-
-// Validación estándar ISO 13616: reordenar, pasar letras a números y comprobar mod 97
-function isValidIban(value: string) {
-  const iban = normalizeIban(value);
-  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
-  if (iban.startsWith("ES") && iban.length !== 24) return false;
-
-  const rearranged = iban.slice(4) + iban.slice(0, 4);
-  let remainder = 0;
-  for (const char of rearranged) {
-    const digits = /\d/.test(char) ? char : String(char.charCodeAt(0) - 55);
-    for (const d of digits) remainder = (remainder * 10 + Number(d)) % 97;
-  }
-  return remainder === 1;
-}
-
-const formatIban = (iban: string) => normalizeIban(iban).replace(/(.{4})/g, "$1 ").trim();
-
-// Solo se muestran los 4 últimos dígitos
-const maskIban = (iban: string) => {
-  const clean = normalizeIban(iban);
-  return formatIban(clean.slice(0, 2) + "•".repeat(clean.length - 6) + clean.slice(-4));
 };
 
 export function PagoTab({ empleado }: ConfigTabProps) {

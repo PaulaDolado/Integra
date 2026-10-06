@@ -12,7 +12,9 @@ export type Permiso =
   | "fichajes.ver_todos"
   | "fichajes.editar"
   | "contactos_emergencia.ver"
+  | "contactos_emergencia.editar"
   | "datos_pago.ver"
+  | "datos_pago.editar"
   | "tickets.gestionar"
   | "turnos.aprobar";
 
