@@ -1,75 +1,26 @@
-import { FileText, MessageSquare, Ticket, Clock } from "lucide-react";
+import { Link } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import { Clock, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { comprobar } from "@/lib/query-client";
+import { useAvisarError } from "@/hooks/useAvisarError";
+import { tituloNota } from "@/components/documentos/notas";
 
-const recentItems = [
-  {
-    id: 1,
-    type: "document",
-    title: "Manual de Procedimientos Q4",
-    description: "Actualizado por Recursos Humanos",
-    timestamp: "hace 2 horas",
-    author: "María López",
-    authorAvatar: "ML",
-  },
-  {
-    id: 2,
-    type: "message",
-    title: "Nuevo mensaje en Desarrollo",
-    description: "Carlos: ¿Podemos revisar el PR antes del viernes?",
-    timestamp: "hace 4 horas",
-    author: "Carlos Ruiz",
-    authorAvatar: "CR",
-  },
-  {
-    id: 3,
-    type: "ticket",
-    title: "Ticket #1247 - Error en login",
-    description: "Asignado a tu equipo",
-    timestamp: "hace 6 horas",
-    author: "Sistema",
-    authorAvatar: "S",
-    status: "urgent",
-  },
-  {
-    id: 4,
-    type: "document",
-    title: "Informe Mensual Enero",
-    description: "Compartido contigo",
-    timestamp: "ayer",
-    author: "Ana García",
-    authorAvatar: "AG",
-  },
-];
+const MAX_RECIENTES = 4;
 
-const getItemIcon = (type: string) => {
-  switch (type) {
-    case "document":
-      return FileText;
-    case "message":
-      return MessageSquare;
-    case "ticket":
-      return Ticket;
-    default:
-      return Clock;
-  }
-};
+const haceCuanto = (fecha: string) => formatDistanceToNow(new Date(fecha), { addSuffix: true, locale: es });
 
-const getItemColor = (type: string) => {
-  switch (type) {
-    case "document":
-      return "text-blue-600";
-    case "message":
-      return "text-green-600";
-    case "ticket":
-      return "text-orange-600";
-    default:
-      return "text-gray-600";
-  }
-};
-
+// Últimas notas de Gestión Documental que ha abierto el usuario
 export function RecentItemsWidget() {
+  const { data: notas = [], isPending: loading, error } = useQuery({
+    queryKey: ["notas", "recientes"],
+    queryFn: async () => comprobar(await supabase.rpc("notas_recientes", { p_limite: MAX_RECIENTES })) ?? [],
+  });
+  useAvisarError(error, "No se pudieron cargar las notas recientes");
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -79,54 +30,46 @@ export function RecentItemsWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {recentItems.slice(0, 2).map((item) => {
-          const Icon = getItemIcon(item.type);
-          
-          return (
-            <div
-              key={item.id}
-              className="flex items-start gap-3 p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors border border-transparent hover:border-border"
-            >
-              <div className={`p-2 rounded-full bg-accent/50 ${getItemColor(item.type)}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-medium text-foreground leading-tight">
-                    {item.title}
-                  </h3>
-                  {item.status === "urgent" && (
-                    <Badge variant="destructive" className="text-xs">
-                      Urgente
-                    </Badge>
-                  )}
-                </div>
-                
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {item.description}
-                </p>
-                
-                <div className="flex items-center gap-2 mt-2">
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src="" alt={item.author} />
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {item.authorAvatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs text-muted-foreground">
-                    {item.author} • {item.timestamp}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        
+        {loading ? (
+          <div className="flex items-center justify-center p-4">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : notas.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center p-4">
+            Todavía no has abierto ninguna nota de Gestión Documental.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {notas.map((nota) => (
+              <li key={nota.id}>
+                <Link
+                  to={`/documentos/${nota.id}`}
+                  className="flex items-start gap-3 p-2 rounded-lg border border-transparent transition-colors hover:bg-accent/50 hover:border-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <div className="p-2 rounded-full bg-accent/50 text-blue-600 dark:text-blue-400">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <h3 className="text-sm font-medium text-foreground leading-tight truncate">{tituloNota(nota.titulo)}</h3>
+                    {nota.extracto && <p className="text-xs text-muted-foreground line-clamp-2">{nota.extracto}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      Abierta {haceCuanto(nota.abierta_at)}
+                      {nota.mi_rol !== "propietario" && ` · de ${nota.propietario_nombre}`}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="pt-2 border-t border-border">
-          <button className="text-sm text-primary hover:text-primary-hover font-medium w-full text-center p-2 rounded-md hover:bg-accent/50 transition-colors">
-            Ver todo el historial →
-          </button>
+          <Link
+            to="/documentos"
+            className="block text-sm text-primary hover:text-primary-hover font-medium w-full text-center p-2 rounded-md hover:bg-accent/50 transition-colors"
+          >
+            Ir a Gestión Documental →
+          </Link>
         </div>
       </CardContent>
     </Card>

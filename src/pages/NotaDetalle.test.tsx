@@ -28,6 +28,7 @@ function simularServidor(rol: string) {
       abrir_nota: [{ ...META, estado: "", estado_hasta: 0, mi_rol: rol }],
       actualizar_nota: null,
       guardar_cambios_nota: 1,
+      registrar_apertura_nota: null,
     }) as never
   );
   vi.mocked(supabase.from).mockImplementation(((tabla: string) => {
@@ -90,6 +91,13 @@ describe("Editor de notas", () => {
     expect(contenido).toHaveAttribute("contenteditable", "true");
   });
 
+  it("registra la apertura para «Abierto recientemente» del dashboard", async () => {
+    simularServidor("lector");
+    pintar();
+    await screen.findByRole("textbox", { name: "Contenido de la nota" });
+    expect(supabase.rpc).toHaveBeenCalledWith("registrar_apertura_nota", { p_nota: NOTA });
+  });
+
   it("quien puede editar ve la barra de formato y elige el fondo de la hoja", async () => {
     simularServidor("propietario");
     pintar();
@@ -121,6 +129,8 @@ describe("Editor de notas", () => {
     pintar();
 
     expect(await screen.findByRole("heading", { name: "No puedes abrir esta nota" })).toBeInTheDocument();
+    // No aparece en «Abierto recientemente»
+    expect(supabase.rpc).not.toHaveBeenCalledWith("registrar_apertura_nota", expect.anything());
   });
 
   it("no tiene problemas de accesibilidad", async () => {

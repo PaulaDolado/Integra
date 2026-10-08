@@ -96,6 +96,17 @@ export default function NotaDetalle() {
     []
   );
 
+  // Queda en «Abierto recientemente» del dashboard. Solo cuando se sabe que
+  // la nota existe y el usuario la ve.
+  const notaAbierta = meta?.id;
+  useEffect(() => {
+    if (!notaAbierta) return;
+    void supabase.rpc("registrar_apertura_nota", { p_nota: notaAbierta }).then(({ error }) => {
+      if (error) console.error("Error registering note opening:", error);
+      else void queryClient.invalidateQueries({ queryKey: ["notas", "recientes"] });
+    });
+  }, [notaAbierta, queryClient]);
+
   const guardarTitulo = async (valor: string) => {
     const { error } = await supabase.rpc("actualizar_nota", { p_nota: id, p_titulo: valor });
     if (error) toast({ title: "Error", description: "No se pudo guardar el título", variant: "destructive" });

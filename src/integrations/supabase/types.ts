@@ -713,6 +713,39 @@ export type Database = {
           },
         ]
       }
+      nota_aperturas: {
+        Row: {
+          abierta_at: string
+          empleado_id: string
+          nota_id: string
+        }
+        Insert: {
+          abierta_at?: string
+          empleado_id: string
+          nota_id: string
+        }
+        Update: {
+          abierta_at?: string
+          empleado_id?: string
+          nota_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nota_aperturas_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nota_aperturas_nota_id_fkey"
+            columns: ["nota_id"]
+            isOneToOne: false
+            referencedRelation: "notas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nota_cambios: {
         Row: {
           autor_id: string | null
@@ -1639,6 +1672,22 @@ export type Database = {
       eliminar_nota: {
         Args: { p_nota: string }
         Returns: undefined
+      }
+      registrar_apertura_nota: {
+        Args: { p_nota: string }
+        Returns: undefined
+      }
+      notas_recientes: {
+        Args: { p_limite?: number }
+        Returns: {
+          id: string
+          titulo: string
+          extracto: string
+          mi_rol: string | null
+          propietario_nombre: string
+          abierta_at: string
+          updated_at: string
+        }[]
       }
       mis_conversaciones: {
         Args: Record<PropertyKey, never>

@@ -313,7 +313,7 @@ Tablas principales:
 | `notificaciones` | Cola de avisos para Teams y Google Chat, con su estado de envío |
 | `avisos` | Avisos de la campana de la cabecera, uno por persona |
 | `boveda_claves`, `boveda_entradas` | Gestor de contraseñas: parámetros de la clave y entradas, siempre cifradas |
-| `notas`, `nota_colaboradores`, `nota_cambios` | Notas colaborativas: datos de cada nota, con quién se comparte y sus cambios Yjs (imágenes en el bucket `notas`) |
+| `notas`, `nota_colaboradores`, `nota_cambios`, `nota_aperturas` | Notas colaborativas: datos de cada nota, con quién se comparte, sus cambios Yjs (imágenes en el bucket `notas`) y cuándo la abrió cada persona |
 
 Los tipos de TypeScript están en `src/integrations/supabase/types.ts`. Si cambias el esquema, regenéralos:
 
@@ -492,6 +492,7 @@ Puesta en marcha:
 La Gestión Documental son notas que varias personas pueden escribir a la vez.
 
 - **Lista (`/documentos`).** Cada nota se ve como una hoja en miniatura. «Página en blanco» crea una nota y abre el editor. Se puede filtrar entre las propias y las compartidas, y buscar por título, texto o propietario.
+- **Abierto recientemente (dashboard).** Muestra las últimas notas que ha abierto cada persona y enlaza a ellas. Al abrir una nota, `registrar_apertura_nota()` guarda la hora; `notas_recientes()` solo devuelve las que todavía puede ver.
 - **Editor (`/documentos/:id`).** La hoja puede ser **en blanco, punteada o de rayas**. La barra tiene deshacer y rehacer, títulos, negrita, cursiva, subrayado, tachado, código, subíndice y superíndice, color y resaltado, alineación, listas (con viñetas, numeradas y de tareas), citas, bloques de código, separadores, **enlaces** (Ctrl+K), **imágenes** (botón, pegar o arrastrar), **ecuaciones** en LaTeX (con vista previa y plantillas; atajo `$$x^2$$` en la línea y `$$$x^2$$$` en su propia línea), **marcadores** y tablas. Los marcadores y los títulos salen en el panel lateral para saltar a ellos, y un enlace puede llevar a un marcador.
 - **Formato y maquetación.**
   - **Fuente y tamaño:** selectores en la barra. Solo fuentes del sistema (Arial, Verdana, Georgia, Times New Roman…), así que no se descarga nada y la CSP no cambia.
