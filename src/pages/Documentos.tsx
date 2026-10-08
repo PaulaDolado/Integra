@@ -89,7 +89,7 @@ export default function Documentos() {
             <FileText className="h-6 w-6 text-primary" aria-hidden="true" />
             Gestión Documental
           </h1>
-          <p className="text-muted-foreground">Notas que puedes escribir a la vez con tus compañeros.</p>
+          <p className="text-muted-foreground">Notas colaborativas.</p>
         </div>
         <Button className="gap-2" onClick={crear} disabled={creando}>
           {creando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
