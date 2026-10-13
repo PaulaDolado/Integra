@@ -1,5 +1,8 @@
 import { isAuthWeakPasswordError } from "@supabase/supabase-js";
 
+// Longitud mínima de la contraseña de acceso, al cambiarla o restablecerla
+export const MIN_LONGITUD_CONTRASENA = 8;
+
 // Mensaje para el usuario cuando Supabase rechaza una contraseña nueva.
 // null si el error no tiene que ver con la contraseña elegida.
 export function mensajeContrasenaRechazada(error: { code?: string } | null | undefined): string | null {

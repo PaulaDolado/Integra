@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { SettingsSection } from "./SettingsSection";
 import { appUrl } from "@/lib/app-url";
-import { mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
+import { MIN_LONGITUD_CONTRASENA, mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
 
 function MethodRow({
   icon: Icon,
@@ -141,8 +141,8 @@ function CambiarContrasenaDialog({ open, onOpenChange }: { open: boolean; onOpen
   }
 
   const save = async () => {
-    if (password.length < 8) {
-      toast.error("La contraseña debe tener al menos 8 caracteres");
+    if (password.length < MIN_LONGITUD_CONTRASENA) {
+      toast.error(`La contraseña debe tener al menos ${MIN_LONGITUD_CONTRASENA} caracteres`);
       return;
     }
     if (password !== confirm) {
@@ -183,7 +183,7 @@ function CambiarContrasenaDialog({ open, onOpenChange }: { open: boolean; onOpen
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Cambiar mi contraseña</DialogTitle>
-          <DialogDescription>Usa al menos 8 caracteres.</DialogDescription>
+          <DialogDescription>Usa al menos {MIN_LONGITUD_CONTRASENA} caracteres.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

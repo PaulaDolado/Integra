@@ -38,4 +38,19 @@ describe("Restablecer contraseña", () => {
     );
     expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringMatching(/known to be weak/) }));
   });
+
+  it("pide al menos 8 caracteres, igual que Configuración", async () => {
+    render(
+      <MemoryRouter>
+        <ResetPassword />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(screen.getByLabelText("Nueva Contraseña"), "1234567");
+    await userEvent.type(screen.getByLabelText("Confirmar Contraseña"), "1234567");
+    await userEvent.click(screen.getByRole("button", { name: /Actualizar/ }));
+
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ description: "La contraseña debe tener al menos 8 caracteres" }));
+    expect(supabase.auth.updateUser).not.toHaveBeenCalled();
+  });
 });
