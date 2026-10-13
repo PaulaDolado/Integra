@@ -26,6 +26,10 @@ updates:
       # esta regla cuando lo admita. La 6 sí se propone.
       - dependency-name: "typescript"
         versions: [">=7"]
+      # La extensión de ecuaciones de Tiptap aún no admite KaTeX 0.19 (su peer
+      # pide <0.19) y npm no puede instalarlo; quitar esta regla cuando lo admita
+      - dependency-name: "katex"
+        versions: [">=0.19"]
 
   - package-ecosystem: github-actions
     directory: /
