@@ -7,6 +7,7 @@ import { Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -60,9 +61,11 @@ export default function ResetPassword() {
       });
 
       if (error) {
+        console.error("Error resetting password:", error);
         toast({
           title: "Error",
-          description: error.message,
+          // El mensaje de Supabase llega en inglés: se traduce el motivo si se conoce
+          description: mensajeContrasenaRechazada(error) ?? "No se pudo actualizar la contraseña",
           variant: "destructive",
         });
       } else {
