@@ -7,7 +7,7 @@ import { Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
+import { MIN_LONGITUD_CONTRASENA, mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -44,10 +44,10 @@ export default function ResetPassword() {
       return;
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < MIN_LONGITUD_CONTRASENA) {
       toast({
         title: "Error",
-        description: "La contraseña debe tener al menos 6 caracteres",
+        description: `La contraseña debe tener al menos ${MIN_LONGITUD_CONTRASENA} caracteres`,
         variant: "destructive",
       });
       return;
