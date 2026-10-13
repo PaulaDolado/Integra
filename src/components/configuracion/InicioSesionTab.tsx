@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { SettingsSection } from "./SettingsSection";
 import { appUrl } from "@/lib/app-url";
+import { mensajeContrasenaRechazada } from "@/lib/errores-contrasena";
 
 function MethodRow({
   icon: Icon,
@@ -170,13 +171,7 @@ function CambiarContrasenaDialog({ open, onOpenChange }: { open: boolean; onOpen
 
     if (error) {
       console.error("Error updating password:", error);
-      toast.error(
-        error.code === "same_password"
-          ? "La nueva contraseña debe ser distinta a la actual"
-          : error.code === "weak_password"
-            ? "La contraseña es demasiado débil"
-            : "No se pudo cambiar la contraseña"
-      );
+      toast.error(mensajeContrasenaRechazada(error) ?? "No se pudo cambiar la contraseña");
       return;
     }
     toast.success("Contraseña actualizada");
