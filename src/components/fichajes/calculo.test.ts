@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { descargarCsv, esCorregido, formatHoras, resumirFichajes, type Fichaje } from "./calculo";
+import { descansoEntre, descargarCsv, esCorregido, formatDuracion, formatHoras, resumirFichajes, type Fichaje } from "./calculo";
 
 let n = 0;
 const fichaje = (tipo: "entrada" | "salida", fechaHora: string, extra: Partial<Fichaje> = {}): Fichaje => ({
@@ -8,6 +8,14 @@ const fichaje = (tipo: "entrada" | "salida", fechaHora: string, extra: Partial<F
   tipo,
   fecha_hora: new Date(fechaHora).toISOString(),
   ...extra,
+});
+
+describe("formatDuracion", () => {
+  it("muestra horas, minutos y segundos", () => {
+    expect(formatDuracion(8 * 3600)).toBe("8 h 00 min 00 s");
+    expect(formatDuracion(3 * 3600 + 5 * 60 + 9)).toBe("3 h 05 min 09 s");
+    expect(formatDuracion(59)).toBe("0 h 00 min 59 s");
+  });
 });
 
 describe("resumirFichajes", () => {
@@ -23,6 +31,26 @@ describe("resumirFichajes", () => {
     expect(r.diasTrabajados).toBe(1);
     expect(r.incidencias).toBe(0);
     expect(r.dias[0]).toMatchObject({ fecha: "2026-09-28", minutos: 330 });
+  });
+
+  it("suma el tiempo de cada tramo del día con segundos: 3 h antes de comer y 5 h después", () => {
+    const r = resumirFichajes([
+      fichaje("entrada", "2026-09-28T08:59:30"),
+      fichaje("salida", "2026-09-28T11:59:30"),
+      fichaje("entrada", "2026-09-28T12:58:15"),
+      fichaje("salida", "2026-09-28T17:58:15"),
+    ]);
+    const [manana, tarde] = r.dias[0].tramos;
+    expect(manana.segundos).toBe(3 * 3600);
+    expect(tarde.segundos).toBe(5 * 3600);
+    expect(r.dias[0].segundos).toBe(8 * 3600);
+    expect(descansoEntre(manana, tarde)).toBe(58 * 60 + 45);
+  });
+
+  it("no redondea los segundos sueltos", () => {
+    const r = resumirFichajes([fichaje("entrada", "2026-09-28T09:00:00"), fichaje("salida", "2026-09-28T09:00:59")]);
+    expect(r.dias[0].tramos[0].segundos).toBe(59);
+    expect(r.dias[0].segundos).toBe(59);
   });
 
   it("suma varios tramos en un día y ordena los días del más reciente al más antiguo", () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { comprobar } from "@/lib/query-client";
@@ -7,10 +7,14 @@ import { claveMisFichajes } from "@/hooks/useFichajeActual";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { AlertTriangle, Clock, Coffee, LogIn, LogOut, Calendar, Pencil } from "lucide-react";
+import { format, parseISO, startOfDay, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { descansoEntre, formatDuracion, resumirFichajes, segundosEntre } from "@/components/fichajes/calculo";
+
+// Días del historial
+const DIAS_HISTORIAL = 30;
 
 interface Fichaje {
   id: string;
@@ -40,8 +44,9 @@ export default function Fichajes() {
           .from("fichajes")
           .select("*")
           .eq("empleado_id", empleadoId!)
+          // Por días completos: con un límite de registros, el día más antiguo podría quedar a medias
+          .gte("fecha_hora", subDays(startOfDay(new Date()), DIAS_HISTORIAL - 1).toISOString())
           .order("fecha_hora", { ascending: false })
-          .limit(50)
       ) as Fichaje[],
     enabled: !!empleadoId,
   });
@@ -96,6 +101,10 @@ export default function Fichajes() {
   // Los fichajes anulados por RRHH se muestran en el historial pero no cuentan
   const ultimoFichaje = fichajes.find((f) => !f.anulado);
   const puedeEntrar = !ultimoFichaje || ultimoFichaje.tipo === "salida";
+  const { dias } = resumirFichajes(fichajes);
+  // Los anulados no cuentan, pero se enseñan en su día
+  const anuladosDe = (fecha: string) =>
+    fichajes.filter((f) => f.anulado && format(new Date(f.fecha_hora), "yyyy-MM-dd") === fecha).reverse();
 
   return (
     <div className="p-6 space-y-6">
@@ -176,72 +185,115 @@ export default function Fichajes() {
             Historial de Fichajes
           </CardTitle>
           <CardDescription>
-            Últimos 50 registros
+            Últimos {DIAS_HISTORIAL} días. Cada día suma el tiempo trabajado entre tus entradas y salidas.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {fichajes.length === 0 ? (
+          {dias.length === 0 ? (
             <div className="text-center py-12">
               <Clock className="w-16 h-16 mx-auto text-muted-foreground/40 mb-4" />
               <p className="text-muted-foreground">No hay fichajes registrados</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {fichajes.map((fichaje) => (
-                <div
-                  key={fichaje.id}
-                  className={`flex flex-col gap-3 p-4 rounded-lg border transition-colors sm:flex-row sm:items-center sm:justify-between ${
-                    fichaje.anulado ? "opacity-60" : "hover:bg-accent/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {fichaje.tipo === "entrada" ? (
-                      <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                        <LogIn className="w-5 h-5 text-green-600" />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                        <LogOut className="w-5 h-5 text-orange-600" />
-                      </div>
+            <div className="space-y-4">
+              {dias.map((dia) => {
+                const enCurso = dia.tramos.find((t) => t.enCurso);
+                const anulados = anuladosDe(dia.fecha);
+                const fechaLarga = format(parseISO(dia.fecha), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es });
+                return (
+                  <section key={dia.fecha} className="rounded-lg border" aria-label={fechaLarga}>
+                    <header className="flex flex-col gap-1 border-b bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="font-medium first-letter:uppercase">{fechaLarga}</h3>
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">{enCurso ? "Total hasta ahora: " : "Total: "}</span>
+                        <span className="font-mono font-semibold tabular-nums">
+                          {enCurso?.entrada ? (
+                            <DuracionEnCurso desde={enCurso.entrada} base={dia.segundos} />
+                          ) : (
+                            formatDuracion(dia.segundos)
+                          )}
+                        </span>
+                      </p>
+                    </header>
+                    <ol className="divide-y">
+                      {dia.tramos.map((tramo, i) => {
+                        const descanso = i > 0 ? descansoEntre(dia.tramos[i - 1], tramo) : null;
+                        return (
+                          <li key={i}>
+                            {descanso !== null && (
+                              <p className="flex items-center gap-2 bg-muted/20 px-4 py-1.5 text-xs text-muted-foreground">
+                                <Coffee className="h-3.5 w-3.5" aria-hidden />
+                                Descanso de <span className="font-mono tabular-nums">{formatDuracion(descanso)}</span>
+                              </p>
+                            )}
+                            <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="text-sm text-muted-foreground">Tramo {i + 1}</span>
+                                <span className="inline-flex items-center gap-1.5 font-mono tabular-nums">
+                                  <LogIn className="h-4 w-4 text-green-600" aria-label="Entrada" />
+                                  {tramo.entrada ? format(tramo.entrada, "HH:mm:ss") : "—"}
+                                  <span className="text-muted-foreground" aria-hidden>
+                                    →
+                                  </span>
+                                  <LogOut className="h-4 w-4 text-orange-600" aria-label="Salida" />
+                                  {tramo.salida ? format(tramo.salida, "HH:mm:ss") : tramo.enCurso ? "ahora" : "—"}
+                                </span>
+                                {tramo.correcciones.length > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Pencil className="h-3 w-3" aria-hidden />
+                                    Corregido por RRHH · {tramo.correcciones.map((c) => `«${c}»`).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-mono font-semibold tabular-nums sm:text-right">
+                                {tramo.segundos !== null ? (
+                                  formatDuracion(tramo.segundos)
+                                ) : tramo.enCurso && tramo.entrada ? (
+                                  <span className="text-primary">
+                                    <DuracionEnCurso desde={tramo.entrada} />
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-sans text-sm font-normal text-amber-700 dark:text-amber-400">
+                                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                                    {tramo.entrada ? "Falta la salida" : "Falta la entrada"}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                    {anulados.length > 0 && (
+                      <ul className="space-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
+                        {anulados.map((f) => (
+                          <li key={f.id}>
+                            <span className="line-through">
+                              {f.tipo === "entrada" ? "Entrada" : "Salida"} de las {format(new Date(f.fecha_hora), "HH:mm:ss")}
+                            </span>{" "}
+                            anulada por RRHH{f.justificacion && <> · «{f.justificacion}»</>}
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                    <div>
-                      <p className="font-medium">
-                        {fichaje.tipo === "entrada" ? "Entrada" : "Salida"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(fichaje.fecha_hora), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es })}
-                      </p>
-                      {(fichaje.anulado || fichaje.es_manual || fichaje.fecha_hora_original) && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">
-                            {fichaje.anulado
-                              ? "Anulado por RRHH"
-                              : fichaje.es_manual
-                                ? "Añadido por RRHH"
-                                : `Hora corregida por RRHH (registraste las ${format(new Date(fichaje.fecha_hora_original!), "HH:mm")})`}
-                          </span>
-                          {fichaje.justificacion && <> · «{fichaje.justificacion}»</>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="sm:text-right">
-                    <p className={`font-mono text-lg font-semibold ${fichaje.anulado ? "line-through" : ""}`}>
-                      {format(new Date(fichaje.fecha_hora), "HH:mm:ss")}
-                    </p>
-                    <Badge 
-                      variant={fichaje.tipo === "entrada" ? "default" : "secondary"}
-                      className="mt-1"
-                    >
-                      {fichaje.tipo === "entrada" ? "Entrada" : "Salida"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                  </section>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
+}
+
+// Tiempo desde una entrada todavía abierta, que avanza cada segundo. `base` se
+// suma al resultado (lo ya trabajado en tramos anteriores del día).
+function DuracionEnCurso({ desde, base = 0 }: { desde: Date; base?: number }) {
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const intervalo = setInterval(() => setAhora(new Date()), 1000);
+    return () => clearInterval(intervalo);
+  }, []);
+  return <>{formatDuracion(base + segundosEntre(desde, ahora))}</>;
 }
