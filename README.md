@@ -398,6 +398,7 @@ La campana de la cabecera muestra los últimos 30 avisos de cada persona y cuán
 | Propuesta de intercambio de turno, o su cancelación | El compañero |
 | El compañero acepta o rechaza el intercambio | Quien lo pidió |
 | Cambio de turno aprobado o rechazado | Quien lo pidió y, si es un intercambio, el compañero |
+| Solicitud nueva de plaza en un curso | Quien puede revisarla (`cursos.gestionar`: Recursos Humanos, Dirección General y administradores) |
 | Solicitud de plaza en un curso aprobada o rechazada | Quien la pidió |
 | Curso cancelado | Quien tenía la solicitud pendiente o aprobada |
 | Respuesta o solución en un ticket | Quien lo abrió, si escribe otra persona |
