@@ -21,6 +21,8 @@ export interface Tramo {
   correcciones: string[];
   // Minutos del tramo; null si le falta la entrada o la salida
   minutos: number | null;
+  // Lo mismo con precisión de segundos
+  segundos: number | null;
   enCurso: boolean;
 }
 
@@ -28,6 +30,8 @@ export interface Dia {
   fecha: string; // yyyy-MM-dd
   tramos: Tramo[];
   minutos: number;
+  // Suma exacta de los tramos completos, en segundos
+  segundos: number;
   incidencias: number;
 }
 
@@ -42,6 +46,7 @@ export interface ResumenEmpleado {
 }
 
 const minutosEntre = (a: Date, b: Date) => Math.max(0, Math.round((b.getTime() - a.getTime()) / 60000));
+export const segundosEntre = (a: Date, b: Date) => Math.max(0, Math.floor((b.getTime() - a.getTime()) / 1000));
 
 // Empareja cada entrada con la siguiente salida del mismo día. Una entrada sin
 // salida o una salida sin entrada cuentan como incidencia, salvo la entrada de
@@ -64,15 +69,15 @@ export function resumirFichajes(fichajes: Fichaje[]): ResumenEmpleado {
     const mismoDia = abierta && format(abierta, "yyyy-MM-dd") === format(momento, "yyyy-MM-dd");
 
     if (f.tipo === "entrada") {
-      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
+      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, segundos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
       abierta = momento;
       fichajeAbierto = f;
     } else if (abierta && mismoDia) {
-      añadir(abierta, { entrada: abierta, salida: momento, minutos: minutosEntre(abierta, momento), enCurso: false, correcciones: motivos(fichajeAbierto, f) });
+      añadir(abierta, { entrada: abierta, salida: momento, minutos: minutosEntre(abierta, momento), segundos: segundosEntre(abierta, momento), enCurso: false, correcciones: motivos(fichajeAbierto, f) });
       abierta = null;
     } else {
-      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
-      añadir(momento, { entrada: null, salida: momento, minutos: null, enCurso: false, correcciones: motivos(f) });
+      if (abierta) añadir(abierta, { entrada: abierta, salida: null, minutos: null, segundos: null, enCurso: false, correcciones: motivos(fichajeAbierto) });
+      añadir(momento, { entrada: null, salida: momento, minutos: null, segundos: null, enCurso: false, correcciones: motivos(f) });
       abierta = null;
     }
   }
@@ -81,7 +86,7 @@ export function resumirFichajes(fichajes: Fichaje[]): ResumenEmpleado {
   if (abierta) {
     const enCurso = isToday(abierta);
     if (enCurso) trabajandoDesde = abierta;
-    añadir(abierta, { entrada: abierta, salida: null, minutos: null, enCurso, correcciones: motivos(fichajeAbierto) });
+    añadir(abierta, { entrada: abierta, salida: null, minutos: null, segundos: null, enCurso, correcciones: motivos(fichajeAbierto) });
   }
 
   const dias: Dia[] = [...porDia.entries()]
@@ -89,6 +94,7 @@ export function resumirFichajes(fichajes: Fichaje[]): ResumenEmpleado {
       fecha,
       tramos,
       minutos: tramos.reduce((total, t) => total + (t.minutos ?? 0), 0),
+      segundos: tramos.reduce((total, t) => total + (t.segundos ?? 0), 0),
       incidencias: tramos.filter((t) => t.minutos === null && !t.enCurso).length,
     }))
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -108,6 +114,21 @@ export const formatHoras = (minutos: number) => {
   const m = minutos % 60;
   return `${h} h ${m.toString().padStart(2, "0")} min`;
 };
+
+// Duración con horas, minutos y segundos: «8 h 05 min 09 s»
+export const formatDuracion = (segundos: number) => {
+  const total = Math.max(0, Math.floor(segundos));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h} h ${m.toString().padStart(2, "0")} min ${s.toString().padStart(2, "0")} s`;
+};
+
+// Descanso entre un tramo y el siguiente del mismo día (los tramos van en orden)
+export function descansoEntre(anterior: Tramo, siguiente: Tramo): number | null {
+  if (!anterior.salida || !siguiente.entrada) return null;
+  return segundosEntre(anterior.salida, siguiente.entrada);
+}
 
 // CSV para Excel en español: separador ";" y BOM para que respete las tildes
 export function descargarCsv(nombreArchivo: string, filas: (string | number)[][]) {
