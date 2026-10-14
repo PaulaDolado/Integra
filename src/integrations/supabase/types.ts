@@ -318,6 +318,68 @@ export type Database = {
           },
         ]
       }
+      cursos: {
+        Row: {
+          cancelado: boolean
+          certificado: boolean
+          created_at: string
+          creado_por: string | null
+          descripcion: string
+          enlace: string | null
+          fecha_fin: string
+          fecha_inicio: string
+          horas: number | null
+          id: string
+          lugar: string | null
+          modalidad: string
+          plazo_inscripcion: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          cancelado?: boolean
+          certificado?: boolean
+          created_at?: string
+          creado_por?: string | null
+          descripcion?: string
+          enlace?: string | null
+          fecha_fin: string
+          fecha_inicio: string
+          horas?: number | null
+          id?: string
+          lugar?: string | null
+          modalidad: string
+          plazo_inscripcion?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          cancelado?: boolean
+          certificado?: boolean
+          created_at?: string
+          creado_por?: string | null
+          descripcion?: string
+          enlace?: string | null
+          fecha_fin?: string
+          fecha_inicio?: string
+          horas?: number | null
+          id?: string
+          lugar?: string | null
+          modalidad?: string
+          plazo_inscripcion?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cursos_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       datos_pago: {
         Row: {
           empleado_id: string
@@ -673,6 +735,67 @@ export type Database = {
           tipo?: string
         }
         Relationships: []
+      }
+      inscripciones_curso: {
+        Row: {
+          comentario_revision: string | null
+          created_at: string
+          curso_id: string
+          empleado_id: string
+          estado: string
+          fecha_revision: string | null
+          id: string
+          motivo: string | null
+          revisado_por: string | null
+          updated_at: string
+        }
+        Insert: {
+          comentario_revision?: string | null
+          created_at?: string
+          curso_id: string
+          empleado_id: string
+          estado?: string
+          fecha_revision?: string | null
+          id?: string
+          motivo?: string | null
+          revisado_por?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comentario_revision?: string | null
+          created_at?: string
+          curso_id?: string
+          empleado_id?: string
+          estado?: string
+          fecha_revision?: string | null
+          id?: string
+          motivo?: string | null
+          revisado_por?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inscripciones_curso_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inscripciones_curso_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inscripciones_curso_revisado_por_fkey"
+            columns: ["revisado_por"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mensajes: {
         Row: {
@@ -1580,6 +1703,39 @@ export type Database = {
           decision: Database["public"]["Enums"]["vacacion_estado"]
           comentario?: string
         }
+        Returns: undefined
+      }
+      solicitar_curso: {
+        Args: { p_curso: string; p_motivo?: string }
+        Returns: string
+      }
+      cancelar_inscripcion_curso: {
+        Args: { p_inscripcion: string }
+        Returns: undefined
+      }
+      bandeja_cursos: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          curso_id: string
+          curso_titulo: string
+          curso_fecha_inicio: string
+          curso_fecha_fin: string
+          curso_cancelado: boolean
+          empleado_id: string
+          empleado_nombre: string
+          departamento: string | null
+          estado: string
+          motivo: string | null
+          created_at: string
+          revisado_por_nombre: string | null
+          fecha_revision: string | null
+          comentario_revision: string | null
+          es_mia: boolean
+        }[]
+      }
+      revisar_inscripcion_curso: {
+        Args: { p_inscripcion: string; p_aprobar: boolean; p_comentario?: string }
         Returns: undefined
       }
       solucionar_ticket: {

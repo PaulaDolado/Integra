@@ -173,7 +173,7 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 | `/contrasenas` | Gestor de contraseñas personal: bóveda cifrada con una contraseña maestra, generador, favoritas y aviso de contraseñas débiles o repetidas |
 | `/perfil`, `/configuracion` | Perfil, inicio de sesión (doble factor y Google), confidencialidad e información de pago |
 | `/documentos`, `/documentos/:id` | Gestión documental: notas colaborativas en tiempo real. Ver [Notas colaborativas](#notas-colaborativas) |
-| `/cursos` | En desarrollo |
+| `/cursos` | Inscripción a cursos: catálogo de formación, pedir plaza (con motivo opcional) y seguimiento de las propias solicitudes. Quien gestiona cursos los crea, edita, cancela y borra desde aquí |
 
 ### Pantallas de gestión
 
@@ -183,6 +183,7 @@ Solo aparecen en el menú lateral si el departamento del usuario tiene el permis
 | --- | --- | --- |
 | `/bandeja-ausencias` | Aprobar o rechazar ausencias | `ausencias.aprobar` |
 | `/bandeja-turnos` | Aprobar o rechazar cambios de turno | `turnos.aprobar` |
+| `/bandeja-cursos` | Aprobar o rechazar las solicitudes de plaza en los cursos, filtradas por estado y por curso | `cursos.gestionar` |
 | `/gestion-empleados` | Altas, cargo, departamento y estado de los empleados | `empleados.gestionar` |
 | `/gestion-tickets` | Todos los tickets: asignar, cambiar el estado y resolver | `tickets.gestionar` |
 | `/gestion-fichajes` | Fichajes de la plantilla y exportación a CSV. Las correcciones manuales exigen justificación y quedan auditadas | `fichajes.ver_todos` y `fichajes.editar` |
@@ -195,8 +196,8 @@ Los departamentos funcionan como roles. Qué permite cada permiso se define en `
 
 | Departamento | Permisos |
 | --- | --- |
-| Recursos Humanos | `comunicados.rrhh`, `ausencias.aprobar`, `turnos.aprobar`, `empleados.gestionar`, `fichajes.ver_todos`, `fichajes.editar`, `contactos_emergencia.ver`, `contactos_emergencia.editar`, `datos_pago.editar` |
-| Dirección General | `ausencias.aprobar`, `turnos.aprobar`, `fichajes.ver_todos`, `fichajes.editar` |
+| Recursos Humanos | `comunicados.rrhh`, `ausencias.aprobar`, `turnos.aprobar`, `empleados.gestionar`, `fichajes.ver_todos`, `fichajes.editar`, `contactos_emergencia.ver`, `contactos_emergencia.editar`, `datos_pago.editar`, `cursos.gestionar` |
+| Dirección General | `ausencias.aprobar`, `turnos.aprobar`, `fichajes.ver_todos`, `fichajes.editar`, `cursos.gestionar` |
 | Finanzas y Contabilidad | `datos_pago.ver` |
 | Marketing, Comunicación | `comunicados.marketing` |
 | Tecnología | `tickets.gestionar` |
@@ -305,6 +306,7 @@ Tablas principales:
 | `fichajes`, `fichaje_correcciones` | Control horario y registro de las correcciones, con su justificación |
 | `solicitudes_vacacion` | Ausencias y su aprobación (justificantes en el bucket `justificantes`) |
 | `solicitudes_turno` | Cambios e intercambios de turno |
+| `cursos`, `inscripciones_curso` | Catálogo de cursos y solicitudes de plaza. Las solicitudes se piden, cancelan y revisan con `solicitar_curso()`, `cancelar_inscripcion_curso()` y `revisar_inscripcion_curso()` |
 | `tareas`, `proyectos` | Tablero de tareas (imágenes en el bucket `tareas`) |
 | `eventos`, `evento_participantes` | Calendario |
 | `tickets`, `ticket_seguimientos`, `ticket_adjuntos` | Tickets (imágenes en el bucket `tickets`) |
@@ -396,6 +398,8 @@ La campana de la cabecera muestra los últimos 30 avisos de cada persona y cuán
 | Propuesta de intercambio de turno, o su cancelación | El compañero |
 | El compañero acepta o rechaza el intercambio | Quien lo pidió |
 | Cambio de turno aprobado o rechazado | Quien lo pidió y, si es un intercambio, el compañero |
+| Solicitud de plaza en un curso aprobada o rechazada | Quien la pidió |
+| Curso cancelado | Quien tenía la solicitud pendiente o aprobada |
 | Respuesta o solución en un ticket | Quien lo abrió, si escribe otra persona |
 | Respuesta o solución en un ticket asignado | El técnico asignado, si escribe otra persona |
 | Ticket asignado | El técnico |

@@ -40,6 +40,13 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("link", { name: "Datos de Pago" })).not.toBeInTheDocument();
   });
 
+  it("la bandeja de cursos solo aparece con su permiso; el catálogo, siempre", () => {
+    conPermisos("cursos.gestionar");
+    pintar();
+    expect(screen.getByRole("link", { name: "Inscripciones a Cursos" })).toHaveAttribute("href", "/bandeja-cursos");
+    expect(screen.getByRole("link", { name: "Inscripción Cursos" })).toHaveAttribute("href", "/cursos");
+  });
+
   it("Finanzas ve los datos de pago", () => {
     conPermisos("datos_pago.ver");
     pintar();

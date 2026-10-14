@@ -16,7 +16,8 @@ export type Permiso =
   | "datos_pago.ver"
   | "datos_pago.editar"
   | "tickets.gestionar"
-  | "turnos.aprobar";
+  | "turnos.aprobar"
+  | "cursos.gestionar";
 
 const SIN_PERMISOS = new Set<string>();
 

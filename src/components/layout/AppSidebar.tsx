@@ -76,6 +76,7 @@ interface NavGestion extends NavEntry {
 const managementItems: NavGestion[] = [
   { title: "Bandeja de Ausencias", url: "/bandeja-ausencias", icon: Inbox, permisos: ["ausencias.aprobar"] },
   { title: "Cambios de Turno", url: "/bandeja-turnos", icon: CalendarClock, permisos: ["turnos.aprobar"] },
+  { title: "Inscripciones a Cursos", url: "/bandeja-cursos", icon: GraduationCap, permisos: ["cursos.gestionar"] },
   {
     title: "Gestión de Empleados",
     url: "/gestion-empleados",
