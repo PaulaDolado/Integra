@@ -31,6 +31,8 @@ const Vacaciones = lazy(() => import("./pages/Vacaciones"));
 const BandejaAusencias = lazy(() => import("./pages/BandejaAusencias"));
 const CambioTurno = lazy(() => import("./pages/CambioTurno"));
 const BandejaTurnos = lazy(() => import("./pages/BandejaTurnos"));
+const Cursos = lazy(() => import("./pages/Cursos"));
+const BandejaCursos = lazy(() => import("./pages/BandejaCursos"));
 const GestionEmpleados = lazy(() => import("./pages/GestionEmpleados"));
 const GestionFichajes = lazy(() => import("./pages/GestionFichajes"));
 const GestionContactosEmergencia = lazy(() => import("./pages/GestionContactosEmergencia"));
@@ -44,13 +46,6 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Cargando = ({ pantallaCompleta = false }: { pantallaCompleta?: boolean }) => (
   <div className={`${pantallaCompleta ? "min-h-screen" : "py-24"} flex items-center justify-center`}>
     <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
-
-const EnDesarrollo = ({ titulo }: { titulo: string }) => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold">{titulo}</h1>
-    <p className="text-muted-foreground">En desarrollo</p>
   </div>
 );
 
@@ -104,7 +99,7 @@ const App = () => (
                 <Route path="/configuracion" element={<Configuracion />} />
                 <Route path="/fichajes" element={<Fichajes />} />
                 <Route path="/contrasenas" element={<Contrasenas />} />
-                <Route path="/cursos" element={<EnDesarrollo titulo="Inscripción a Cursos" />} />
+                <Route path="/cursos" element={<Cursos />} />
                 <Route path="/vacaciones" element={<Vacaciones />} />
                 <Route path="/cambio-turno" element={<CambioTurno />} />
 
@@ -116,6 +111,7 @@ const App = () => (
                 <Route path="/gestion-empleados" element={<GestionEmpleados />} />
                 <Route path="/bandeja-ausencias" element={<BandejaAusencias />} />
                 <Route path="/bandeja-turnos" element={<BandejaTurnos />} />
+                <Route path="/bandeja-cursos" element={<BandejaCursos />} />
               </Route>
 
               {/* Las rutas nuevas van encima de esta */}
