@@ -177,18 +177,17 @@ Todas las rutas requieren sesión, salvo `/login` y `/reset-password`. Si el usu
 
 ### Pantallas de gestión
 
-Solo aparecen en el menú lateral si el departamento del usuario tiene el permiso correspondiente. Contactos de emergencia y Datos de pago cuelgan de Gestión de Empleados. Quien no tiene `empleados.gestionar`, como Finanzas, los ve en el primer nivel.
+Solo aparecen en el menú lateral si el departamento del usuario tiene el permiso correspondiente.
 
 | Ruta | Módulo | Permiso |
 | --- | --- | --- |
 | `/bandeja-ausencias` | Aprobar o rechazar ausencias | `ausencias.aprobar` |
 | `/bandeja-turnos` | Aprobar o rechazar cambios de turno | `turnos.aprobar` |
 | `/bandeja-cursos` | Aprobar o rechazar las solicitudes de plaza en los cursos, filtradas por estado y por curso | `cursos.gestionar` |
-| `/gestion-empleados` | Altas, cargo, departamento y estado de los empleados | `empleados.gestionar` |
+| `/gestion-empleados` | Altas, cargo, departamento y estado de los empleados. Al editar una ficha, a la derecha: sus contactos de emergencia (añadir, corregir y borrar) y sus datos de pago (IBAN enmascarado y cambio de IBAN, que queda registrado) | `empleados.gestionar`; los dos apartados de la derecha, `contactos_emergencia.editar` y `datos_pago.editar` |
 | `/gestion-tickets` | Todos los tickets: asignar, cambiar el estado y resolver | `tickets.gestionar` |
 | `/gestion-fichajes` | Fichajes de la plantilla y exportación a CSV. Las correcciones manuales exigen justificación y quedan auditadas | `fichajes.ver_todos` y `fichajes.editar` |
-| `/gestion-contactos` | Contactos de emergencia de la plantilla. Con `editar` se añaden, corrigen y borran | `contactos_emergencia.ver` o `contactos_emergencia.editar` |
-| `/gestion-pagos` | Datos de pago para la nómina. El IBAN sale enmascarado, y cada consulta completa, cambio o exportación queda registrada. Con `ver` se consulta el IBAN completo y se exporta; con `editar` solo se cambia | `datos_pago.ver` o `datos_pago.editar` |
+| `/gestion-pagos` | Datos de pago para la nómina (Finanzas). El IBAN sale enmascarado; se puede consultar entero y exportar, y cada consulta, cambio o exportación queda registrada | `datos_pago.ver` |
 
 ## Permisos por departamento
 
