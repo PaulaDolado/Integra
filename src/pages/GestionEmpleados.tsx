@@ -34,6 +34,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { ContactosEmergenciaPanel } from "@/components/gestion/ContactosEmergenciaPanel";
+import { DatosPagoPanel } from "@/components/gestion/DatosPagoPanel";
 
 type Empleado = Database["public"]["Functions"]["gestion_empleados"]["Returns"][number];
 type Opcion = { id: string; nombre: string };
@@ -62,6 +65,9 @@ const iniciales = (e: Empleado) => `${e.nombre.charAt(0)}${e.primer_apellido.cha
 
 export default function GestionEmpleados() {
   const { tiene, loading: cargandoPermisos } = usePermisos();
+  // A la derecha de la ficha, solo al editar (al dar de alta aún no existe)
+  const editaContactos = tiene("contactos_emergencia.editar");
+  const editaPago = tiene("datos_pago.editar");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [estado, setEstado] = useState<Estado>("activos");
@@ -329,7 +335,9 @@ export default function GestionEmpleados() {
       </Tabs>
 
       <Dialog open={editando !== undefined} onOpenChange={(open) => !open && setEditando(undefined)}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className={`max-h-[90vh] overflow-y-auto ${editando && (editaContactos || editaPago) ? "sm:max-w-5xl" : "sm:max-w-lg"}`}
+        >
           <DialogHeader>
             <DialogTitle>{editando ? "Editar empleado" : "Nuevo empleado"}</DialogTitle>
             <DialogDescription>
@@ -338,91 +346,112 @@ export default function GestionEmpleados() {
                 : "Se crea la ficha del empleado. Cuando tenga cuenta de acceso con este correo, se vinculará sola."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="emp-nombre">Nombre *</Label>
-              <Input id="emp-nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-apellido1">Primer apellido *</Label>
-              <Input id="emp-apellido1" value={form.primer_apellido} onChange={(e) => setForm({ ...form, primer_apellido: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-apellido2">Segundo apellido</Label>
-              <Input id="emp-apellido2" value={form.segundo_apellido} onChange={(e) => setForm({ ...form, segundo_apellido: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-telefono">Teléfono</Label>
-              <Input id="emp-telefono" type="tel" maxLength={15} value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="emp-correo">Correo corporativo *</Label>
-              <Input id="emp-correo" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-departamento">Departamento</Label>
-              <Select value={form.departamento_id} onValueChange={(value) => setForm({ ...form, departamento_id: value })}>
-                <SelectTrigger id="emp-departamento">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
-                  {departamentos.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-cargo">Cargo</Label>
-              <Select value={form.cargo_id} onValueChange={(value) => setForm({ ...form, cargo_id: value })}>
-                <SelectTrigger id="emp-cargo">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
-                  {cargos.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emp-ingreso">Fecha de ingreso</Label>
-              <Input id="emp-ingreso" type="date" value={form.fecha_ingreso} onChange={(e) => setForm({ ...form, fecha_ingreso: e.target.value })} />
-            </div>
-            <div className="flex items-end">
-              <div className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2">
-                <Label htmlFor="emp-activo" className="cursor-pointer font-normal">
-                  {form.activo ? "Empleado activo" : "Dado de baja"}
-                </Label>
-                <Switch
-                  id="emp-activo"
-                  checked={form.activo}
-                  disabled={!!editando?.es_yo}
-                  onCheckedChange={(value) => setForm({ ...form, activo: value })}
-                />
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className="min-w-0 flex-1 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="emp-nombre">Nombre *</Label>
+                  <Input id="emp-nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-apellido1">Primer apellido *</Label>
+                  <Input id="emp-apellido1" value={form.primer_apellido} onChange={(e) => setForm({ ...form, primer_apellido: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-apellido2">Segundo apellido</Label>
+                  <Input id="emp-apellido2" value={form.segundo_apellido} onChange={(e) => setForm({ ...form, segundo_apellido: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-telefono">Teléfono</Label>
+                  <Input id="emp-telefono" type="tel" maxLength={15} value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="emp-correo">Correo corporativo *</Label>
+                  <Input id="emp-correo" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-departamento">Departamento</Label>
+                  <Select value={form.departamento_id} onValueChange={(value) => setForm({ ...form, departamento_id: value })}>
+                    <SelectTrigger id="emp-departamento">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                      {departamentos.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-cargo">Cargo</Label>
+                  <Select value={form.cargo_id} onValueChange={(value) => setForm({ ...form, cargo_id: value })}>
+                    <SelectTrigger id="emp-cargo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+                      {cargos.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-ingreso">Fecha de ingreso</Label>
+                  <Input id="emp-ingreso" type="date" value={form.fecha_ingreso} onChange={(e) => setForm({ ...form, fecha_ingreso: e.target.value })} />
+                </div>
+                <div className="flex items-end">
+                  <div className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                    <Label htmlFor="emp-activo" className="cursor-pointer font-normal">
+                      {form.activo ? "Empleado activo" : "Dado de baja"}
+                    </Label>
+                    <Switch
+                      id="emp-activo"
+                      checked={form.activo}
+                      disabled={!!editando?.es_yo}
+                      onCheckedChange={(value) => setForm({ ...form, activo: value })}
+                    />
+                  </div>
+                </div>
+                {!form.activo && editando?.activo && (
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    Al darlo de baja pierde los permisos de su departamento, aunque conserva el acceso a sus propios datos.
+                  </p>
+                )}
               </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditando(undefined)} disabled={guardando}>
+                  Cancelar
+                </Button>
+                <Button onClick={guardar} disabled={guardando}>
+                  {guardando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {editando ? "Guardar cambios" : "Dar de alta"}
+                </Button>
+              </DialogFooter>
             </div>
-            {!form.activo && editando?.activo && (
-              <p className="text-xs text-muted-foreground sm:col-span-2">
-                Al darlo de baja pierde los permisos de su departamento, aunque conserva el acceso a sus propios datos.
-              </p>
+
+            {editando && (editaContactos || editaPago) && (
+              <>
+                {/* En pantallas estrechas el separador pasa a horizontal y los paneles van debajo */}
+                <Separator orientation="vertical" className="hidden lg:block lg:h-auto" />
+                <Separator className="lg:hidden" />
+                {/* key: al cambiar de empleado, los paneles parten de cero */}
+                <div key={editando.id} className="min-w-0 flex-1 space-y-6">
+                  <p className="text-xs text-muted-foreground">
+                    Los contactos de emergencia y el IBAN se guardan al momento, cada uno con su botón.
+                  </p>
+                  {editaContactos && <ContactosEmergenciaPanel empleadoId={editando.id} />}
+                  {editaContactos && editaPago && <Separator />}
+                  {editaPago && <DatosPagoPanel empleadoId={editando.id} />}
+                </div>
+              </>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditando(undefined)} disabled={guardando}>
-              Cancelar
-            </Button>
-            <Button onClick={guardar} disabled={guardando}>
-              {guardando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {editando ? "Guardar cambios" : "Dar de alta"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

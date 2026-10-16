@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { usePermisos } from "@/hooks/usePermisos";
@@ -34,9 +33,9 @@ describe("AppSidebar", () => {
   });
 
   it("muestra solo las pantallas de gestión que concede el departamento", () => {
-    conPermisos("contactos_emergencia.ver");
+    conPermisos("tickets.gestionar");
     pintar();
-    expect(screen.getByRole("link", { name: "Contactos de Emergencia" })).toHaveAttribute("href", "/gestion-contactos");
+    expect(screen.getByRole("link", { name: "Todos los Tickets" })).toHaveAttribute("href", "/gestion-tickets");
     expect(screen.queryByRole("link", { name: "Datos de Pago" })).not.toBeInTheDocument();
   });
 
@@ -51,33 +50,14 @@ describe("AppSidebar", () => {
     conPermisos("datos_pago.ver");
     pintar();
     expect(screen.getByRole("link", { name: "Datos de Pago" })).toHaveAttribute("href", "/gestion-pagos");
-    expect(screen.queryByRole("link", { name: "Contactos de Emergencia" })).not.toBeInTheDocument();
   });
 
-  it("RRHH ve contactos y datos de pago dentro de Gestión de Empleados", () => {
+  it("RRHH edita contactos e IBAN desde la ficha del empleado: no tiene páginas aparte", () => {
     conPermisos("empleados.gestionar", "contactos_emergencia.ver", "contactos_emergencia.editar", "datos_pago.editar");
-    pintar("/gestion-pagos");
-    const gestion = screen.getByRole("link", { name: "Gestión de Empleados" }).closest("li")!;
-    expect(within(gestion).getByRole("link", { name: "Contactos de Emergencia" })).toHaveAttribute("href", "/gestion-contactos");
-    expect(within(gestion).getByRole("link", { name: "Datos de Pago" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("pliega los apartados de Gestión de Empleados y lo recuerda", async () => {
-    localStorage.clear();
-    conPermisos("empleados.gestionar", "contactos_emergencia.ver", "datos_pago.editar");
-    const { unmount } = pintar("/gestion-pagos");
-    await userEvent.click(screen.getByRole("button", { name: "Ocultar los apartados de Gestión de Empleados" }));
-
-    expect(screen.queryByRole("link", { name: "Datos de Pago" })).not.toBeInTheDocument();
-    // Plegado, el padre indica que la página actual está dentro
-    expect(screen.getByRole("link", { name: "Gestión de Empleados" })).toHaveAttribute("data-active", "true");
-
-    unmount();
-    pintar("/dashboard");
+    pintar();
+    expect(screen.getByRole("link", { name: "Gestión de Empleados" })).toHaveAttribute("href", "/gestion-empleados");
     expect(screen.queryByRole("link", { name: "Contactos de Emergencia" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Mostrar los apartados de Gestión de Empleados" }));
-    expect(screen.getByRole("link", { name: "Contactos de Emergencia" })).toBeInTheDocument();
-    localStorage.clear();
+    expect(screen.queryByRole("link", { name: "Datos de Pago" })).not.toBeInTheDocument();
   });
 
   it("marca como activo el apartado actual, también en sus subrutas", () => {

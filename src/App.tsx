@@ -35,7 +35,6 @@ const Cursos = lazy(() => import("./pages/Cursos"));
 const BandejaCursos = lazy(() => import("./pages/BandejaCursos"));
 const GestionEmpleados = lazy(() => import("./pages/GestionEmpleados"));
 const GestionFichajes = lazy(() => import("./pages/GestionFichajes"));
-const GestionContactosEmergencia = lazy(() => import("./pages/GestionContactosEmergencia"));
 const GestionDatosPago = lazy(() => import("./pages/GestionDatosPago"));
 const GoogleCallback = lazy(() => import("./pages/GoogleCallback"));
 const Privacidad = lazy(() => import("./pages/Privacidad"));
@@ -105,7 +104,6 @@ const App = () => (
 
                 {/* Pantallas de gestión: el menú solo las muestra con el permiso del departamento */}
                 <Route path="/gestion-tickets" element={<Tickets vista="todos" />} />
-                <Route path="/gestion-contactos" element={<GestionContactosEmergencia />} />
                 <Route path="/gestion-pagos" element={<GestionDatosPago />} />
                 <Route path="/gestion-fichajes" element={<GestionFichajes />} />
                 <Route path="/gestion-empleados" element={<GestionEmpleados />} />

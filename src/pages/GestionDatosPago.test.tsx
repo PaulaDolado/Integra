@@ -33,7 +33,6 @@ describe("Datos de pago", () => {
         ],
         accesos_datos_pago_recientes: [],
         ver_iban: IBAN,
-        guardar_datos_pago: null,
       }) as never
     );
   });
@@ -69,39 +68,35 @@ describe("Datos de pago", () => {
     expect(screen.queryByText("ES91 2100 0418 4502 0005 1332")).not.toBeInTheDocument();
   });
 
+  it("el historial distingue consultas, cambios de RRHH y exportaciones", async () => {
+    vi.mocked(supabase.rpc).mockImplementation(
+      simularRpc({
+        datos_pago_plantilla: [],
+        accesos_datos_pago_recientes: [
+          { id: "a1", autor: "Ramón Pérez", empleado: "Laura Gómez", accion: "modificar", created_at: "2026-10-10T09:00:00Z" },
+          { id: "a2", autor: "Marta Ruiz", empleado: "Laura Gómez", accion: "ver", created_at: "2026-10-09T09:00:00Z" },
+          { id: "a3", autor: "Marta Ruiz", empleado: null, accion: "exportar", created_at: "2026-10-08T09:00:00Z" },
+        ],
+      }) as never
+    );
+    conPermisos("datos_pago.ver");
+    renderConQuery(<GestionDatosPago />);
+    expect(await screen.findByText(/cambió el IBAN de Laura Gómez/)).toBeInTheDocument();
+    expect(screen.getByText(/consultó el IBAN de Laura Gómez/)).toBeInTheDocument();
+    expect(screen.getByText(/exportó los datos de pago de la plantilla/)).toBeInTheDocument();
+  });
+
+  it("RRHH ya no tiene esta página: cambia el IBAN desde Gestión de Empleados", () => {
+    conPermisos("datos_pago.editar");
+    renderConQuery(<GestionDatosPago />);
+    expect(screen.getByText("No tienes acceso a los datos de pago")).toBeInTheDocument();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it("no tiene problemas de accesibilidad", async () => {
     conPermisos("datos_pago.ver");
     renderConQuery(<GestionDatosPago />);
     await screen.findByText("ES•• •••• •••• •••• •••• 1332");
     await expectSinViolaciones();
-  });
-
-  it("RRHH cambia el IBAN sin poder verlo completo ni exportar", async () => {
-    conPermisos("datos_pago.editar");
-    renderConQuery(<GestionDatosPago />);
-    await screen.findByText("ES•• •••• •••• •••• •••• 1332");
-    expect(screen.queryByRole("button", { name: "Mostrar IBAN completo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Exportar/ })).not.toBeInTheDocument();
-    expect(supabase.rpc).not.toHaveBeenCalledWith("accesos_datos_pago_recientes", expect.anything());
-
-    await userEvent.click(screen.getByRole("button", { name: "Cambiar el IBAN de Pablo Sanz" }));
-    await userEvent.type(screen.getByLabelText("Nuevo IBAN"), "es91 2100 0418 4502 0005 1332");
-    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
-
-    expect(supabase.rpc).toHaveBeenCalledWith("guardar_datos_pago", {
-      p_empleado: "e2",
-      p_forma_pago: "transferencia",
-      p_iban: IBAN,
-    });
-    await waitFor(() => expect(screen.queryByLabelText("Nuevo IBAN")).not.toBeInTheDocument());
-  });
-
-  it("no guarda un IBAN con el dígito de control mal", async () => {
-    conPermisos("datos_pago.editar");
-    renderConQuery(<GestionDatosPago />);
-    await userEvent.click(await screen.findByRole("button", { name: "Cambiar el IBAN de Laura Gómez" }));
-    await userEvent.type(screen.getByLabelText("Nuevo IBAN"), "ES92 2100 0418 4502 0005 1332");
-    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(supabase.rpc).not.toHaveBeenCalledWith("guardar_datos_pago", expect.anything());
   });
 });
